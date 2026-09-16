@@ -63,8 +63,8 @@ PY
 cd ~/Desktop/pixhawk-test && bash install.sh
 ```
 
-Installs the **Hexacopter Mission** and **AI Camera (toggle)** Desktop icons
-(user level, no sudo).
+Installs the Desktop icons — Hexacopter Mission, AI Camera (toggle / preview /
+web stream) and Wi-Fi Hotspot (toggle) — at user level, no sudo.
 
 ## 5. (Optional) the classmates' ArduPilot SITL project
 
