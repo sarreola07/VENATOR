@@ -124,6 +124,7 @@ environment separate from the flight code's venv:
 
 ```
 OAK-D  --USB-->  camera_publisher.py (depthai-env)  --UDP 127.0.0.1:5005-->  missions.py (venv)
+                                                    --HTTP :8080 (stream)-->  laptop browser (optional)
 LoRa   --/dev/ttyUSB0 serial-->                                              missions.py (pyserial)
 Pixhawk--/dev/ttyACM0 MAVLink-->                                             missions.py (pymavlink)
 ```
@@ -180,11 +181,15 @@ Notes for this vehicle (PX4 v1.13.3, FMUv2):
 bash install.sh
 ```
 
-No sudo, no systemd — this only installs two user-level Desktop shortcuts:
+No sudo, no systemd — this only installs user-level Desktop shortcuts:
 
 1. **Hexacopter Mission** — opens a terminal running the mission menu
    (`run_missions.sh` → `missions.py`).
 2. **AI Camera (toggle)** — starts/stops the OAK-D tracker on demand.
+3. **AI Camera (preview)** — live camera window on the Jetson's own screen.
+4. **AI Camera (web stream)** — starts the tracker with video for laptop browsers.
+5. **Wi-Fi Hotspot (toggle)** — switches between school Wi-Fi and the Jetson's
+   own hotspot (opens a terminal, since it asks for sudo).
 
 ## AI camera toggle (decoupled from the drone link)
 
@@ -200,6 +205,7 @@ desktop notification either way), or from a terminal:
 ```bash
 ./ai_camera.sh            # toggle: start if stopped, stop if running
 ./ai_camera.sh start      # explicit start (headless)
+./ai_camera.sh stream     # start with the web stream (watch from a laptop browser)
 ./ai_camera.sh stop       # explicit stop
 ./ai_camera.sh status     # RUNNING (PID) or stopped
 ./ai_camera.sh preview    # open a live window to visually check the camera
@@ -217,11 +223,79 @@ coordinates on UDP 5005, so mission option 5 works while it is open.
 The OAK-D allows only one owner at a time, so `preview` first stops the headless
 tracker if it is running; start it again with the toggle when you are done.
 
+### Watch the video on a laptop (Windows or Mac)
+
+```bash
+./ai_camera.sh stream
+```
+
+This starts the tracker plus a small web server on port 8080 and prints the
+address to open (double-clicking **AI Camera (web stream)** does the same). Open
+it in any browser on the laptop — Edge, Chrome, Safari or Firefox, nothing to
+install. The page shows the live camera with the person box and a live X/Y/Z
+readout, and several laptops can watch at once.
+
+The laptop needs a network path to the Jetson. School Wi-Fi blocks
+laptop-to-Jetson connections, so use one of:
+
+| How the laptop is connected | Open |
+|---|---|
+| Jetson hotspot — `./wifi_mode.sh on`, join `VenatorDrone` ([below](#wi-fi-hotspot-wifi_modesh)) | `http://10.42.0.1:8080` |
+| Tailscale on both machines | `http://<jetson-tailscale-ip>:8080` |
+| USB-C cable, if JetPack's USB network is enabled | `http://192.168.55.1:8080` |
+
+- `./ai_camera.sh status` lists the addresses; `./ai_camera.sh stop` (or the
+  toggle icon) stops it.
+- Tracking is unaffected: frames are only pulled from the camera while a page is
+  open, JPEG encoding runs on its own thread after the UDP coordinates are sent,
+  and the stream is capped at 15 fps (`CAMERA_STREAM_FPS`) to spare the Wi-Fi.
+- The video is the 300×300 frame the detector sees, upscaled to 600×600.
+- The page has no password: anyone on the same network can watch. On the hotspot
+  that means only people with the Wi-Fi password. `CAMERA_STREAM_HOST=127.0.0.1`
+  keeps it on the Jetson only; `CAMERA_STREAM_PORT=8081` changes the port.
+- **Mac:** if a browser can't load the page, allow that browser under System
+  Settings → Privacy & Security → Local Network.
+
 > The camera is **not** a boot service. If you want the core MAVLink/telemetry
 > link to come up automatically at boot instead, that belongs in its own systemd
 > unit; to share the Pixhawk serial port with `missions.py`, front it with a
 > MAVLink router (e.g. `mavlink-routerd`) so one owner holds `/dev/ttyACM0` and
 > everything else connects over UDP.
+
+## Wi-Fi hotspot (`wifi_mode.sh`)
+
+School Wi-Fi blocks laptop-to-Jetson connections. Instead, the Jetson can
+broadcast its own network, `VenatorDrone`, for direct access at the bench or in
+the field:
+
+```bash
+./wifi_mode.sh on       # hotspot: laptops join VenatorDrone, the Jetson is 10.42.0.1
+./wifi_mode.sh off      # back to the Wi-Fi network it was on before
+./wifi_mode.sh toggle   # flip between the two (the "Wi-Fi Hotspot (toggle)" icon)
+./wifi_mode.sh status   # mode, address, how many laptops have joined
+```
+
+The first `on` asks for a hotspot password (8-63 characters), which
+NetworkManager saves. On the laptop, join `VenatorDrone`, then
+`ssh jetson@10.42.0.1` or open the camera stream at `http://10.42.0.1:8080`.
+
+- **One Wi-Fi card.** While the hotspot is on, the Jetson is off the school
+  Wi-Fi and has no internet (no `git pull`, no `pip`) unless Ethernet is plugged
+  in, which the hotspot then shares. A laptop joined to it loses internet too.
+- **Not at boot.** After a reboot the Jetson rejoins its normal Wi-Fi; turn the
+  hotspot on again when you need it.
+- **5 GHz by default** (channel 36), to stay clear of 2.4 GHz RC radios. If it
+  won't start, check that `iw reg get` shows your country (not `00`), or use
+  2.4 GHz with `HOTSPOT_BAND=bg ./wifi_mode.sh on` — and if your RC transmitter
+  is 2.4 GHz, turn the hotspot off before flying.
+- **Safe over SSH.** The switch runs as a system job that finishes even when
+  your SSH session drops, and it goes back to the previous network if the new one
+  doesn't come up (e.g. school Wi-Fi out of range in the field → the hotspot
+  comes back). History: `~/.local/state/venator/wifi_mode.log`.
+- Change settings by passing them again, e.g.
+  `HOTSPOT_SSID=... HOTSPOT_PASSWORD=... HOTSPOT_BAND=a|bg ./wifi_mode.sh on`.
+- Campus Wi-Fi systems can detect and knock out personal hotspots, and school
+  rules may not allow them — it is most reliable off campus or at the field.
 
 ## Follow-me code from classmates (`hexacopter-follow/`)
 

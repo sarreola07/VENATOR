@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Wi-Fi Hotspot (toggle)
+Comment=Switch the Jetson between school Wi-Fi and its own VenatorDrone hotspot
+Exec=gnome-terminal "--title=Wi-Fi Hotspot" -- /home/jetson/Desktop/pixhawk-test/wifi_mode.sh toggle --pause
+Icon=network-wireless
+Terminal=false
+Categories=Utility;

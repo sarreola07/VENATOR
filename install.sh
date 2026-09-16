@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Install the two desktop shortcuts (no sudo, no systemd — user level only):
-#   * Hexacopter Mission — opens the mission menu in a terminal
-#   * AI Camera (toggle)  — starts/stops the OAK-D tracker on demand
+# Install the desktop shortcuts (no sudo, no systemd — user level only):
+#   * Hexacopter Mission      — opens the mission menu in a terminal
+#   * AI Camera (toggle)      — starts/stops the OAK-D tracker on demand
+#   * AI Camera (preview)     — live camera window on the Jetson's screen
+#   * AI Camera (web stream)  — tracker + video for laptop browsers
+#   * Wi-Fi Hotspot (toggle)  — school Wi-Fi <-> the Jetson's own hotspot
 #
 # The AI camera is intentionally NOT a boot service: it is optional and toggled
 # by hand, fully decoupled from the core MAVLink/telemetry background services.
@@ -14,7 +17,8 @@ APPS="${HOME}/.local/share/applications"
 DESKTOP_DIR="${HOME}/Desktop"
 mkdir -p "${APPS}"
 
-chmod +x "${REPO}/run_missions.sh" "${REPO}/ai_camera.sh" "${REPO}/camera_publisher.py"
+chmod +x "${REPO}/run_missions.sh" "${REPO}/ai_camera.sh" "${REPO}/camera_publisher.py" \
+         "${REPO}/wifi_mode.sh"
 
 install_launcher() {
     local file="$1"          # basename of the .desktop in the repo
@@ -30,6 +34,8 @@ echo "==> Installing desktop shortcuts..."
 install_launcher "hexacopter-mission.desktop"
 install_launcher "ai-camera-toggle.desktop"
 install_launcher "ai-camera-preview.desktop"
+install_launcher "ai-camera-stream.desktop"
+install_launcher "wifi-hotspot-toggle.desktop"
 update-desktop-database "${APPS}" 2>/dev/null || true
 
 echo
@@ -37,6 +43,9 @@ echo "Done. On your Desktop:"
 echo "  - 'Hexacopter Mission' opens the mission menu (loops until you quit)."
 echo "  - 'AI Camera (toggle)'  starts/stops the OAK-D tracker (headless)."
 echo "  - 'AI Camera (preview)' opens a live window to visually check the camera."
+echo "  - 'AI Camera (web stream)' starts the tracker with video for laptop browsers."
+echo "  - 'Wi-Fi Hotspot (toggle)' switches between school Wi-Fi and the VenatorDrone hotspot."
 echo
-echo "The AI camera can also be driven from a terminal:"
-echo "  ./ai_camera.sh start | stop | status | restart | preview"
+echo "Both can also be driven from a terminal:"
+echo "  ./ai_camera.sh start | stream | stop | status | restart | preview"
+echo "  ./wifi_mode.sh on | off | toggle | status"
