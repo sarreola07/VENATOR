@@ -28,6 +28,9 @@
 #include "LoRaWan_APP.h"
 
 #define USE_OLED 1           // 0 = radio only, byte-for-byte the previous behaviour
+#ifndef OLED_SIMPLE          // 1 = big WAIT / LINK UP / NO LINK plus one detail line,
+#define OLED_SIMPLE 0        // for a stick read from a distance. Pick per stick with
+#endif                       // --build-property compiler.cpp.extra_flags=-DOLED_SIMPLE=1
 
 #define RF_FREQUENCY     915000000   // Hz  (must match on both sticks)
 #define TX_OUTPUT_POWER  14          // dBm
@@ -77,6 +80,30 @@ static void VextON(void) {
     digitalWrite(Vext, LOW);     // LOW enables the OLED power rail
 }
 
+#if OLED_SIMPLE
+// One status word in the 16 px font, with a single small detail under it:
+//   WAIT                  nothing received since power-up
+//   LINK UP  / -47dB      a packet arrived in the last 5 s; RSSI of the last one
+//   NO LINK  / 12s ago    the peer has gone quiet
+static void drawStatus(void) {
+    char buf[16];
+    uint32_t age = (millis() - lastRxMs) / 1000;   // rollover-safe, as below
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    display.setFont(ArialMT_Plain_16);
+    if (rxCount == 0) {
+        display.drawString(32, 0, "WAIT");
+    } else {
+        display.drawString(32, 0, age <= 5 ? "LINK UP" : "NO LINK");
+        if (age <= 5)        snprintf(buf, sizeof(buf), "%ddB", (int)lastRssi);
+        else if (age < 1000) snprintf(buf, sizeof(buf), "%lus ago", (unsigned long)age);
+        else                 snprintf(buf, sizeof(buf), "%lum ago", (unsigned long)(age / 60));
+        display.setFont(ArialMT_Plain_10);
+        display.drawString(32, 19, buf);
+    }
+    display.display();
+}
+#else
 // Three lines of ~10 characters at 10 px spacing -- all a 64x32 panel holds:
 //   T12 R11      packets sent / received
 //   -47dB +9     RSSI and SNR of the last packet
@@ -105,6 +132,7 @@ static void drawStatus(void) {
     }
     display.display();
 }
+#endif  // OLED_SIMPLE
 #endif  // USE_OLED
 
 static void startRx() {
