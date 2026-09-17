@@ -22,6 +22,10 @@ Other serial ports available on the Jetson if you later wire TELEM2 to the
 > venvs live outside this repo — see [docs/REINSTALL.md](docs/REINSTALL.md) to
 > rebuild everything from a fresh clone.
 
+> Working on the LoRa link from two computers at once (laptop on one end, Jetson
+> or a stand-in on the other)? See [docs/DEV_SETUP.md](docs/DEV_SETUP.md) for the
+> bring-up order, and `link_test.py` for a scripted two-ended link check.
+
 ## First-time setup
 
 ```bash

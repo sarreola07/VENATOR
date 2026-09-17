@@ -41,6 +41,23 @@ C2 server. A quick protocol sanity check: type
 
 into one monitor; the other should print that exact line.
 
+### Or test it without a human at each keyboard
+
+`../link_test.py` runs the same check from the command line and exits `0` or `1`
+instead of leaving you to judge what scrolled past — which is what you want over
+SSH, in a script, or when a Claude session is driving one end:
+
+```bash
+python3 link_test.py --list                  # which port is which stick
+python3 link_test.py --listen                # on one machine
+python3 link_test.py --send --count 20       # on the other: RTT + loss summary
+python3 link_test.py --chat                  # on both: type lines back and forth
+```
+
+Close the Arduino Serial Monitor first — only one program can hold a stick's
+port at a time. For the two-computer workflow around this, see
+[../docs/DEV_SETUP.md](../docs/DEV_SETUP.md).
+
 ## Why a transparent bridge (not the old `{"msg":...}` wrapper)
 
 The original TX sketch wrapped each line as `{"msg":"..."}`. The transceiver
