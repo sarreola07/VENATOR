@@ -103,6 +103,29 @@ LINK UP
 
 There is no room for the text of the last packet at 64 px wide.
 
+### Simpler screen, for a stick you read from a distance
+
+Build with `OLED_SIMPLE=1` and the stick shows one status word in a bigger font
+instead, with a single detail under it:
+
+```
+  WAIT          LINK UP        NO LINK
+                 -47dB         12s ago
+```
+
+`WAIT` means nothing has been received since power-up. The detail line is the
+last packet's RSSI while the link is up, and how long it has been silent once it
+drops (minutes past 1000 s).
+
+```bash
+arduino-cli compile --fqbn $FQBN --output-dir /tmp/venator-fw-simple \
+    --build-property "compiler.cpp.extra_flags=-DOLED_SIMPLE=1" firmware/LoRa_Transceiver
+```
+
+Then upload with `--input-dir /tmp/venator-fw-simple`. In the Arduino IDE, change
+`#define OLED_SIMPLE 0` to `1` instead. Only the screen changes, so a simple-screen
+stick and a three-line stick talk to each other normally.
+
 ### Notes
 
 - **The panel is powered from the `Vext` rail, which is off at boot.** If you
