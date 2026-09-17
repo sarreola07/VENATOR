@@ -10,7 +10,7 @@ the Jetson**, including a "fly to these coordinates" mission.
 | 0 | NVMe install + restore project (see [REINSTALL.md](REINSTALL.md)) | ✅ done |
 | 1 | C2 protocol ([PROTOCOL.md](PROTOCOL.md), `c2_protocol.py`) | ✅ done |
 | 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | 🔵 in progress |
-| 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ written — you flash + two-terminal test |
+| 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks |
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ working over real LoRa (motor test); boot service + rich menu done |
 | 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested; real outdoor flight pending a fix |
 | — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock); hover 2 m on GPS, person detection over LoRa; real flight outdoors, true 3 ft with lidar |
@@ -47,3 +47,40 @@ the Jetson**, including a "fly to these coordinates" mission.
 2. Geofence radius + altitude cap.
 3. Coordinates: free-typed, saved "places", or both?
 4. Client UI: CLI now, browser GUI later.
+5. **Message addressing** — see below. Blocks putting a third radio on the link.
+
+## A third radio: what it takes
+
+LoRa is a broadcast medium, so a third stick on 915 MHz / SF7 / syncword 0x12
+hears every packet with no firmware change at all. The radio layer is free. What
+is not free is that nothing in the protocol says who a message is *from* or *to*.
+Two consequences, the second of which matters before the drone flies.
+
+**Delivery confirmation stops being honest.** `phone_relay.py` ACKs every LOG it
+hears, unconditionally, before its own dedup check. With two peers instead of
+one, both hear a message at the same instant and both transmit an ACK
+immediately -- those two ACKs collide on air and cancel each other out. The
+`MIN_SEND_GAP_S` pacing in `link_test.Link` is per-node and knows nothing about
+what other nodes are doing. The likely result is that both peers display the
+message correctly while the sender shows "not confirmed", i.e. the confirmation
+gets less trustworthy as the network grows. And an ACK that does survive only
+proves *someone* received it: the second ACK for the same id hits
+`pending.pop(...) -> None` and is silently discarded.
+
+Fix shape, roughly 30 lines: carry a `from` (node name) on LOG and ACK; have the
+sender wait for ACKs from N-1 distinct peers before reporting delivered, showing
+partial state ("1 of 2") rather than a bare tick; and give each node a
+deterministic ACK delay derived from its name so the replies do not overlap.
+
+**Command authority is not divisible today.** `jetson_c2_server.py` keeps a
+single server-level `self._pending` -- it is not per-client. RUN sets it and
+CONFIRM consumes it, with no record of which station sent either. On a
+broadcast channel with three radios and no sender identity, one station's RUN
+can be completed by a *different* station's CONFIRM, and neither operator would
+see that the two halves came from different people. The two-step arm gate exists
+precisely so nobody launches a hexacopter by accident, and with a third radio
+present it quietly stops being a two-step gate.
+
+So: chat is the safe place to get addressing right. Add `from` before a third
+radio goes anywhere near the flight link, and make the arm gate remember which
+station armed it.
