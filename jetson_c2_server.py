@@ -61,13 +61,29 @@ def find_fc_device(default="/dev/ttyACM0"):
     return acms[0] if acms else default
 
 
+CP210X_VID = 0x10C4     # Heltec V3 onboard USB-serial (Silicon Labs CP2102)
+
+
 def find_lora_device(default="/dev/ttyUSB0"):
     """Locate the Heltec LoRa stick robustly (it's a CP2102 USB-UART), so a
-    replug (ttyUSB0->ttyUSB1) can't kill the service."""
+    replug (ttyUSB0->ttyUSB1) can't kill the service.
+
+    by-id first: it is the most stable name on the Jetson, which is where this
+    runs in production. Then a USB-VID scan, which is what finds the stick when
+    the server is run on a Windows or macOS box standing in for the Jetson --
+    there is no /dev/serial/by-id there, and the bare /dev/ttyUSB0 default below
+    is a path those machines can never open."""
     for pat in ("/dev/serial/by-id/*CP2102*", "/dev/serial/by-id/*Silicon_Labs*"):
         matches = sorted(glob.glob(pat))
         if matches:
             return matches[0]
+    try:
+        from serial.tools import list_ports
+        for pi in list_ports.comports():
+            if pi.vid == CP210X_VID:
+                return pi.device
+    except ImportError:
+        pass
     usbs = sorted(glob.glob("/dev/ttyUSB*"))
     return usbs[0] if usbs else default
 
