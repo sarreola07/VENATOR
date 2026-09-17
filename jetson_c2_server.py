@@ -71,11 +71,16 @@ def find_lora_device(default="/dev/ttyUSB0"):
     usbs = sorted(glob.glob("/dev/ttyUSB*"))
     return usbs[0] if usbs else default
 
-# Reuse the tested mission logic and MAVLink helpers from missions.py
+# Reuse the tested mission logic and MAVLink helpers from missions.py.
+# missions.py sys.exit()s at import time when pymavlink is missing, which raises
+# SystemExit rather than ImportError -- catching only ImportError killed the
+# server on any machine without pymavlink, even though the default mock FC needs
+# neither pymavlink nor a Pixhawk. That matters for bench work on a laptop
+# standing in for the Jetson, so treat both as "no MAVLink here".
 try:
     import missions
     from pymavlink import mavutil
-except ImportError:
+except (ImportError, SystemExit):
     missions = None
     mavutil = None
 
