@@ -1,4 +1,4 @@
-# LoRa firmware (Heltec WiFi LoRa 32 V3)
+# LoRa firmware (Heltec Wireless Stick V3)
 
 ## What this is
 
@@ -16,11 +16,32 @@ sends the choice" handshake.
 
 Both the Jetson-side stick and the laptop-side stick run the **same** sketch.
 
-1. Arduino IDE → install the **Heltec ESP32** board package and the **Heltec
-   ESP32 LoRaWan** library (same as your originals — they already compile).
-2. Board: **Heltec WiFi LoRa 32(V3)**.
-3. Open `LoRa_Transceiver/LoRa_Transceiver.ino`, select the stick's port, Upload.
-4. Repeat for the second stick.
+1. Install the **Heltec ESP32** board package (board manager URL
+   `https://resource.heltec.cn/download/package_heltec_esp32_index.json`) and the
+   **Heltec ESP32 Dev-Boards** library, which provides `LoRaWan_APP.h` and the
+   OLED driver.
+2. Board: **Heltec Wireless Stick(V3)**, *not* WiFi LoRa 32(V3). The two share
+   the radio and OLED pins, so the wrong one still boots and passes the link test,
+   but it drives the 64x32 panel as 128x64 and you only see a window from the
+   middle of the screen. With `USE_OLED 1` the sketch refuses to build for any
+   other board.
+3. Upload speed: **230400**. On these sticks' CP2102, esptool transfers at 460800
+   and above failed with `Invalid head of packet ... serial noise or corruption`;
+   230400 was clean.
+4. Open `LoRa_Transceiver/LoRa_Transceiver.ino`, select the stick's port, Upload.
+5. Flash **one** stick and re-run the link test below against the other before
+   doing the second, so you always have a known-good stick to test against.
+
+Or from the command line (`--list` below tells you the port):
+
+```bash
+FQBN=Heltec-esp32:esp32:heltec_wireless_stick_V3
+arduino-cli compile --fqbn $FQBN --output-dir /tmp/venator-fw firmware/LoRa_Transceiver
+arduino-cli upload  --fqbn $FQBN --board-options UploadSpeed=230400 \
+    --port /dev/cu.usbserial-XXXX --input-dir /tmp/venator-fw firmware/LoRa_Transceiver
+```
+
+Uploading from `--input-dir` flashes exactly the binary you just built.
 
 Radio parameters (must be identical on both, and they are): 915 MHz, SF7,
 syncword `0x12`, 14 dBm.
@@ -60,34 +81,35 @@ port at a time. For the two-computer workflow around this, see
 
 ## The onboard OLED
 
-Each stick's 128x64 panel shows link health, so you can tell at the field whether
-the radio is alive without attaching a computer:
+Each stick's 0.49" 64x32 panel shows link health, so you can tell at the field
+whether the radio is alive without attaching a computer:
 
 ```
-Venator LoRa 915
-TX 12   RX 11
-RSSI -47  SNR 9
+T12 R11
+-47dB +9
 LINK UP
-{"t":"PONG","seq":11
 ```
 
-- **TX / RX** — packets sent and received since power-up. A TX count that climbs
-  while the peer's RX count does not is a one-way link.
-- **RSSI / SNR** — signal strength (dBm) and margin (dB) of the last packet.
+- **T / R** — packets sent and received since power-up. A T count that climbs
+  while the peer's R count does not is a one-way link. At this size a `0` reads
+  a lot like an `O`.
+- **dB / SNR** — signal strength (dBm) and margin (dB) of the last packet.
   These come straight from the radio's `onRxDone`, which previously discarded
   them. Walk the field watching RSSI to find your real range before you fly.
-- **LINK UP** — shown while a packet arrived in the last 5 s; otherwise it
-  counts the seconds of silence, so a dead link is obvious.
-- **Bottom line** — the first 21 characters of the last packet received,
-  non-printable bytes shown as `.`.
+  Two sticks side by side on a desk read about `-6dB +12`. Before the first
+  packet arrives this line says `no peer yet`.
+- **LINK UP** — shown while a packet arrived in the last 5 s; otherwise
+  `no rx 12s` (minutes past 1000 s, `no rx 16m`), so a dead link is obvious.
+
+There is no room for the text of the last packet at 64 px wide.
 
 ### Notes
 
 - **The panel is powered from the `Vext` rail, which is off at boot.** If you
   adapt this code and the screen stays dark, that is almost always the cause —
   `VextON()` must run before `display.init()`.
-- The driver (`HT_SSD1306Wire.h`) ships with the Heltec ESP32 board package you
-  already installed for `LoRaWan_APP.h`. Nothing new to add.
+- The driver (`HT_SSD1306Wire.h`) comes with the Heltec ESP32 Dev-Boards library,
+  alongside `LoRaWan_APP.h`.
 - Drawing is throttled to 4 Hz and skipped while transmitting. A full frame is
   ~20-30 ms of blocking I2C, and stalling `Radio.IrqProcess()` costs packets.
 - If the text reads upside down, uncomment `display.flipScreenVertically()` in
@@ -95,10 +117,6 @@ LINK UP
 - **To disable it entirely**, set `#define USE_OLED 0` at the top of the sketch.
   That build is byte-for-byte the radio-only behaviour, with no display code
   compiled in — useful for isolating a fault to the radio.
-
-> Not compiled or flashed here (no ESP32 toolchain on the Jetson). Flash one
-> stick first and confirm the two-terminal test still passes before doing the
-> second, so you always have one known-good stick to test against.
 
 ## Why a transparent bridge (not the old `{"msg":...}` wrapper)
 

@@ -1,7 +1,7 @@
 /*
  * Venator LoRa transceiver — half-duplex transparent bridge.
  *
- * Flash this SAME sketch on BOTH Heltec WiFi LoRa 32 V3 sticks (the one on the
+ * Flash this SAME sketch on BOTH Heltec Wireless Stick V3 sticks (the one on the
  * Jetson and the one on the laptop). It replaces the old one-way LoRa_TX.ino
  * and LoRa_RX.ino so the link works in BOTH directions on each stick.
  *
@@ -16,14 +16,14 @@
  * working sketches (915 MHz, SF7, syncword 0x12), so range/behaviour are
  * unchanged — only the direction handling is new.
  *
- * The onboard OLED shows link health (packet counts, RSSI/SNR, seconds since
- * the last packet, and the last line received), so a stick tells you whether
- * the link is alive without a computer attached. Set USE_OLED to 0 to get back
- * the exact radio-only behaviour.
+ * The onboard 64x32 OLED shows link health (packet counts, RSSI/SNR and seconds
+ * since the last packet), so a stick tells you whether the link is alive without
+ * a computer attached. Set USE_OLED to 0 to get back the exact radio-only
+ * behaviour.
  *
- * NOTE: this compiles against the Heltec ESP32 LoRaWan library, same as your
- * originals. It has not been compiled here (no ESP32 toolchain on the Jetson) —
- * flash it and run the two-terminal test in firmware/README.md.
+ * Build with FQBN Heltec-esp32:esp32:heltec_wireless_stick_V3 against the Heltec
+ * ESP32 board package and the Heltec ESP32 Dev-Boards library. The commands and
+ * the two-ended link test are in firmware/README.md.
  */
 #include "LoRaWan_APP.h"
 
@@ -44,10 +44,17 @@ static bool   lineReady = false;         // a full line is waiting to send
 
 #if USE_OLED
 // ---- onboard OLED -----------------------------------------------------------
-// The V3 carries a 128x64 SSD1306 on I2C; the board package defines its pins.
-// It is powered from the Vext rail, which is OFF at boot -- without VextON()
-// the panel stays dark and looks exactly like dead hardware.
+// The Wireless Stick V3 carries a 0.49" 64x32 SSD1306 on I2C; the board package
+// defines its pins. It is powered from the Vext rail, which is OFF at boot --
+// without VextON() the panel stays dark and looks exactly like dead hardware.
 #include "HT_SSD1306Wire.h"
+
+// The layout below is sized for the 64x32 panel. Driven as 128x64 (the WiFi
+// LoRa 32 V3 setting) it shows only a 64x32 window from the middle of the frame,
+// so refuse to build for any other board rather than flash a garbled screen.
+#if DISPLAY_WIDTH != 64 || DISPLAY_HEIGHT != 32
+#error "OLED layout is for the Wireless Stick V3 (64x32). Build with FQBN Heltec-esp32:esp32:heltec_wireless_stick_V3, or set USE_OLED 0."
+#endif
 
 #ifndef Vext
 #define Vext 36              // V3's Vext control line, if the variant omits it
@@ -55,46 +62,46 @@ static bool   lineReady = false;         // a full line is waiting to send
 
 #define DISPLAY_MS    250    // redraw at most 4x/s: a full frame costs ~20-30 ms
                              // of I2C, and stalling Radio.IrqProcess() drops packets
-#define LAST_LINE_CH  21     // characters of the last packet that fit at this font
 
 static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED,
-                           GEOMETRY_128_64, RST_OLED);
+                           GEOMETRY_64_32, RST_OLED);
 
 static uint32_t rxCount = 0, txCount = 0;
 static int16_t  lastRssi = 0;
 static int8_t   lastSnr  = 0;
 static uint32_t lastRxMs = 0;    // millis() of the last packet received
 static uint32_t lastDraw = 0;
-static char     lastLine[LAST_LINE_CH + 1] = "";
 
 static void VextON(void) {
     pinMode(Vext, OUTPUT);
     digitalWrite(Vext, LOW);     // LOW enables the OLED power rail
 }
 
+// Three lines of ~10 characters at 10 px spacing -- all a 64x32 panel holds:
+//   T12 R11      packets sent / received
+//   -47dB +9     RSSI and SNR of the last packet
+//   LINK UP      or "no rx 12s" once the peer goes quiet
 static void drawStatus(void) {
     char buf[32];
     display.clear();
     display.setFont(ArialMT_Plain_10);
-    display.drawString(0, 0, "Venator LoRa 915");
 
-    snprintf(buf, sizeof(buf), "TX %lu   RX %lu",
+    snprintf(buf, sizeof(buf), "T%lu R%lu",
              (unsigned long)txCount, (unsigned long)rxCount);
-    display.drawString(0, 13, buf);
+    display.drawString(0, 0, buf);
 
     if (rxCount == 0) {
-        display.drawString(0, 26, "waiting for peer");
+        display.drawString(0, 10, "no peer yet");
     } else {
-        snprintf(buf, sizeof(buf), "RSSI %d  SNR %d", (int)lastRssi, (int)lastSnr);
-        display.drawString(0, 26, buf);
+        snprintf(buf, sizeof(buf), "%ddB %+d", (int)lastRssi, (int)lastSnr);
+        display.drawString(0, 10, buf);
 
         // Unsigned arithmetic, so this stays correct across the millis() rollover.
         uint32_t age = (millis() - lastRxMs) / 1000;
-        if (age <= 5) snprintf(buf, sizeof(buf), "LINK UP");
-        else          snprintf(buf, sizeof(buf), "no rx %lus", (unsigned long)age);
-        display.drawString(0, 39, buf);
-
-        display.drawString(0, 52, lastLine);
+        if (age <= 5)        snprintf(buf, sizeof(buf), "LINK UP");
+        else if (age < 1000) snprintf(buf, sizeof(buf), "no rx %lus", (unsigned long)age);
+        else                 snprintf(buf, sizeof(buf), "no rx %lum", (unsigned long)(age / 60));
+        display.drawString(0, 20, buf);
     }
     display.display();
 }
@@ -130,12 +137,6 @@ void onRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
     lastRssi = rssi;
     lastSnr  = snr;
     lastRxMs = millis();
-    uint16_t n = (size < LAST_LINE_CH) ? size : LAST_LINE_CH;
-    for (uint16_t i = 0; i < n; i++) {
-        char c = (char)payload[i];       // a corrupt packet must not scribble
-        lastLine[i] = (c >= 32 && c < 127) ? c : '.';   // control codes on the panel
-    }
-    lastLine[n] = '\0';
 #endif
     startRx();                           // re-arm the receiver
 }
@@ -152,8 +153,9 @@ void setup() {
     // display.flipScreenVertically();   // uncomment if the text reads upside down
     display.setFont(ArialMT_Plain_10);
     display.clear();
-    display.drawString(0, 0, "Venator LoRa 915");
-    display.drawString(0, 13, "starting...");
+    display.drawString(0, 0, "Venator");
+    display.drawString(0, 10, "LoRa 915");
+    display.drawString(0, 20, "init...");
     display.display();
 #endif
 
