@@ -45,11 +45,32 @@ MIN_SEND_GAP_S = 0.30
 # and print its banner before expecting it to carry traffic.
 DEFAULT_SETTLE_S = 2.0
 
-C_OK = "\033[92m"
-C_WARN = "\033[93m"
-C_ERR = "\033[91m"
-C_DIM = "\033[90m"
-C_OFF = "\033[0m"
+def _colors_ok():
+    """Windows cmd.exe prints raw escape codes as garbage unless VT processing
+    is switched on, and redirected output should never carry them at all. Ask
+    for VT on Windows and fall back to plain text if it is refused."""
+    if not sys.stdout.isatty():
+        return False
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        # -11 = STD_OUTPUT_HANDLE, 0x4 = ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        h = k.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if not k.GetConsoleMode(h, ctypes.byref(mode)):
+            return False
+        return bool(k.SetConsoleMode(h, mode.value | 0x4))
+    except Exception:
+        return False
+
+
+if _colors_ok():
+    C_OK, C_WARN, C_ERR = "\033[92m", "\033[93m", "\033[91m"
+    C_DIM, C_OFF = "\033[90m", "\033[0m"
+else:
+    C_OK = C_WARN = C_ERR = C_DIM = C_OFF = ""
 
 
 def list_ports():
@@ -208,8 +229,9 @@ def run_send(link, count, timeout, allow_loss):
 
 def run_chat(link):
     """Free text both ways: stdin goes out as LOG, arrivals print as they land."""
+    eof = "Ctrl-Z then Enter" if sys.platform == "win32" else "Ctrl-D"
     print(f"{C_OK}Chat mode.{C_OFF} Type a line and press Enter to send it. "
-          f"Ctrl-C (or Ctrl-D) to quit.", flush=True)
+          f"Ctrl-C (or {eof}) to quit.", flush=True)
     stop = threading.Event()
 
     def rx():
