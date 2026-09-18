@@ -20,10 +20,7 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
-    <img alt="Ground station over 915 MHz LoRa to the Jetson, and MAVLink to the Pixhawk" src="assets/brand/system-light.svg" width="900">
-  </picture>
+  <img alt="A command leaves the ground station over 915 MHz LoRa, the Jetson relays it to the Pixhawk over MAVLink, and the reply comes back the same way" src="assets/brand/system-light.svg" width="900">
 </p>
 
 The ground station sends a command over LoRa, the Jetson runs it against the
