@@ -25,7 +25,7 @@ no accent inside the mark.
 | `assets/brand/conops-dark.svg`, `conops-light.svg` | Concept of operations — Mission 2 end to end, animated. |
 | `assets/brand/patrol-*.svg`, `mesh-*.svg` | Waypoint patrol and the message net, animated. |
 | `assets/brand/hero-*.svg` | The README hero — a system self-test, ten seconds cold. Dark in both schemes. |
-| `assets/brand/phases-*.svg` | Phase status for the roadmap. Must be regenerated when the status table changes. |
+| `assets/brand/phases-*.svg` | Phase status for the roadmap. **Generated** — run `python3 tools/gen_phases.py` after changing a phase's state; CI fails if it is stale. |
 | `assets/brand/cta-*.svg` | The animated *System overview* button. Wrap in `<a>`; GitHub strips CSS from README HTML, so the motion has to live inside the image. **The one deliberate exception to the rules below** — see *Motion*. |
 | `assets/brand/lockup-stacked-*.svg` | Mark above the wordmark — banners, posters, title slides. |
 | `assets/brand/png/` | High-resolution PNG exports of all of the above. |
