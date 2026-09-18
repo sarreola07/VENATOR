@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" width="400" height="260"
+     role="img" aria-label="Venator — autonomous flight systems">
+  <g fill="#F2F1EE" transform="translate(140,10) scale(1.0)"><path d="M60 2 65.5 15 64 42 60 56 56 42 54.5 15Z"/><path d="M8 6 46 21 46 32 8 17Z"/><path d="M112 6 74 21 74 32 112 17Z"/><path d="M18 34 60 80 102 34 86 34 60 63 34 34Z"/></g>
+  <text x="200" y="182" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="46" font-weight="700"
+        letter-spacing="16" text-anchor="middle" dx="8">VENATOR</text>
+  <text x="200" y="212" fill="#9A968F" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="13" letter-spacing="6.2"
+        text-anchor="middle" dx="3">AUTONOMOUS FLIGHT SYSTEMS</text>
+</svg>

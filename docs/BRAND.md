@@ -22,6 +22,25 @@ no accent inside the mark.
 | `assets/brand/favicon.svg` | 16–32 px. The V alone; the wings close up below ~20 px. |
 | `assets/brand/social-preview.png` | 1280×640 card for GitHub, Slack, chat unfurls. |
 | `assets/brand/system-dark.svg`, `system-light.svg` | The system diagram in the same style. |
+| `assets/brand/lockup-stacked-*.svg` | Mark above the wordmark — banners, posters, title slides. |
+| `assets/brand/png/` | High-resolution PNG exports of all of the above. |
+
+Use the **SVG** anywhere that renders it — README, web pages, slides that accept
+it. It stays sharp at any size and is a few kilobytes. Use a **PNG** when
+something refuses SVG: a print shop, a poster or banner, Google Slides, a
+conference submission form.
+
+| PNG | Size | For |
+|---|---|---|
+| `venator-mark-{dark,light}-{512,2048}.png` | up to 2048×1434 | The mark alone |
+| `venator-lockup-{dark,light}-{1600,3200}.png` | up to 3200×572 | Horizontal lockup, slide headers |
+| `venator-lockup-stacked-{dark,light}-{1200,2400}.png` | up to 2400×1560 | Banners, posters, table cards |
+| `venator-icon-{white,black}-{32,180,512}.png` | square | App icons, avatars, favicons |
+| `social-preview-{1280,2560}.png` | 1280×640, 2560×1280 | Link previews |
+
+Every PNG except the social card has a **transparent background**, so it drops
+onto any colour. "dark"/"white" means the ink is near-white, for dark
+backgrounds; "light"/"black" means near-black ink, for paper.
 
 Rules that keep it recognisable:
 
