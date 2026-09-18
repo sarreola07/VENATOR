@@ -8,7 +8,7 @@
     #cap1 { animation: vt1 8s steps(1,end) infinite }
     #cap2 { animation: vt2 8s steps(1,end) infinite }
     #capf { animation: vtf 8s steps(1,end) infinite; opacity: 1 }
-    @keyframes vt0 { 0%,14.9% {opacity:1} 15%,100% {opacity:0} }
+    @keyframes vt0 { 0%,15.9% {opacity:1} 16%,100% {opacity:0} }
     @keyframes vt1 { 0%,15.9% {opacity:0} 16%,30.9% {opacity:1} 31%,100% {opacity:0} }
     @keyframes vt2 { 0%,30.9% {opacity:0} 31%,57.9% {opacity:1} 58%,100% {opacity:0} }
     @keyframes vtf { 0%,57.9% {opacity:0} 58%,100% {opacity:1} }
