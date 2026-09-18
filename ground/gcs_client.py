@@ -457,6 +457,13 @@ def main():
         print(f"Using LoRa stick on {port}")
         try:
             tx = SerialTransport(port, args.baud)
+            if tx.authenticated:
+                print(f"{C_OK}Link authenticated.{C_OFF}")
+            else:
+                print(f"{C_WARN}The command link is NOT authenticated — anything in "
+                      f"radio range can command the aircraft.{C_OFF}\n"
+                      f"{C_DIM}  python3 radio/auth.py --init   (on this machine and "
+                      f"the Jetson, same key){C_OFF}")
         except Exception as e:
             print(f"{C_ERR}Could not open {port}: {e}{C_OFF}")
             return 1

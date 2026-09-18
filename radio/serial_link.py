@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
+from radio import auth as _auth
 
 # The Heltec firmware is half-duplex and its UART buffer is only ~256 B. Sending
 # faster than the radio drains overflows it and silently corrupts messages, so
@@ -48,6 +49,11 @@ class SerialLink:
     raise_on_down raise LinkDown from send() instead of dropping the message.
                   Interactive tools want to tell someone; long-running servers
                   want to stay up and answer once the stick is back.
+    auth_key      shared secret. Defaults to whatever radio/auth.py finds; None
+                  disables signing entirely. With a key, outbound messages are
+                  signed and inbound ones that do not verify are dropped before
+                  the caller sees them. Without one the link behaves exactly as
+                  it did before authentication existed. See docs/SECURITY.md.
     """
 
     # On the class, not just the module, so a subclass can be asked what pacing
@@ -55,8 +61,10 @@ class SerialLink:
     # the gap is a safety property of the link, not an implementation detail.
     MIN_SEND_GAP_S = MIN_SEND_GAP_S
 
+    _UNSET = object()
+
     def __init__(self, port, baud=115200, *, settle=0.0, report_raw=False,
-                 raise_on_down=False, send_gap=None, log=print):
+                 raise_on_down=False, send_gap=None, log=print, auth_key=_UNSET):
         self.port, self.baud, self.settle = port, baud, settle
         self.report_raw, self.raise_on_down = report_raw, raise_on_down
         self.send_gap = self.MIN_SEND_GAP_S if send_gap is None else send_gap
@@ -66,6 +74,9 @@ class SerialLink:
         self._last_send = 0.0
         self._retry_at = 0.0
         self._down_reported = False
+        self.auth_key = _auth.load_key() if auth_key is self._UNSET else auth_key
+        self._seen = []          # replay window for this receiver
+        self._rejected = 0
         self._open()
 
     # --- the port ---------------------------------------------------------
@@ -122,6 +133,8 @@ class SerialLink:
         gap = self.send_gap - (time.time() - self._last_send)
         if gap > 0:
             time.sleep(gap)
+        if self.auth_key:
+            msg = _auth.sign(msg, self.auth_key)
         try:
             self.ser.write(p.encode(msg).encode("utf-8"))
             self.ser.flush()
@@ -149,9 +162,27 @@ class SerialLink:
             return None
         line, self._buf = self._buf.split("\n", 1)
         msg = p.decode(line)
-        if msg is None and self.report_raw and line.strip():
-            return ("raw", line.strip())
+        if msg is None:
+            if self.report_raw and line.strip():
+                return ("raw", line.strip())
+            return None
+        if self.auth_key:
+            if not _auth.verify(msg, self.auth_key, self._seen):
+                self._rejected += 1
+                # Say it once, then rarely: a mismatched key or an unsigned
+                # peer would otherwise bury the console, and that is the state
+                # this is most likely to be in.
+                if self._rejected == 1 or self._rejected % 50 == 0:
+                    self._log("dropped {} unauthenticated message(s) on {} - "
+                              "does the other end have the same key?".format(
+                                  self._rejected, self.port))
+                return None
+            msg = _auth.strip(msg)
         return msg
+
+    @property
+    def authenticated(self):
+        return bool(self.auth_key)
 
     def close(self):
         try:
