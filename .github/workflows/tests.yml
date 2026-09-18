@@ -25,6 +25,11 @@ jobs:
       - name: Mission regression tests
         run: python3 tests/test_missions.py
 
+      # No hardware: a fake serial module stands in for the stick, so this pins
+      # the reconnect behaviour on any machine.
+      - name: LoRa link survives the stick disappearing
+        run: python3 tests/test_link_reconnect.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 

@@ -47,7 +47,7 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
-from radio.link_test import Link, list_ports
+from radio.link_test import Link, LinkDown, list_ports
 
 MAX_TEXT = 180          # characters per message; the JSON wrapper adds ~40 bytes
 MAX_LINE_BYTES = 240    # MAX_LINE in LoRa_Transceiver.ino: longer lines are cut off
@@ -80,8 +80,14 @@ class Station:
         return m
 
     def _radio_send(self, wire):
-        with self.send_lock:
-            self.link.send(wire)
+        """Returns None on success or an error string. The stick can disappear
+        mid-session (unplugged, USB reset); that must not kill the thread."""
+        try:
+            with self.send_lock:
+                self.link.send(wire)
+        except LinkDown as exc:
+            return f"Radio unavailable: {exc}"
+        return None
 
     def send_text(self, text):
         """Queue a phone's message onto the radio. Returns an error string or None."""
@@ -94,15 +100,20 @@ class Station:
             wire = p.message(p.LOG, self.seq, id=mid, text=text)
         if len(p.encode(wire).encode("utf-8")) > MAX_LINE_BYTES:
             return "Too long for one LoRa packet. Emoji count as 12 characters."
+        if not self.link.up:
+            return "Radio unavailable — the stick is not connected."
         m = self._add(dir="out", text=text, status="sending")
         with self.lock:
             # Register before sending: the ACK can arrive before send() returns.
             self.pending[mid] = [m, wire, 1, time.time() + ACK_TIMEOUT_S + 1]
-        self._radio_send(wire)
+        error = self._radio_send(wire)
         with self.lock:
-            if mid in self.pending:
-                self.pending[mid][3] = time.time() + ACK_TIMEOUT_S
-        return None
+            entry = self.pending.pop(mid, None) if error else self.pending.get(mid)
+            if error and entry:
+                entry[0]["status"] = "failed"
+            elif entry:
+                entry[3] = time.time() + ACK_TIMEOUT_S
+        return error
 
     def run(self):
         """Reader thread: route arrivals and retry sends that went unconfirmed."""
@@ -248,6 +259,13 @@ refresh();
 
 
 def make_handler(stations, key):
+    # The page is served on 0.0.0.0, so anything that can reach the Wi-Fi can
+    # reach it. A wrong key costs the caller time, which turns guessing from a
+    # few seconds of scripting into something not worth attempting. Only
+    # failures are delayed, so a legitimate phone never waits.
+    wrong = {"count": 0}
+    wrong_lock = threading.Lock()
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):       # keep the console for radio traffic
             pass
@@ -263,10 +281,18 @@ def make_handler(stations, key):
 
         def _parse(self):
             url = urlparse(self.path)
-            if parse_qs(url.query).get("k", [""])[0] != key:
+            # compare_digest so the reply time does not depend on how much of
+            # the key was right
+            if not secrets.compare_digest(parse_qs(url.query).get("k", [""])[0], key):
+                with wrong_lock:
+                    wrong["count"] += 1
+                    delay = min(0.5 * wrong["count"], 5.0)
+                time.sleep(delay)
                 self._reply(403, "Wrong or missing key. Use the address the relay printed.",
                             "text/plain")
                 return None
+            with wrong_lock:
+                wrong["count"] = 0
             return [s for s in url.path.split("/") if s]
 
         def do_GET(self):
@@ -330,7 +356,7 @@ def main():
                          "as its address, e.g. --names Jetson (default: Stick A, Stick B, ...)")
     ap.add_argument("--http-port", type=int, default=8080)
     ap.add_argument("--key", default=None,
-                    help="access key in the page address (default: random 4 digits)")
+                    help="access key in the page address (default: a random 8-character key)")
     args = ap.parse_args()
 
     ports = args.ports or sorted(d for d, _desc, heltec in list_ports() if heltec)
@@ -351,7 +377,8 @@ def main():
     else:
         slugs = [chr(ord("a") + i) for i in range(len(ports))]
         labels = [f"Stick {s.upper()}" for s in slugs]
-    key = args.key or f"{secrets.randbelow(10000):04d}"
+    # 4 digits was 10,000 possibilities on an open port -- guessable in seconds.
+    key = args.key or secrets.token_urlsafe(6)
 
     stations = {}                           # address slug -> Station
     for slug, label, port in zip(slugs, labels, ports):
