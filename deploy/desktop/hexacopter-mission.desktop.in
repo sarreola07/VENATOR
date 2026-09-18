@@ -3,7 +3,7 @@ Type=Application
 Version=1.0
 Name=Hexacopter Mission
 Comment=Run Pixhawk motor / flight / camera / LoRa missions
-Exec=gnome-terminal --title=Hexacopter Mission -- /home/jetson/Desktop/pixhawk-test/run_missions.sh
-Icon=/home/jetson/Desktop/pixhawk-test/assets/hexacopter.png
+Exec=gnome-terminal --title=Hexacopter Mission -- __REPO__/drone/run_missions.sh
+Icon=__REPO__/assets/hexacopter.png
 Terminal=false
 Categories=Utility;

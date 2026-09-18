@@ -9,13 +9,13 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=jetson
-WorkingDirectory=/home/jetson/Desktop/pixhawk-test
+User=__USER__
+WorkingDirectory=__REPO__
 # Real flight controller, props OFF by default: only motor tests are runnable
 # remotely; flight missions stay rejected until this is deliberately changed to
 # add --props-on. Nothing arms on boot — arming only happens on a confirmed
 # command that also passes PX4's own pre-arm checks.
-ExecStart=/home/jetson/Desktop/pixhawk-test/venv/bin/python /home/jetson/Desktop/pixhawk-test/jetson_c2_server.py --real
+ExecStart=__REPO__/venv/bin/python __REPO__/drone/c2_server.py --real
 Restart=on-failure
 RestartSec=5
 

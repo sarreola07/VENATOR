@@ -3,16 +3,17 @@
 # FLIGHT mode (props on — Mission 1/2/waypoints). Props-off is the safe default,
 # so enabling flight is always a deliberate act.
 #
-#   ./flight_mode.sh on      # props ON  -> flight missions allowed
-#   ./flight_mode.sh off     # props OFF -> motor tests allowed (default)
-#   ./flight_mode.sh status  # what mode is the service in?
+#   ./deploy/flight_mode.sh on      # props ON  -> flight missions allowed
+#   ./deploy/flight_mode.sh off     # props OFF -> motor tests allowed (default)
+#   ./deploy/flight_mode.sh status  # what mode is the service in?
 set -euo pipefail
 
 SVC="venator-c2.service"
 DROPIN_DIR="/etc/systemd/system/${SVC}.d"
 DROPIN="${DROPIN_DIR}/props.conf"
-SERVER="/home/jetson/Desktop/pixhawk-test/jetson_c2_server.py"
-PY="/home/jetson/Desktop/pixhawk-test/venv/bin/python"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+SERVER="${REPO}/drone/c2_server.py"
+PY="${REPO}/venv/bin/python"
 
 case "${1:-status}" in
   on)

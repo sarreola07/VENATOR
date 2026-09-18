@@ -17,10 +17,17 @@ import socket
 import sys
 import threading
 import time
+from pathlib import Path
 
-import c2_protocol as c2
-import gcs_client as gc
-import jetson_c2_server as srv
+
+# Runnable from any folder: put the repo root on the import path so the
+# sibling packages (radio/, drone/, ground/) import the same modules
+# whether this is started by path, by a desktop launcher or by systemd.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from radio import protocol as c2
+from ground import gcs_client as gc
+from drone import c2_server as srv
 
 FAILURES = []
 

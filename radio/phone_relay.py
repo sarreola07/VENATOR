@@ -37,10 +37,17 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import c2_protocol as p
-from link_test import Link, list_ports
+
+# Runnable from any folder: put the repo root on the import path so the
+# sibling packages (radio/, drone/, ground/) import the same modules
+# whether this is started by path, by a desktop launcher or by systemd.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from radio import protocol as p
+from radio.link_test import Link, list_ports
 
 MAX_TEXT = 180          # characters per message; the JSON wrapper adds ~40 bytes
 MAX_LINE_BYTES = 240    # MAX_LINE in LoRa_Transceiver.ino: longer lines are cut off

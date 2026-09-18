@@ -24,7 +24,7 @@ Other serial ports available on the Jetson if you later wire TELEM2 to the
 
 > Working on the LoRa link from two computers at once (laptop on one end, Jetson
 > or a stand-in on the other)? See [docs/DEV_SETUP.md](docs/DEV_SETUP.md) for the
-> bring-up order, and `link_test.py` for a scripted two-ended link check.
+> bring-up order, and `radio/link_test.py` for a scripted two-ended link check.
 
 ## First-time setup
 
@@ -43,23 +43,23 @@ This does three things (asks for your sudo password once):
 ## Running the test
 
 ```bash
-./venv/bin/python check_pixhawk.py
+./venv/bin/python drone/checks/check_pixhawk.py
 ```
 
 or, with the venv activated (`source venv/bin/activate`):
 
 ```bash
-python check_pixhawk.py
+python drone/checks/check_pixhawk.py
 ```
 
 Options:
 
 ```bash
-python check_pixhawk.py --device /dev/ttyTHS1 --baud 921600   # via TELEM2 UART
-python check_pixhawk.py --timeout 20                          # slower heartbeat wait
+python drone/checks/check_pixhawk.py --device /dev/ttyTHS1 --baud 921600   # via TELEM2 UART
+python drone/checks/check_pixhawk.py --timeout 20                          # slower heartbeat wait
 ```
 
-![check_pixhawk.py output](docs/check_pixhawk.png)
+![drone/checks/check_pixhawk.py output](docs/check_pixhawk.png)
 
 ## What the script checks
 
@@ -94,12 +94,12 @@ All good: the Jetson can talk to the Pixhawk. ✅
 - **No heartbeat** — wait ~30 s after plugging in for PX4 to boot; make sure
   nothing else (e.g. MAVProxy) already has the port open.
 
-## Missions (missions.py)
+## Missions (drone/missions.py)
 
 Interactive bench-test program:
 
 ```bash
-./venv/bin/python missions.py
+./venv/bin/python drone/missions.py
 ```
 
 It first asks whether the propellers are removed, then shows a menu that **loops
@@ -127,16 +127,16 @@ Two processes talk over a local UDP socket, which keeps the camera's DepthAI
 environment separate from the flight code's venv:
 
 ```
-OAK-D  --USB-->  camera_publisher.py (depthai-env)  --UDP 127.0.0.1:5005-->  missions.py (venv)
+OAK-D  --USB-->  drone/camera_publisher.py (depthai-env)  --UDP 127.0.0.1:5005-->  drone/missions.py (venv)
                                                     --HTTP :8080 (stream)-->  laptop browser (optional)
-LoRa   --/dev/ttyUSB0 serial-->                                              missions.py (pyserial)
-Pixhawk--/dev/ttyACM0 MAVLink-->                                             missions.py (pymavlink)
+LoRa   --/dev/ttyUSB0 serial-->                                              drone/missions.py (pyserial)
+Pixhawk--/dev/ttyACM0 MAVLink-->                                             drone/missions.py (pymavlink)
 ```
 
-- **`camera_publisher.py`** runs the OAK-D person detector headlessly (in
+- **`drone/camera_publisher.py`** runs the OAK-D person detector headlessly (in
   `~/oak_drone_project/depthai-env`) and broadcasts the nearest person's
   `{x, y, z, conf}` in metres. It is started/stopped **on demand** via
-  `ai_camera.sh` (see below) — never at boot.
+  `drone/camera.sh` (see below) — never at boot.
 - **Option 5** subscribes to that UDP stream and prints live coordinates — pure
   telemetry, never touches the flight controller. (Autonomous *follow-flight* is
   intentionally not wired up on this PX4 vehicle yet; see Notes.)
@@ -182,13 +182,13 @@ Notes for this vehicle (PX4 v1.13.3, FMUv2):
 ## Install: desktop shortcuts
 
 ```bash
-bash install.sh
+bash deploy/install_shortcuts.sh
 ```
 
 No sudo, no systemd — this only installs user-level Desktop shortcuts:
 
 1. **Hexacopter Mission** — opens a terminal running the mission menu
-   (`run_missions.sh` → `missions.py`).
+   (`drone/run_missions.sh` → `drone/missions.py`).
 2. **AI Camera (toggle)** — starts/stops the OAK-D tracker on demand.
 3. **AI Camera (preview)** — live camera window on the Jetson's own screen.
 4. **AI Camera (web stream)** — starts the tracker with video for laptop browsers.
@@ -199,7 +199,7 @@ No sudo, no systemd — this only installs user-level Desktop shortcuts:
 
 The AI camera tracking is **optional and manual**, deliberately separate from the
 core MAVLink/telemetry background services. Toggling it starts or stops
-`camera_publisher.py` as a plain user process that only reads the USB camera and
+`drone/camera_publisher.py` as a plain user process that only reads the USB camera and
 publishes on UDP 5005 — it **never opens `/dev/ttyACM0`**, so it cannot restart
 the drone or interrupt background communications.
 
@@ -207,12 +207,12 @@ Double-click the **AI Camera (toggle)** Desktop icon to flip it on/off (you get 
 desktop notification either way), or from a terminal:
 
 ```bash
-./ai_camera.sh            # toggle: start if stopped, stop if running
-./ai_camera.sh start      # explicit start (headless)
-./ai_camera.sh stream     # start with the web stream (watch from a laptop browser)
-./ai_camera.sh stop       # explicit stop
-./ai_camera.sh status     # RUNNING (PID) or stopped
-./ai_camera.sh preview    # open a live window to visually check the camera
+./drone/camera.sh            # toggle: start if stopped, stop if running
+./drone/camera.sh start      # explicit start (headless)
+./drone/camera.sh stream     # start with the web stream (watch from a laptop browser)
+./drone/camera.sh stop       # explicit stop
+./drone/camera.sh status     # RUNNING (PID) or stopped
+./drone/camera.sh preview    # open a live window to visually check the camera
 ```
 
 State and logs live in `~/.local/state/ai-camera/` (`camera.pid`, `camera.log`).
@@ -220,7 +220,7 @@ State and logs live in `~/.local/state/ai-camera/` (`camera.pid`, `camera.log`).
 ### Visual check — preview window
 
 To *see* the camera feed with the detected person boxed and its X/Y/Z distance
-drawn on it, double-click **AI Camera (preview)** or run `./ai_camera.sh preview`.
+drawn on it, double-click **AI Camera (preview)** or run `./drone/camera.sh preview`.
 Press **q** in the window (or Ctrl-C) to close it. The preview still publishes
 coordinates on UDP 5005, so mission option 5 works while it is open.
 
@@ -230,7 +230,7 @@ tracker if it is running; start it again with the toggle when you are done.
 ### Watch the video on a laptop (Windows or Mac)
 
 ```bash
-./ai_camera.sh stream
+./drone/camera.sh stream
 ```
 
 This starts the tracker plus a small web server on port 8080 and prints the
@@ -244,11 +244,11 @@ laptop-to-Jetson connections, so use one of:
 
 | How the laptop is connected | Open |
 |---|---|
-| Jetson hotspot — `./wifi_mode.sh on`, join `VenatorDrone` ([below](#wi-fi-hotspot-wifi_modesh)) | `http://10.42.0.1:8080` |
+| Jetson hotspot — `./deploy/wifi_mode.sh on`, join `VenatorDrone` ([below](#wi-fi-hotspot-deploywifi_modesh)) | `http://10.42.0.1:8080` |
 | Tailscale on both machines | `http://<jetson-tailscale-ip>:8080` |
 | USB-C cable, if JetPack's USB network is enabled | `http://192.168.55.1:8080` |
 
-- `./ai_camera.sh status` lists the addresses; `./ai_camera.sh stop` (or the
+- `./drone/camera.sh status` lists the addresses; `./drone/camera.sh stop` (or the
   toggle icon) stops it.
 - Tracking is unaffected: frames are only pulled from the camera while a page is
   open, JPEG encoding runs on its own thread after the UDP coordinates are sent,
@@ -262,21 +262,21 @@ laptop-to-Jetson connections, so use one of:
 
 > The camera is **not** a boot service. If you want the core MAVLink/telemetry
 > link to come up automatically at boot instead, that belongs in its own systemd
-> unit; to share the Pixhawk serial port with `missions.py`, front it with a
+> unit; to share the Pixhawk serial port with `drone/missions.py`, front it with a
 > MAVLink router (e.g. `mavlink-routerd`) so one owner holds `/dev/ttyACM0` and
 > everything else connects over UDP.
 
-## Wi-Fi hotspot (`wifi_mode.sh`)
+## Wi-Fi hotspot (`deploy/wifi_mode.sh`)
 
 School Wi-Fi blocks laptop-to-Jetson connections. Instead, the Jetson can
 broadcast its own network, `VenatorDrone`, for direct access at the bench or in
 the field:
 
 ```bash
-./wifi_mode.sh on       # hotspot: laptops join VenatorDrone, the Jetson is 10.42.0.1
-./wifi_mode.sh off      # back to the Wi-Fi network it was on before
-./wifi_mode.sh toggle   # flip between the two (the "Wi-Fi Hotspot (toggle)" icon)
-./wifi_mode.sh status   # mode, address, how many laptops have joined
+./deploy/wifi_mode.sh on       # hotspot: laptops join VenatorDrone, the Jetson is 10.42.0.1
+./deploy/wifi_mode.sh off      # back to the Wi-Fi network it was on before
+./deploy/wifi_mode.sh toggle   # flip between the two (the "Wi-Fi Hotspot (toggle)" icon)
+./deploy/wifi_mode.sh status   # mode, address, how many laptops have joined
 ```
 
 The first `on` asks for a hotspot password (8-63 characters), which
@@ -290,14 +290,14 @@ NetworkManager saves. On the laptop, join `VenatorDrone`, then
   hotspot on again when you need it.
 - **5 GHz by default** (channel 36), to stay clear of 2.4 GHz RC radios. If it
   won't start, check that `iw reg get` shows your country (not `00`), or use
-  2.4 GHz with `HOTSPOT_BAND=bg ./wifi_mode.sh on` — and if your RC transmitter
+  2.4 GHz with `HOTSPOT_BAND=bg ./deploy/wifi_mode.sh on` — and if your RC transmitter
   is 2.4 GHz, turn the hotspot off before flying.
 - **Safe over SSH.** The switch runs as a system job that finishes even when
   your SSH session drops, and it goes back to the previous network if the new one
   doesn't come up (e.g. school Wi-Fi out of range in the field → the hotspot
   comes back). History: `~/.local/state/venator/wifi_mode.log`.
 - Change settings by passing them again, e.g.
-  `HOTSPOT_SSID=... HOTSPOT_PASSWORD=... HOTSPOT_BAND=a|bg ./wifi_mode.sh on`.
+  `HOTSPOT_SSID=... HOTSPOT_PASSWORD=... HOTSPOT_BAND=a|bg ./deploy/wifi_mode.sh on`.
 - Campus Wi-Fi systems can detect and knock out personal hotspots, and school
   rules may not allow them — it is most reliable off campus or at the field.
 
@@ -307,7 +307,7 @@ The `hexacopter-follow/` folder is a separate project (a classmate's git repo) b
 for the **ArduPilot SITL simulator**, not this PX4 vehicle — its GUIDED-mode flight
 paths do not run on PX4 as-is. It is kept on disk but git-ignored by this repo. The
 only piece reused here is the camera → UDP idea, reimplemented safely in
-`camera_publisher.py`. Porting its autonomous person-following to PX4 (OFFBOARD mode
+`drone/camera_publisher.py`. Porting its autonomous person-following to PX4 (OFFBOARD mode
 + geofence/failsafe hardening) is future work.
 
 ## Next steps
