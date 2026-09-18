@@ -117,6 +117,34 @@ gc._retry_at = 0
 check("poll reconnects", gc.poll(), None)
 check("reports up again", gc.up, True)
 
+print("\n  Sends are paced — the radio is half-duplex with a ~256 B buffer")
+import time as _t
+for name, tx in (("bench Link", Link("/dev/fake4", settle=0)),
+                 ("ground client", SerialTransport("/dev/fake5"))):
+    tx.send({"t": "PING", "seq": 1})
+    t0 = _t.time()
+    tx.send({"t": "PING", "seq": 2})
+    gap = _t.time() - t0
+    check(f"{name} waits between sends", gap >= 0.29, True)
+
+print("\n  The options that were real differences still differ")
+bench, field = Link("/dev/fake6", settle=0), SerialTransport("/dev/fake7")
+bench._buf = "not protocol at all\n"
+check("bench link surfaces a non-protocol line", bench.poll(), ("raw", "not protocol at all"))
+field._buf = "not protocol at all\n"
+check("ground client drops it", field.poll(), None)
+
+bench.ser.alive = False
+bench.poll()
+try:
+    bench.send({"t": "PING", "seq": 3})
+    check("bench link raises when down", "no exception", "LinkDown")
+except LinkDown:
+    check("bench link raises when down", "LinkDown", "LinkDown")
+field.ser.alive = False
+field.poll()
+check("ground client returns False instead", field.send({"t": "PING", "seq": 3}), False)
+
 print("\n  ====================================================")
 print(f"  {'ALL CHECKS PASSED' if not FAIL else f'{FAIL} CHECK(S) FAILED'}")
 sys.exit(1 if FAIL else 0)
