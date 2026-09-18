@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 384" width="1000" height="384"
+     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS not fitted; then ready and the aircraft lifts">
+  <title>Venator — system self-test</title>
+  <style>
+    #cur { animation: blink 1.05s steps(1,end) infinite }
+    @keyframes blink { 0%,55% {opacity:1} 56%,100% {opacity:0} }
+    #sweep { transform-box: view-box; transform-origin: 0 0;
+             animation: sweep 10s cubic-bezier(.4,0,.2,1) infinite }
+    @keyframes sweep { 0% {transform:translateX(-40px); opacity:0}
+      4% {opacity:.9} 46% {opacity:.9} 54%,100% {transform:translateX(1040px); opacity:0} }
+
+    #ready { animation: rdy 10s steps(1,end) infinite }
+    @keyframes rdy { 0%,55.99% {opacity:0} 56%,100% {opacity:1} }
+    #readyGlow { animation: pulse 1.4s ease-in-out infinite,
+                            rdy 10s steps(1,end) infinite }
+    @keyframes pulse { 0%,100% {opacity:.9} 50% {opacity:.35} }
+
+    #craft { transform-box: view-box; transform-origin: 0 0;
+             transform: translate(858px, 196px);
+             animation: lift 10s cubic-bezier(.3,0,.3,1) infinite }
+    @keyframes lift {
+      0%,59%  { transform: translate(858px, 300px) }
+      78%, 100% { transform: translate(858px, 196px) }
+    }
+    #rotorL, #rotorR { transform-box: fill-box; transform-origin: center;
+                       animation: spin .3s linear infinite }
+    @keyframes spin { 0%,100% {transform:scaleX(1)} 50% {transform:scaleX(.28)} }
+    #ln0 { animation: r0 10s steps(1,end) infinite }
+    #ok0 { animation: o0 10s steps(1,end) infinite }
+    #ln1 { animation: r1 10s steps(1,end) infinite }
+    #ok1 { animation: o1 10s steps(1,end) infinite }
+    #ln2 { animation: r2 10s steps(1,end) infinite }
+    #ok2 { animation: o2 10s steps(1,end) infinite }
+    #ln3 { animation: r3 10s steps(1,end) infinite }
+    #ok3 { animation: o3 10s steps(1,end) infinite }
+    #ln4 { animation: r4 10s steps(1,end) infinite }
+    #ok4 { animation: o4 10s steps(1,end) infinite }
+    #ln5 { animation: r5 10s steps(1,end) infinite }
+    #ok5 { animation: o5 10s steps(1,end) infinite }
+    #ln6 { animation: r6 10s steps(1,end) infinite }
+    #ok6 { animation: o6 10s steps(1,end) infinite }
+    @keyframes r0 { 0%,4.99% {opacity:0} 5%,100% {opacity:1} }
+    @keyframes o0 { 0%,8.39% {opacity:0} 8.4%,100% {opacity:1} }
+    @keyframes r1 { 0%,11.19% {opacity:0} 11.2%,100% {opacity:1} }
+    @keyframes o1 { 0%,14.59% {opacity:0} 14.6%,100% {opacity:1} }
+    @keyframes r2 { 0%,17.39% {opacity:0} 17.4%,100% {opacity:1} }
+    @keyframes o2 { 0%,20.79% {opacity:0} 20.8%,100% {opacity:1} }
+    @keyframes r3 { 0%,23.59% {opacity:0} 23.6%,100% {opacity:1} }
+    @keyframes o3 { 0%,26.99% {opacity:0} 27%,100% {opacity:1} }
+    @keyframes r4 { 0%,29.79% {opacity:0} 29.8%,100% {opacity:1} }
+    @keyframes o4 { 0%,33.19% {opacity:0} 33.2%,100% {opacity:1} }
+    @keyframes r5 { 0%,35.99% {opacity:0} 36%,100% {opacity:1} }
+    @keyframes o5 { 0%,39.39% {opacity:0} 39.4%,100% {opacity:1} }
+    @keyframes r6 { 0%,42.19% {opacity:0} 42.2%,100% {opacity:1} }
+    @keyframes o6 { 0%,45.59% {opacity:0} 45.6%,100% {opacity:1} }
+
+    @media (prefers-reduced-motion: reduce) {
+      #sweep { display: none }
+      #cur, #rotorL, #rotorR, #readyGlow { animation: none }
+      #craft { animation: none }
+      [id^="ln"], [id^="ok"], #ready, #readyGlow { animation: none; opacity: 1 }
+    }
+  </style>
+  <defs>
+    <clipPath id="pc"><rect width="1000" height="384"/></clipPath>
+    <filter id="glow" x="-40%" y="-80%" width="180%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+
+  <rect width="1000" height="384" fill="#0A0A0A"/>
+  <g clip-path="url(#pc)">
+    <path d="M0 3H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 7H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 11H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 15H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 19H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 23H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 27H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 31H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 35H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 39H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 43H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 47H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 51H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 55H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 59H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 63H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 67H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 71H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 75H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 79H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 83H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 87H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 91H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 95H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 99H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 103H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 107H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 111H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 115H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 119H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 123H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 127H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 131H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 135H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 139H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 143H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 147H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 151H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 155H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 159H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 163H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 167H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 171H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 175H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 179H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 183H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 187H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 191H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 195H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 199H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 203H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 207H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 211H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 215H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 219H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 223H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 227H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 231H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 235H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 239H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 243H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 247H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 251H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 255H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 259H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 263H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 267H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 271H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 275H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 279H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 283H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 287H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 291H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 295H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 299H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 303H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 307H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 311H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 315H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 319H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 323H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 327H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 331H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 335H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 339H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 343H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 347H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 351H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 355H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 359H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 363H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 367H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 371H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 375H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 379H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/><path d="M0 383H1000" stroke="#F2F1EE" stroke-width="1" opacity=".035"/>
+    <g id="sweep">
+      <rect width="3" height="384" fill="#FF7A3D" filter="url(#soft)" opacity=".85"/>
+      <rect width="1.3" height="384" fill="#FFFFFF" opacity=".8"/>
+    </g>
+  </g>
+
+  <text x="44" y="52" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13"
+    letter-spacing="3.4">VENATOR // SYSTEM SELF-TEST</text>
+  <rect id="cur" x="334" y="40" width="9" height="15" fill="#FF7A3D"/>
+  <path d="M44 70H956" stroke="#E05316" stroke-width="1.5" opacity=".5"/>
+
+  <g id="ln0" opacity="0">
+    <text x="44" y="112" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="112" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">RADIO</text>
+    <text x="196" y="112" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">915 MHz · SF7 · syncword 0x12</text>
+    <g id="ok0" opacity="0">
+      <text x="600" y="112" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln1" opacity="0">
+    <text x="44" y="143" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="143" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">LINK</text>
+    <text x="196" y="143" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">stick A ↔ stick B</text>
+    <g id="ok1" opacity="0">
+      <text x="600" y="143" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln2" opacity="0">
+    <text x="44" y="174" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="174" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">FC</text>
+    <text x="196" y="174" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">Pixhawk 2.4.8 · PX4 v1.13.3</text>
+    <g id="ok2" opacity="0">
+      <text x="600" y="174" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln3" opacity="0">
+    <text x="44" y="205" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="205" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">CAMERA</text>
+    <text x="196" y="205" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">OAK-D · spatial depth</text>
+    <g id="ok3" opacity="0">
+      <text x="600" y="205" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln4" opacity="0">
+    <text x="44" y="236" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="236" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">COMPUTE</text>
+    <text x="196" y="236" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">Jetson Orin Nano</text>
+    <g id="ok4" opacity="0">
+      <text x="600" y="236" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln5" opacity="0">
+    <text x="44" y="267" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="267" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">C2</text>
+    <text x="196" y="267" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">c2_server.py · props OFF</text>
+    <g id="ok5" opacity="0">
+      <text x="600" y="267" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ OK ]</text>
+    </g>
+  </g>
+  <g id="ln6" opacity="0">
+    <text x="44" y="298" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
+    <text x="72" y="298" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+      letter-spacing="1.2">GPS</text>
+    <text x="196" y="298" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">M8N · not fitted</text>
+    <g id="ok6" opacity="0">
+      <text x="600" y="298" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ -- ]</text>
+    </g>
+  </g>
+
+  <g id="ready">
+    <text id="readyGlow" x="44" y="352" fill="#FF7A3D" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="24"
+      font-weight="700" letter-spacing="4" filter="url(#glow)">READY</text>
+    <text x="44" y="352" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="24"
+      font-weight="700" letter-spacing="4">READY</text>
+    <text x="172" y="352" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14">
+      awaiting a command over the radio</text>
+  </g>
+
+  <g id="craft">
+    <path d="M-30 -3h60" stroke="#F2F1EE" stroke-width="3"/>
+    <path d="M-30 -3l-5 -9M30 -3l5 -9" stroke="#F2F1EE" stroke-width="2.5"/>
+    <rect x="-14" y="-7" width="28" height="14" rx="2" fill="#F2F1EE"/>
+    <circle cx="0" cy="11" r="5" fill="#F2F1EE"/>
+    <circle cx="0" cy="11" r="2" fill="#0A0A0A"/>
+    <ellipse id="rotorL" cx="-35" cy="-13" rx="17" ry="2.4" fill="#E05316"/>
+    <ellipse id="rotorR" cx="35" cy="-13" rx="17" ry="2.4" fill="#E05316"/>
+  </g>
+  <path d="M818 316h80" stroke="#8A8781" stroke-width="2.5"/>
+</svg>
