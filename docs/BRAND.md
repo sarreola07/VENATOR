@@ -21,7 +21,7 @@ no accent inside the mark.
 | `assets/brand/mark-dark.svg`, `mark-light.svg` | Mark alone, 24 px and up. |
 | `assets/brand/favicon.svg` | 16–32 px. The V alone; the wings close up below ~20 px. |
 | `assets/brand/social-preview.png` | 1280×640 card for GitHub, Slack, chat unfurls. |
-| `assets/brand/system-dark.svg`, `system-light.svg` | The system diagram in the same style. |
+| `assets/brand/system-dark.svg`, `system-light.svg` | The system diagram, animated. See **Motion**. |
 | `assets/brand/lockup-stacked-*.svg` | Mark above the wordmark — banners, posters, title slides. |
 | `assets/brand/png/` | High-resolution PNG exports of all of the above. |
 
@@ -77,6 +77,31 @@ and `#6E6B66` muted text.
 - **Data:** monospace (SF Mono, Menlo, Consolas). Anything a machine produced —
   ports, frequencies, counts, RSSI — is set in mono so it reads as measurement.
 - **Body:** the same grotesk at normal weight and tracking.
+
+## Motion
+
+The system diagram is live. One eight-second cycle carries a command from GROUND
+to the DRONE over 915 MHz, on to the AIRFRAME over MAVLink, and the reply back
+the same way — the round trip the protocol actually makes. A caption underneath
+names each leg, then settles on the resting line.
+
+Motion follows the same rule as Signal: it reports something, or it does not
+happen. A packet moves because a packet moved. Nothing drifts, spins or breathes
+to fill the space.
+
+Two things to know before editing `system-*.svg`:
+
+- **Everything that moves is inside `#packets` and `#ticker`.** A reader with
+  `prefers-reduced-motion: reduce` gets the plain diagram, and so does any
+  renderer that ignores SMIL. The static artwork underneath is unchanged, which
+  is what makes the animation safe to drop.
+- **The glow is dark-mode only.** A blurred dark dot on paper is a drop shadow,
+  which is on the banned list above. On white, a packet is a crisp dot inside an
+  expanding ring, and a box reports an arrival with a heavier border rather than
+  a brighter one.
+
+The README shows the light diagram in both colour schemes; `system-dark.svg` is
+there for dark slides and dark UI.
 
 ## Applying it
 
