@@ -1,4 +1,4 @@
-# Venator roadmap 
+# Venator roadmap
 
 End goal: command the drone from any laptop over LoRa, with **zero interaction on
 the Jetson**, including a "fly to these coordinates" mission.
