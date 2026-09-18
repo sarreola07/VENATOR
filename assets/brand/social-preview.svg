@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <rect width="1280" height="640" fill="#0A0A0A"/>
+  <path d="M56 90V56h34" stroke="#2A2A27" stroke-width="2" fill="none" opacity=".65"/><path d="M1190 56h34v34" stroke="#2A2A27" stroke-width="2" fill="none" opacity=".65"/><path d="M1224 550v34h-34" stroke="#2A2A27" stroke-width="2" fill="none" opacity=".65"/><path d="M90 584H56v-34" stroke="#2A2A27" stroke-width="2" fill="none" opacity=".65"/>
+  <g fill="#F2F1EE" transform="translate(454,108) scale(3.1)"><path d="M60 2 65.5 15 64 42 60 56 56 42 54.5 15Z"/><path d="M8 6 46 21 46 32 8 17Z"/><path d="M112 6 74 21 74 32 112 17Z"/><path d="M18 34 60 80 102 34 86 34 60 63 34 34Z"/></g>
+  <text x="640" y="478" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="78" font-weight="700"
+        letter-spacing="26" text-anchor="middle" dx="13">VENATOR</text>
+  <text x="640" y="520" fill="#8A8781" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" letter-spacing="9"
+        text-anchor="middle" dx="4">AUTONOMOUS FLIGHT SYSTEMS</text>
+  <text x="640" y="580" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="16" letter-spacing="2.2"
+        text-anchor="middle">915 MHz · SF7 · PX4 v1.13.3 · JETSON ORIN NANO · LoRa C2</text>
+</svg>
