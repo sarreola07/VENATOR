@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Venator">
-  <path d="M13 12 32 46 51 12" stroke="#F2F1EE" stroke-width="4" stroke-linecap="square" fill="none"/>
-  <path d="M6 22a30 30 0 0 1 4-12" stroke="#F2F1EE" stroke-width="2.5" opacity=".7" fill="none"/>
-  <path d="M58 22a30 30 0 0 0-4-12" stroke="#F2F1EE" stroke-width="2.5" opacity=".7" fill="none"/>
-  <circle cx="32" cy="46" r="5" fill="#E05316"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 84" width="120" height="84" fill="#F2F1EE" role="img" aria-label="Venator"><path d="M8 6 46 21 46 32 8 17Z"/><path d="M112 6 74 21 74 32 112 17Z"/><path d="M18 30 60 80 102 30 84 30 60 60 36 30Z"/></svg>
