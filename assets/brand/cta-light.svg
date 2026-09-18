@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 62" width="360" height="62"
+     role="img" aria-label="See it running — live demo">
+  <title>See it running</title>
+  <style>
+    #sweep { transform-box: view-box; transform-origin: 0 0;
+             animation: sweep 3.4s cubic-bezier(.4,0,.2,1) infinite }
+    @keyframes sweep {
+      0%        { transform: translateX(-30px); opacity: 0 }
+      8%        { opacity: .85 }
+      52%       { opacity: .85 }
+      60%, 100% { transform: translateX(390px); opacity: 0 }
+    }
+    #dot { transform-box: fill-box; transform-origin: center;
+           animation: beat 1.7s ease-in-out infinite }
+    @keyframes beat { 0%,100% { transform: scale(1); opacity: 1 }
+                      50% { transform: scale(.72); opacity: .55 } }
+    #halo { transform-box: fill-box; transform-origin: center;
+            animation: halo 1.7s ease-out infinite }
+    @keyframes halo { 0% { transform: scale(1); opacity: .55 }
+                      70%, 100% { transform: scale(3.4); opacity: 0 } }
+    #arrow { transform-box: view-box; transform-origin: 0 0;
+             animation: nudge 1.7s ease-in-out infinite }
+    @keyframes nudge { 0%,100% { transform: translateX(0) }
+                       50% { transform: translateX(7px) } }
+
+    @media (prefers-reduced-motion: reduce) {
+      #sweep { display: none }
+      #dot, #halo, #arrow { animation: none }
+      #halo { opacity: 0 }
+    }
+  </style>
+  <defs>
+    <clipPath id="bar"><rect x="0" y="0" width="360" height="62"/></clipPath>
+  </defs>
+
+  <rect width="360" height="62" fill="#0A0A0A"/>
+
+  <!-- a hairline scanning the bar, not a gradient wash -->
+  <g clip-path="url(#bar)">
+    <rect id="sweep" x="0" y="0" width="2.5" height="62" fill="#E05316"/>
+  </g>
+
+  <circle id="halo" cx="34" cy="31.0" r="5.5" fill="#E05316"/>
+  <circle id="dot" cx="34" cy="31.0" r="5.5" fill="#E05316"/>
+
+  <text x="58" y="37.0" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="17"
+    font-weight="700" letter-spacing="2.6">SEE IT RUNNING</text>
+
+  <g id="arrow">
+    <path d="M292 31.0h26M310 24.0l8 7-8 7" fill="none" stroke="#F2F1EE"
+      stroke-width="2.6" stroke-linecap="square"/>
+  </g>
+</svg>
