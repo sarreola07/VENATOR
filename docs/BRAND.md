@@ -24,7 +24,7 @@ no accent inside the mark.
 | `assets/brand/system-dark.svg`, `system-light.svg` | The system diagram, animated. See **Motion**. |
 | `assets/brand/conops-dark.svg`, `conops-light.svg` | Concept of operations — Mission 2 end to end, animated. |
 | `assets/brand/patrol-*.svg`, `mesh-*.svg` | Waypoint patrol and the message net, animated. |
-| `assets/brand/cta-*.svg` | The animated *See it running* button. Wrap in `<a>`; GitHub strips CSS from README HTML, so the motion has to live inside the image. |
+| `assets/brand/cta-*.svg` | The animated *See it running* button. Wrap in `<a>`; GitHub strips CSS from README HTML, so the motion has to live inside the image. **The one deliberate exception to the rules below** — see *Motion*. |
 | `assets/brand/lockup-stacked-*.svg` | Mark above the wordmark — banners, posters, title slides. |
 | `assets/brand/png/` | High-resolution PNG exports of all of the above. |
 
@@ -105,6 +105,17 @@ Two things to know before editing `system-*.svg`:
 
 The README shows the light diagram in both colour schemes; `system-dark.svg` is
 there for dark slides and dark UI.
+
+### The one exception
+
+`cta-*.svg` breaks almost everything above on purpose: it glows, it has
+scanlines, it glitches, and the accent is decoration rather than state. It is a
+button whose entire job is to be noticed on a page somebody is scrolling past,
+and it is the only asset allowed to work that way. Its panel stays dark in both
+colour schemes, because neon needs something to burn against.
+
+Nothing else adopts this treatment. If a second surface ever needs it, that is a
+decision to take deliberately, not by copying this file.
 
 ## Applying it
 

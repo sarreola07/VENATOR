@@ -1,53 +1,91 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 62" width="360" height="62"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 76" width="384" height="76"
      role="img" aria-label="See it running — live demo">
   <title>See it running</title>
   <style>
     #sweep { transform-box: view-box; transform-origin: 0 0;
-             animation: sweep 3.4s cubic-bezier(.4,0,.2,1) infinite }
+             animation: sweep 3.6s cubic-bezier(.35,0,.2,1) infinite }
     @keyframes sweep {
-      0%        { transform: translateX(-30px); opacity: 0 }
-      8%        { opacity: .85 }
-      52%       { opacity: .85 }
-      60%, 100% { transform: translateX(390px); opacity: 0 }
+      0%       { transform: translateX(-40px); opacity: 0 }
+      10%      { opacity: 1 }
+      55%      { opacity: 1 }
+      64%,100% { transform: translateX(424px); opacity: 0 }
     }
+    #edge { animation: burn 2.4s ease-in-out infinite }
+    @keyframes burn { 0%,100% { opacity: .95 } 50% { opacity: .55 } }
+
     #dot { transform-box: fill-box; transform-origin: center;
-           animation: beat 1.7s ease-in-out infinite }
-    @keyframes beat { 0%,100% { transform: scale(1); opacity: 1 }
-                      50% { transform: scale(.72); opacity: .55 } }
+           animation: beat 1.6s ease-in-out infinite }
+    @keyframes beat { 0%,100% { transform: scale(1) } 50% { transform: scale(.66) } }
     #halo { transform-box: fill-box; transform-origin: center;
-            animation: halo 1.7s ease-out infinite }
-    @keyframes halo { 0% { transform: scale(1); opacity: .55 }
-                      70%, 100% { transform: scale(3.4); opacity: 0 } }
-    #arrow { transform-box: view-box; transform-origin: 0 0;
-             animation: nudge 1.7s ease-in-out infinite }
-    @keyframes nudge { 0%,100% { transform: translateX(0) }
-                       50% { transform: translateX(7px) } }
+            animation: halo 1.6s ease-out infinite }
+    @keyframes halo { 0% { transform: scale(1); opacity:.6 }
+                      70%,100% { transform: scale(3.6); opacity:0 } }
+
+    #cur { animation: blink 1.05s steps(1,end) infinite }
+    @keyframes blink { 0%,55% { opacity: 1 } 56%,100% { opacity: 0 } }
+
+    #cv0, #cv1, #cv2 { animation: chase 1.5s ease-in-out infinite }
+    #cv1 { animation-delay: .16s }
+    #cv2 { animation-delay: .32s }
+    @keyframes chase { 0%,100% { opacity: .22 } 22% { opacity: 1 } }
+
+    /* Glitch: a short tear every few seconds, not a constant wobble. */
+    #gTop, #gBot, #gGhost { opacity: 0 }
+    #gTop { transform-box: view-box; transform-origin: 0 0;
+            animation: gtop 5.2s steps(1,end) infinite }
+    #gBot { transform-box: view-box; transform-origin: 0 0;
+            animation: gbot 5.2s steps(1,end) infinite }
+    #gGhost { transform-box: view-box; transform-origin: 0 0;
+              animation: gghost 5.2s steps(1,end) infinite }
+    @keyframes gtop { 0%,71% {opacity:0; transform:translateX(0)}
+      72% {opacity:1; transform:translateX(-5px)}
+      74% {opacity:1; transform:translateX(3px)}
+      76%,100% {opacity:0; transform:translateX(0)} }
+    @keyframes gbot { 0%,71% {opacity:0; transform:translateX(0)}
+      72% {opacity:1; transform:translateX(4px)}
+      74% {opacity:1; transform:translateX(-3px)}
+      76%,100% {opacity:0; transform:translateX(0)} }
+    @keyframes gghost { 0%,70.9% {opacity:0}
+      71% {opacity:.85; transform:translate(2px,-1px)}
+      76%,100% {opacity:0} }
 
     @media (prefers-reduced-motion: reduce) {
-      #sweep { display: none }
-      #dot, #halo, #arrow { animation: none }
-      #halo { opacity: 0 }
+      #sweep, #halo, #gTop, #gBot, #gGhost { display: none }
+      #edge, #dot, #cur, #cv0, #cv1, #cv2 { animation: none; opacity: 1 }
     }
   </style>
   <defs>
-    <clipPath id="bar"><rect x="0" y="0" width="360" height="62"/></clipPath>
+    <clipPath id="panelClip"><path d="M18 1 H383 V57 L365 75 H1 V19 Z"/></clipPath>
+    <clipPath id="halfTop"><rect x="0" y="0" width="384" height="39"/></clipPath>
+    <clipPath id="halfBot"><rect x="0" y="39" width="384" height="76"/></clipPath>
+    <filter id="neon" x="-25%" y="-60%" width="150%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-25%" y="-60%" width="150%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2"/>
+    </filter>
   </defs>
 
-  <rect width="360" height="62" fill="#0A0A0A"/>
-
-  <!-- a hairline scanning the bar, not a gradient wash -->
-  <g clip-path="url(#bar)">
-    <rect id="sweep" x="0" y="0" width="2.5" height="62" fill="#E05316"/>
+  <path d="M18 1 H383 V57 L365 75 H1 V19 Z" fill="#0A0A0A"/>
+  <g clip-path="url(#panelClip)">
+    <path d="M0 3H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 7H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 11H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 15H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 19H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 23H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 27H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 31H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 35H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 39H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 43H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 47H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 51H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 55H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 59H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 63H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 67H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 71H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 75H384" stroke="#F2F1EE" stroke-width="1" opacity=".05"/>
+    <g id="sweep">
+      <rect x="0" y="0" width="3" height="76" fill="#FF7A3D" filter="url(#soft)" opacity=".9"/>
+      <rect x="0" y="0" width="1.4" height="76" fill="#FFFFFF" opacity=".9"/>
+    </g>
   </g>
 
-  <circle id="halo" cx="34" cy="31.0" r="5.5" fill="#E05316"/>
-  <circle id="dot" cx="34" cy="31.0" r="5.5" fill="#E05316"/>
+  <path id="edge" d="M18 1 H383 V57 L365 75 H1 V19 Z" fill="none" stroke="#E05316" stroke-width="2" filter="url(#neon)"/>
 
-  <text x="58" y="37.0" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="17"
-    font-weight="700" letter-spacing="2.6">SEE IT RUNNING</text>
+  <circle id="halo" cx="32" cy="38.0" r="5.5" fill="#E05316"/>
+  <circle id="dot" cx="32" cy="38.0" r="5.5" fill="#FF7A3D" filter="url(#neon)"/>
 
-  <g id="arrow">
-    <path d="M292 31.0h26M310 24.0l8 7-8 7" fill="none" stroke="#F2F1EE"
-      stroke-width="2.6" stroke-linecap="square"/>
-  </g>
+  <text x="56" y="46" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SEE IT RUNNING</text>
+  <g id="gGhost"><text x="56" y="46" fill="#E05316" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SEE IT RUNNING</text></g>
+  <g id="gTop" clip-path="url(#halfTop)"><text x="56" y="46" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SEE IT RUNNING</text></g>
+  <g id="gBot" clip-path="url(#halfBot)"><text x="56" y="46" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SEE IT RUNNING</text></g>
+
+  <rect id="cur" x="266" y="30" width="10" height="18" fill="#FF7A3D" filter="url(#neon)"/>
+  <path id="cv0" d="M300 29l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/><path id="cv1" d="M315 29l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/><path id="cv2" d="M330 29l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/>
 </svg>
