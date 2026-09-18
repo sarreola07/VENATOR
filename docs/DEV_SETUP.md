@@ -32,20 +32,20 @@ from a **local** Claude Code session on that machine. Install the CLI
 ## Who plays which role
 
 ```
-                    ┌──────────────────────────────┐
-                    │  Claude Code on the web      │  writes code, pushes
-                    │  (cloud container, no USB)   │  branch: claude/...
-                    └───────────────┬──────────────┘
-                                    │ git push
-                            ┌───────┴────────┐
-                     git pull│                │git pull
-      ┌────────────────────▼───┐          ┌──▼─────────────────────┐
-      │ Ubuntu box             │          │ MacBook                │
-      │ "the Jetson, for now"  │          │ the ground station     │
-      │ drone/c2_server.py    │          │ ground/gcs_client.py          │
-      │ Heltec on /dev/ttyUSB0 │          │ Heltec on /dev/cu.*    │
-      └───────────┬────────────┘          └───────────┬────────────┘
-                  └─────────── 915 MHz LoRa ──────────┘
+                     ┌──────────────────────────────┐
+                     │ Claude Code on the web       │  writes code,
+                     │ (cloud container, no USB)    │  pushes a branch
+                     └───────────────┬──────────────┘
+                                     │ git push
+                    ┌────────────────┴────────────────┐
+           git pull │                                 │ git pull
+      ┌─────────────▼────────────┐      ┌─────────────▼────────────┐
+      │ Ubuntu box               │      │ MacBook                  │
+      │ "the Jetson, for now"    │      │ the ground station       │
+      │ drone/c2_server.py       │      │ ground/gcs_client.py     │
+      │ Heltec on /dev/ttyUSB0   │      │ Heltec on /dev/cu.*      │
+      └─────────────┬────────────┘      └─────────────┬────────────┘
+                    └────────── 915 MHz LoRa ─────────┘
 ```
 
 **Ubuntu box → the drone side.** Same OS as the Jetson, and it stays on the
