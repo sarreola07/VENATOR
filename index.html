@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venator — Autonomous Flight Systems</title>
+<meta name="description" content="Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute.">
+<link rel="icon" href="assets/brand/favicon.svg">
+<style>
+  :root{
+    --ink:#0A0A0A; --panel:#FFFFFF; --line:#DAD8D3; --muted:#6E6B66;
+    --paper:#F2F1EE; --signal:#E05316;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F2F1EE; --panel:#131314; --line:#2A2A27; --muted:#8A8781;
+      --paper:#0A0A0A;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:15px/1.65 "Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:0 16px}
+  header{padding:56px 0 8px; text-align:center}
+  header img.lockup{width:min(360px,78vw); height:auto; display:block; margin:0 auto}
+  .tag{margin:26px auto 0; max-width:620px; font-size:17px; font-weight:600}
+  .spec{margin-top:8px; color:var(--muted); font-size:12.5px; letter-spacing:.06em;
+        font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .cta{margin:28px 0 0; display:flex; gap:10px; justify-content:center; flex-wrap:wrap}
+  .cta a{
+    display:inline-block; padding:9px 18px; text-decoration:none; font-size:13px;
+    font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+    border:1.5px solid var(--ink); color:var(--ink);
+  }
+  .cta a.primary{background:var(--ink); color:var(--paper)}
+  .note{
+    margin:44px auto 0; max-width:760px; padding:12px 18px; font-size:13px;
+    color:var(--muted); background:var(--panel);
+    border:1px solid var(--line); border-left:3px solid var(--signal);
+  }
+  section{margin:56px 0 0}
+  .lab{font-size:10px; letter-spacing:.3em; text-transform:uppercase;
+       color:var(--muted); font-weight:600}
+  h2{font-size:19px; font-weight:600; margin:6px 0 4px}
+  .cap{color:var(--muted); font-size:14px; margin:0 0 16px; max-width:760px}
+  figure{margin:0; border:1px solid var(--line); background:var(--panel); overflow:hidden}
+  figure img{display:block; width:100%; height:auto}
+  footer{
+    margin:72px 0 0; padding:26px 0 56px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:13px;
+    display:flex; gap:14px; justify-content:space-between; flex-wrap:wrap;
+  }
+  footer a{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-dark.svg">
+      <img class="lockup" src="assets/brand/lockup-light.svg" alt="Venator — autonomous flight systems">
+    </picture>
+    <p class="tag">Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute.</p>
+    <p class="spec">PX4 v1.13.3 · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</p>
+    <p class="cta">
+      <a class="primary" href="https://github.com/sarreola07/VENATOR">View on GitHub</a>
+      <a href="https://github.com/sarreola07/VENATOR/blob/main/docs/ROADMAP.md">Roadmap</a>
+    </p>
+    <p class="note">
+      These animations show the system <strong>as designed</strong>. The protocol, the
+      two-step arm gate, the link-loss failsafe and the waypoint upload are built and
+      bench-tested; outdoor flight is pending, and anything marked <em>not built</em>
+      is exactly that. Each caption says which is which.
+    </p>
+  </header>
+
+  <section>
+    <p class="lab">Concept of operations</p>
+    <h2>Command it from a laptop, and it comes home on its own</h2>
+    <p class="cap">A command leaves the ground station over 915&nbsp;MHz LoRa, the Jetson
+      relays it to the flight controller over MAVLink, the aircraft follows a person at
+      3&nbsp;m — and when the link drops for more than four seconds, it returns to launch
+      without being told.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/conops-dark.svg">
+        <img src="assets/brand/conops-light.svg" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
+      </picture>
+    </figure>
+  </section>
+
+  <section>
+    <p class="lab">Waypoint patrol</p>
+    <h2>Fly to these coordinates</h2>
+    <p class="cap">Four coordinates go up one LoRa packet at a time, each acknowledged.
+      The Jetson validates them, builds a PX4 mission and waits for a second confirmation
+      before anything spins. Return-to-launch is the mission's own last item, not a
+      failsafe.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
+        <img src="assets/brand/patrol-light.svg" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
+      </picture>
+    </figure>
+  </section>
+
+  <section>
+    <p class="lab">Off-grid messaging</p>
+    <h2>One transmission, every station hears it</h2>
+    <p class="cap">LoRa is a broadcast medium, so a message sent from the field reaches the
+      ground station and the aircraft at the same instant. Phones are never on the air —
+      they load a page from the machine holding the radio.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mesh-dark.svg">
+        <img src="assets/brand/mesh-light.svg" alt="A phone sends a message through the machine holding a LoRa stick; one 915 MHz transmission reaches the ground station and the Jetson at once">
+      </picture>
+    </figure>
+  </section>
+
+  <section>
+    <p class="lab">Architecture</p>
+    <h2>Three boxes and two links</h2>
+    <p class="cap">No QGroundControl, no GUI, no internet — a laptop, a radio and a drone.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
+        <img src="assets/brand/system-light.svg" alt="Ground station over 915 MHz LoRa to the Jetson, and MAVLink to the Pixhawk">
+      </picture>
+    </figure>
+  </section>
+
+  <footer>
+    <span>MIT licensed · built by Sergio Arreola</span>
+    <span><a href="https://github.com/sarreola07/VENATOR">github.com/sarreola07/VENATOR</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
