@@ -28,14 +28,15 @@ jobs:
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 
-      # The phase animation hard-codes nothing: tools/gen_phases.py reads the
-      # states out of the roadmap's Status table. Regenerating and diffing proves
-      # the committed SVG still matches the table it sits above. If this fails,
-      # run `python3 tools/gen_phases.py` and commit the result.
-      - name: Phase animation is current
+      # Every animated asset is produced by a script in tools/. Regenerating them
+      # all and diffing proves three things at once: the committed SVGs still
+      # match their source, the generators still run, and the phase animation
+      # still agrees with the roadmap's Status table that gen_phases.py reads.
+      # If this fails, run the generator it names and commit the result.
+      - name: Generated assets are current
         run: |
-          python3 tools/gen_phases.py
-          git diff --exit-code -- assets/brand/phases-light.svg assets/brand/phases-dark.svg
+          for g in tools/gen_*.py; do echo "--- $g"; python3 "$g"; done
+          git diff --exit-code -- assets/brand
 
       - name: Every shell script parses
         run: |
