@@ -33,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
+from radio.serial_link import SerialLink
 
 MAX_ALT_M = 50.0        # reject uploaded waypoints above this relative altitude
 LINK_LOSS_S = 4.0       # in flight, no client ping for this long -> RTL failsafe
@@ -894,100 +895,14 @@ class C2Server:
 # --------------------------------------------------------------------------
 # LoRa serial transport (transparent line bridge on the other end).
 # --------------------------------------------------------------------------
-class LoRaLink:
-    # The Heltec firmware is half-duplex: one packet is on the air for ~200 ms at
-    # SF7, while its UART buffer is only ~256 B. Writing several packets back to
-    # back overflows that buffer and silently corrupts messages, so every send is
-    # paced to give the radio time to drain.
-    MIN_SEND_GAP_S = 0.30
-
-    # The stick can re-enumerate under the aircraft (USB reset, power blip). The
-    # old code kept the dead handle and swallowed every read error, so the drone
-    # went silently unreachable with nothing on the console to say why. In flight
-    # that still fails safe -- the client stops getting PONGs and LINK_LOSS_S
-    # brings it home -- but on the ground it looked like a working server.
-    RECONNECT_WAIT_S = 2.0
+class LoRaLink(SerialLink):
+    """The Jetson's link. Drops outbound messages while the stick is away
+    rather than raising: the server loop has to keep running so it can answer
+    once the stick is back."""
 
     def __init__(self, port, baud):
-        self.port, self.baud = port, baud
-        self.ser = None
-        self._buf = ""
-        self._last_send = 0.0
-        self._retry_at = 0.0
-        self._down_reported = False
-        self._open()
-
-    def _open(self):
-        import serial
-        # exclusive=True so nothing else can grab the LoRa port and corrupt the link
-        self.ser = serial.Serial(self.port, self.baud, timeout=0.2, exclusive=True)
-        self._buf = ""
-
-    def _drop(self, exc):
-        if not self._down_reported:
-            print("LoRa port {} went away ({}) - retrying every {:g}s".format(
-                self.port, exc, self.RECONNECT_WAIT_S), flush=True)
-            self._down_reported = True
-        try:
-            if self.ser is not None:
-                self.ser.close()
-        except Exception:
-            pass
-        self.ser = None
-        self._retry_at = time.time() + self.RECONNECT_WAIT_S
-
-    def _ensure(self):
-        if self.ser is not None:
-            return True
-        if time.time() < self._retry_at:
-            return False
-        try:
-            self._open()
-        except Exception:
-            self._retry_at = time.time() + self.RECONNECT_WAIT_S
-            return False
-        print("LoRa port {} is back".format(self.port), flush=True)
-        self._down_reported = False
-        return True
-
-    def send(self, msg):
-        """Drops the message if the port is away rather than raising: the server
-        loop must keep running so it can answer once the stick is back."""
-        if not self._ensure():
-            return
-        gap = self.MIN_SEND_GAP_S - (time.time() - self._last_send)
-        if gap > 0:
-            time.sleep(gap)
-        try:
-            self.ser.write(p.encode(msg).encode("utf-8"))
-            self.ser.flush()
-        except Exception as exc:
-            self._drop(exc)
-            return
-        self._last_send = time.time()
-
-    def poll(self):
-        if not self._ensure():
-            return None
-        try:
-            data = self.ser.read(256).decode("utf-8", errors="replace")
-        except Exception as exc:
-            self._drop(exc)
-            return None
-        if data:
-            self._buf += data
-        if "\n" not in self._buf:
-            return None
-        line, self._buf = self._buf.split("\n", 1)
-        return p.decode(line)
-
-    def close(self):
-        try:
-            if self.ser is not None:
-                self.ser.close()
-        except Exception:
-            pass
-        self.ser = None
+        super().__init__(port, baud, raise_on_down=False,
+                         log=lambda m: print(m, flush=True))
 
 
 def serve(server, link, log=print):

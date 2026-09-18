@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
+from radio.serial_link import SerialLink
 
 CP210X_VID = 0x10C4   # Heltec V3 onboard USB-serial (Silicon Labs CP2102)
 
@@ -38,95 +39,17 @@ C_OFF = "\033[0m"
 # --------------------------------------------------------------------------
 # Transports: something that can send() and poll() protocol messages.
 # --------------------------------------------------------------------------
-class SerialTransport:
-    """Talk protocol lines over the LoRa serial link (real hardware)."""
+class SerialTransport(SerialLink):
+    """The ground station's link. Keeps running when the stick goes away so it
+    can carry on once it is back; anything already in the air is covered by the
+    drone's own link-loss RTL.
 
-    # Same treatment as link_test.Link and the Jetson's LoRaLink: a stick that
-    # re-enumerates mid-session used to leave this holding a dead handle, with
-    # poll() swallowing the error and returning None forever. The operator saw a
-    # client that looked connected and answered nothing.
-    RECONNECT_WAIT_S = 2.0
+    Inherits the send pacing it used to lack — its abort and stop paths could
+    emit two lines in one loop iteration with no gap between them."""
 
     def __init__(self, port, baud=115200):
-        self.port, self.baud = port, baud
-        self.ser = None
-        self._buf = ""
-        self._retry_at = 0.0
-        self._down_reported = False
-        self._open()
-
-    def _open(self):
-        import serial
-        # exclusive=True to match link_test.Link and the Jetson's LoRaLink: a
-        # stray serial monitor on the same port silently eats half the
-        # conversation, and this is the client an operator runs in the field.
-        self.ser = serial.Serial(self.port, self.baud, timeout=0.2, exclusive=True)
-        self._buf = ""
-
-    def _drop(self, exc):
-        if not self._down_reported:
-            print("\n{} went away ({}) - retrying every {:g}s".format(
-                self.port, exc, self.RECONNECT_WAIT_S), flush=True)
-            self._down_reported = True
-        try:
-            if self.ser is not None:
-                self.ser.close()
-        except Exception:
-            pass
-        self.ser = None
-        self._retry_at = time.time() + self.RECONNECT_WAIT_S
-
-    def _ensure(self):
-        if self.ser is not None:
-            return True
-        if time.time() < self._retry_at:
-            return False
-        try:
-            self._open()
-        except Exception:
-            self._retry_at = time.time() + self.RECONNECT_WAIT_S
-            return False
-        print("\n{} is back".format(self.port), flush=True)
-        self._down_reported = False
-        return True
-
-    @property
-    def up(self):
-        return self.ser is not None
-
-    def send(self, m):
-        """Drops the message if the port is away. The client keeps running so it
-        can carry on once the stick is back; the drone's own link-loss failsafe
-        covers anything already in the air."""
-        if not self._ensure():
-            return
-        try:
-            self.ser.write(p.encode(m).encode("utf-8"))
-        except Exception as exc:
-            self._drop(exc)
-
-    def poll(self):
-        if not self._ensure():
-            return None
-        try:
-            data = self.ser.read(256).decode("utf-8", errors="replace")
-        except Exception as exc:
-            self._drop(exc)
-            return None
-        if data:
-            self._buf += data
-        if "\n" not in self._buf:
-            return None
-        line, self._buf = self._buf.split("\n", 1)
-        return p.decode(line)
-
-    def close(self):
-        try:
-            if self.ser is not None:
-                self.ser.close()
-        except Exception:
-            pass
-        self.ser = None
+        super().__init__(port, baud, raise_on_down=False,
+                         log=lambda m: print("\n" + m, flush=True))
 
 
 class MockTransport:
