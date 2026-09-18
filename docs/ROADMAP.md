@@ -87,7 +87,9 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 2. Geofence radius + altitude cap.
 3. Coordinates: free-typed, saved "places", or both?
 4. Client UI: CLI now, browser GUI later.
-5. **Message addressing** — see below. Blocks putting a third radio on the link.
+5. **Message addressing** — see below. Blocks putting a third radio on the link,
+   and is the same gap that leaves the command link unauthenticated. See
+   [SECURITY.md](SECURITY.md).
 
 ## A third radio: what it takes
 
