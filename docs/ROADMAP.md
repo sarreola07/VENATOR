@@ -4,12 +4,25 @@ End goal: command the drone from any laptop over LoRa, with **zero interaction o
 the Jetson**, including a "fly to these coordinates" mission.
 
 <p align="center">
-  <img alt="Concept of operations: a laptop commands the drone over 915 MHz LoRa, it takes off, follows a person at 3 m, and returns home when the link drops" src="../assets/brand/conops-light.svg" width="900">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/brand/avoid-dark.svg">
+    <img alt="Forward obstacle avoidance, not built: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins" src="../assets/brand/avoid-light.svg" width="900">
+  </picture>
 </p>
 
-The sequence above is Mission 2 as designed, end to end. It is the target, not a
-recording: the missions are built and bench-tested against mocks, and outdoor
-flight is still pending.
+The furthest thing on this list, drawn so it is clear what is being aimed at.
+**None of it is built.** `run_mission2` steers toward a person and otherwise
+hovers in place, and the only rangefinder discussed anywhere in this repo is a
+*downward* lidar for altitude.
+
+What exists are the two ends. `drone/camera_publisher.py` already runs a
+`MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so forward
+distance is a matter of reading the depth map rather than the detections. PX4
+1.13 already accepts `OBSTACLE_DISTANCE` from a companion computer and brakes
+against it with `CP_DIST`. The link between those two ends is the work.
+
+Mission 2 as designed — the goal this is all pointed at — is on the
+[landing page](https://sarreola07.github.io/VENATOR/).
 
 ## Status
 
