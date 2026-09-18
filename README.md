@@ -23,7 +23,7 @@
   <a href="https://sarreola07.github.io/VENATOR/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/brand/cta-dark.svg">
-      <img alt="See it running — live demo" src="assets/brand/cta-light.svg" width="300">
+      <img alt="System overview — an animated walkthrough" src="assets/brand/cta-light.svg" width="320">
     </picture>
   </a>
 </p>
