@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>A hexarotor, a companion computer and a 915 MHz command link.</strong><br>
+  <strong>Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute.</strong><br>
   <sub>PX4 v1.13.3 · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</sub>
 </p>
 
