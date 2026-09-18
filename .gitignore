@@ -10,3 +10,6 @@ hexacopter-follow/
 
 # Design review write-up and its generated figures — kept out of the repo
 design_review_SA/
+
+# macOS drops these into any folder opened in Finder
+.DS_Store
