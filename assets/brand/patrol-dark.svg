@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" width="1000" height="420"
+     role="img" aria-label="Venator patrol: four coordinates uploaded over LoRa, validated, armed, flown as a circuit, then RTL home">
+  <title>Venator — fly to these coordinates (target system)</title>
+  <style>
+    #drone { transform-box: view-box; transform-origin: 0 0;
+             transform: translate(585px, 116px);
+             animation: fly 16s linear infinite }
+    @keyframes fly {
+      0%,33% { transform: translate(150px, 316px) }
+      39%     { transform: translate(150px, 316px) }
+      46.6338% { transform: translate(320px, 150px) }
+      55.2176% { transform: translate(585px, 116px) }
+      63.5902% { transform: translate(812px, 244px) }
+      73% { transform: translate(536px, 342px) }
+      87%,100%  { transform: translate(150px, 316px) }
+    }
+    #rotor circle { transform-box: fill-box; transform-origin: center;
+                    animation: spin .3s linear infinite }
+    @keyframes spin { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.3) } }
+
+    /* The flown line grows under the aircraft: same schedule, dashoffset to 0. */
+    #flown { stroke-dasharray: 1058.3; stroke-dashoffset: 1058.3;
+             animation: draw 16s linear infinite }
+    @keyframes draw {
+      0%,39% { stroke-dashoffset: 1058.3 }
+      73%,100%  { stroke-dashoffset: 0 }
+    }
+    #rtl { stroke-dasharray: 386.9; stroke-dashoffset: 386.9;
+           animation: drawR 16s linear infinite }
+    @keyframes drawR {
+      0%,73%   { stroke-dashoffset: 386.9 }
+      87%     { stroke-dashoffset: 0 }
+      100%        { stroke-dashoffset: 0 }
+    }
+    #plan  { opacity:0; animation: kPlan 16s steps(1,end) infinite }
+    #armed { opacity:0; animation: kArm 16s steps(1,end) infinite }
+    #ping  { opacity:0; animation: kPing 16s steps(1,end) infinite }
+    #ping circle { transform-box: fill-box; transform-origin: center;
+                   animation: ping 1.3s linear infinite }
+    #ping circle:nth-child(2) { animation-delay: .43s }
+    #ping circle:nth-child(3) { animation-delay: .86s }
+    @keyframes ping { 0% { transform: scale(1); opacity:.8 }
+                      100% { transform: scale(6.5); opacity:0 } }
+    @keyframes kPlan { 0%,4% {opacity:0} 4.1%,100% {opacity:1} }
+    @keyframes kArm  { 0%,30% {opacity:0} 30.1%,87% {opacity:1}
+                       87.1%,100% {opacity:0} }
+    @keyframes kPing { 0%,8.9% {opacity:0} 9%,30% {opacity:1}
+                       30.1%,100% {opacity:0} }
+    #wpOn0, #wpNum0 { opacity:0; animation: kwp0 16s steps(1,end) infinite }
+    #wpOn1, #wpNum1 { opacity:0; animation: kwp1 16s steps(1,end) infinite }
+    #wpOn2, #wpNum2 { opacity:0; animation: kwp2 16s steps(1,end) infinite }
+    #wpOn3, #wpNum3 { opacity:0; animation: kwp3 16s steps(1,end) infinite }
+    @keyframes kwp0 { 0%,46.5338% {opacity:0} 46.6338%,100% {opacity:1} }
+    @keyframes kwp1 { 0%,55.1176% {opacity:0} 55.2176%,100% {opacity:1} }
+    @keyframes kwp2 { 0%,63.4902% {opacity:0} 63.5902%,100% {opacity:1} }
+    @keyframes kwp3 { 0%,72.9% {opacity:0} 73%,100% {opacity:1} }
+    #ticker text { opacity:0 }
+    #p7 { opacity:1 }
+    #p0 { animation: kp0 16s steps(1,end) infinite }
+    #p1 { animation: kp1 16s steps(1,end) infinite }
+    #p2 { animation: kp2 16s steps(1,end) infinite }
+    #p3 { animation: kp3 16s steps(1,end) infinite }
+    #p4 { animation: kp4 16s steps(1,end) infinite }
+    #p5 { animation: kp5 16s steps(1,end) infinite }
+    #p6 { animation: kp6 16s steps(1,end) infinite }
+    #p7 { animation: kp7 16s steps(1,end) infinite }
+    @keyframes kp0 { 0%,8.9% {opacity:1} 9%,100% {opacity:0} }
+    @keyframes kp1 { 0%,8.9% {opacity:0} 9%,25.9% {opacity:1} 26%,100% {opacity:0} }
+    @keyframes kp2 { 0%,25.9% {opacity:0} 26%,32.9% {opacity:1} 33%,100% {opacity:0} }
+    @keyframes kp3 { 0%,32.9% {opacity:0} 33%,38.9% {opacity:1} 39%,100% {opacity:0} }
+    @keyframes kp4 { 0%,38.9% {opacity:0} 39%,72.9% {opacity:1} 73%,100% {opacity:0} }
+    @keyframes kp5 { 0%,72.9% {opacity:0} 73%,86.9% {opacity:1} 87%,100% {opacity:0} }
+    @keyframes kp6 { 0%,86.9% {opacity:0} 87%,92.9% {opacity:1} 93%,100% {opacity:0} }
+    @keyframes kp7 { 0%,92.9% {opacity:0} 93%,100% {opacity:1} }
+    @media (prefers-reduced-motion: reduce) {
+      #drone, #rotor circle, #ping, #ping circle { animation: none }
+      #ping { display: none }
+      #flown, #rtl { animation: none; stroke-dashoffset: 0 }
+      #plan, #armed { opacity: 1; animation: none }
+      [id^="wpOn"], [id^="wpNum"] { opacity: 1; animation: none }
+      #ticker text { animation: none; opacity: 0 }
+      #p7 { opacity: 1 }
+    }
+  </style>
+  <rect width="1000" height="420" fill="#0A0A0A"/>
+  <path d="M96 74V356" stroke="#151516" stroke-width="1"/><path d="M144 74V356" stroke="#151516" stroke-width="1"/><path d="M192 74V356" stroke="#151516" stroke-width="1"/><path d="M240 74V356" stroke="#151516" stroke-width="1"/><path d="M288 74V356" stroke="#151516" stroke-width="1"/><path d="M336 74V356" stroke="#151516" stroke-width="1"/><path d="M384 74V356" stroke="#151516" stroke-width="1"/><path d="M432 74V356" stroke="#151516" stroke-width="1"/><path d="M480 74V356" stroke="#151516" stroke-width="1"/><path d="M528 74V356" stroke="#151516" stroke-width="1"/><path d="M576 74V356" stroke="#151516" stroke-width="1"/><path d="M624 74V356" stroke="#151516" stroke-width="1"/><path d="M672 74V356" stroke="#151516" stroke-width="1"/><path d="M720 74V356" stroke="#151516" stroke-width="1"/><path d="M768 74V356" stroke="#151516" stroke-width="1"/><path d="M816 74V356" stroke="#151516" stroke-width="1"/><path d="M864 74V356" stroke="#151516" stroke-width="1"/><path d="M912 74V356" stroke="#151516" stroke-width="1"/><path d="M56 84H932" stroke="#151516" stroke-width="1"/><path d="M56 132H932" stroke="#151516" stroke-width="1"/><path d="M56 180H932" stroke="#151516" stroke-width="1"/><path d="M56 228H932" stroke="#151516" stroke-width="1"/><path d="M56 276H932" stroke="#151516" stroke-width="1"/><path d="M56 324H932" stroke="#151516" stroke-width="1"/>
+  <rect x="56" y="74" width="876" height="282" fill="none" stroke="#2A2A27" stroke-width="1.5"/>
+
+  <text x="56" y="44" fill="#8A8781" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11"
+    font-weight="600" letter-spacing="3.4">FLY TO THESE COORDINATES</text>
+  <text x="56" y="64" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="15" font-weight="600">
+    Phase 5 — upload a route over LoRa, fly the patrol, come home</text>
+
+  <path id="plan" d="M150,316 L320,150 L585,116 L812,244 L536,342" fill="none" stroke="#8A8781"
+    stroke-width="1.2" stroke-dasharray="5 5"/>
+  <path id="flown" d="M150,316 L320,150 L585,116 L812,244 L536,342" fill="none" stroke="#E05316" stroke-width="2.2"/>
+  <path id="rtl" d="M536,342 L150,316" fill="none" stroke="#E05316"
+    stroke-width="2.2" stroke-dasharray="386.9"/>
+
+    <g>
+      <circle cx="320" cy="150" r="11" fill="#131314" stroke="#8A8781" stroke-width="1.6"/>
+      <circle id="wpOn0" cx="320" cy="150" r="11" fill="#E05316"/>
+      <text x="320" y="154" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+        text-anchor="middle">1</text>
+      <text id="wpNum0" x="320" y="154" fill="#131314" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="11" text-anchor="middle">1</text>
+    </g>
+    <g>
+      <circle cx="585" cy="116" r="11" fill="#131314" stroke="#8A8781" stroke-width="1.6"/>
+      <circle id="wpOn1" cx="585" cy="116" r="11" fill="#E05316"/>
+      <text x="585" y="120" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+        text-anchor="middle">2</text>
+      <text id="wpNum1" x="585" y="120" fill="#131314" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="11" text-anchor="middle">2</text>
+    </g>
+    <g>
+      <circle cx="812" cy="244" r="11" fill="#131314" stroke="#8A8781" stroke-width="1.6"/>
+      <circle id="wpOn2" cx="812" cy="244" r="11" fill="#E05316"/>
+      <text x="812" y="248" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+        text-anchor="middle">3</text>
+      <text id="wpNum2" x="812" y="248" fill="#131314" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="11" text-anchor="middle">3</text>
+    </g>
+    <g>
+      <circle cx="536" cy="342" r="11" fill="#131314" stroke="#8A8781" stroke-width="1.6"/>
+      <circle id="wpOn3" cx="536" cy="342" r="11" fill="#E05316"/>
+      <text x="536" y="346" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+        text-anchor="middle">4</text>
+      <text id="wpNum3" x="536" y="346" fill="#131314" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+        font-size="11" text-anchor="middle">4</text>
+    </g>
+
+  <g transform="translate(150,316)">
+    <rect x="-13" y="-13" width="26" height="26" fill="none" stroke="#8A8781" stroke-width="1.6"/>
+    <text x="0" y="30" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10"
+      text-anchor="middle" letter-spacing="1">HOME</text>
+    <g id="ping" fill="none" stroke="#E05316" stroke-width="1.6">
+      <circle r="7"/><circle r="7"/><circle r="7"/></g>
+  </g>
+
+  <g id="drone">
+    <g id="rotor" fill="#8A8781">
+      <circle cx="-17" cy="-10" r="7"/><circle cx="17" cy="-10" r="7"/>
+      <circle cx="-17" cy="10" r="7"/><circle cx="17" cy="10" r="7"/>
+      <circle cx="0" cy="-15" r="7"/><circle cx="0" cy="15" r="7"/>
+    </g>
+    <path d="M-17-10L17 10M17-10L-17 10M0-15V15" stroke="#F2F1EE" stroke-width="2"/>
+    <circle r="7.5" fill="#F2F1EE"/>
+  </g>
+
+  <g id="armed" transform="translate(800,60)">
+    <circle r="4" cx="0" cy="-4" fill="#E05316"/>
+    <text x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+      letter-spacing="1.6">ARMED</text>
+  </g>
+
+  <g id="ticker">
+    <text id="p0" x="56" y="398" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">operator plots 4 coordinates</text>
+    <text id="p1" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">WP_BEGIN{4}  →  WP{i,lat,lon,alt} ×4, each ACKed  →  WP_END</text>
+    <text id="p2" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">validated: 0 &lt; alt ≤ 50 m  →  ACK{uploaded}  →  CONFIRM  →  ARMED</text>
+    <text id="p3" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.TAKEOFF  →  first waypoint altitude</text>
+    <text id="p4" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.MISSION  ·  flying the circuit</text>
+    <text id="p5" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">RTL  ·  the mission's own last item</text>
+    <text id="p6" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">landed  ·  disarmed  ·  DONE{result}</text>
+    <text id="p7" x="56" y="398" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">Target system — Phase 5 in docs/ROADMAP.md · upload, gate and RTL bench-tested; GPS not yet fitted</text>
+  </g>
+</svg>
