@@ -13,6 +13,13 @@ flight is still pending.
 
 ## Status
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/brand/phases-dark.svg">
+    <img alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started" src="../assets/brand/phases-light.svg" width="900">
+  </picture>
+</p>
+
 | Phase | What | State |
 |---|---|---|
 | 0 | NVMe install + restore project (see [REINSTALL.md](REINSTALL.md)) | ✅ done |

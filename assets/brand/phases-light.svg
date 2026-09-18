@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 306" width="1000" height="306"
+     role="img" aria-label="Venator phase status: phases 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
+  <title>Venator — phase status</title>
+  <style>
+    @keyframes ring { 0% { transform: scale(1); opacity: .8 }
+                      100% { transform: scale(2.1); opacity: 0 } }
+    #sumbar { animation: ks 12s steps(1,end) infinite }
+    @keyframes ks { 0%,68.32% {opacity:0} 68.33%,100% {opacity:1} }
+    #ticker text { opacity: 0 }
+    #cs { opacity: 1 }
+    #n0 { animation: k0 12s steps(1,end) infinite }
+    #n1 { animation: k1 12s steps(1,end) infinite }
+    #pulse2 { transform-box: fill-box; transform-origin: center; animation: ring 1.8s ease-out infinite }
+    #n2 { animation: k2 12s steps(1,end) infinite }
+    #n3 { animation: k3 12s steps(1,end) infinite }
+    #n4 { animation: k4 12s steps(1,end) infinite }
+    #pulse5 { transform-box: fill-box; transform-origin: center; animation: ring 1.8s ease-out infinite }
+    #n5 { animation: k5 12s steps(1,end) infinite }
+    #n6 { animation: k6 12s steps(1,end) infinite }
+    @keyframes k0 { 0%,6.66% {opacity:0} 6.67%,100% {opacity:1} }
+    @keyframes k1 { 0%,14.99% {opacity:0} 15%,100% {opacity:1} }
+    @keyframes k2 { 0%,23.32% {opacity:0} 23.33%,100% {opacity:1} }
+    @keyframes k3 { 0%,31.66% {opacity:0} 31.67%,100% {opacity:1} }
+    @keyframes k4 { 0%,39.99% {opacity:0} 40%,100% {opacity:1} }
+    @keyframes k5 { 0%,48.32% {opacity:0} 48.33%,100% {opacity:1} }
+    @keyframes k6 { 0%,56.66% {opacity:0} 56.67%,100% {opacity:1} }
+    #c0 { animation: tc0 12s steps(1,end) infinite }
+    #c1 { animation: tc1 12s steps(1,end) infinite }
+    #c2 { animation: tc2 12s steps(1,end) infinite }
+    #c3 { animation: tc3 12s steps(1,end) infinite }
+    #c4 { animation: tc4 12s steps(1,end) infinite }
+    #c5 { animation: tc5 12s steps(1,end) infinite }
+    #c6 { animation: tc6 12s steps(1,end) infinite }
+    #cs { animation: tcs 12s steps(1,end) infinite }
+    @keyframes tc0 { 0%,6.66% {opacity:0} 6.67%,14.99% {opacity:1} 15%,100% {opacity:0} }
+    @keyframes tc1 { 0%,14.99% {opacity:0} 15%,23.32% {opacity:1} 23.33%,100% {opacity:0} }
+    @keyframes tc2 { 0%,23.32% {opacity:0} 23.33%,31.66% {opacity:1} 31.67%,100% {opacity:0} }
+    @keyframes tc3 { 0%,31.66% {opacity:0} 31.67%,39.99% {opacity:1} 40%,100% {opacity:0} }
+    @keyframes tc4 { 0%,39.99% {opacity:0} 40%,48.32% {opacity:1} 48.33%,100% {opacity:0} }
+    @keyframes tc5 { 0%,48.32% {opacity:0} 48.33%,56.66% {opacity:1} 56.67%,100% {opacity:0} }
+    @keyframes tc6 { 0%,56.66% {opacity:0} 56.67%,68.32% {opacity:1} 68.33%,100% {opacity:0} }
+    @keyframes tcs { 0%,68.32% {opacity:0} 68.33%,100% {opacity:1} }
+    @media (prefers-reduced-motion: reduce) {
+      [id^="pulse"] { animation: none; opacity: 0 }
+      [id^="n"], #sumbar { animation: none; opacity: 1 }
+      #ticker text { animation: none; opacity: 0 }
+      #cs { opacity: 1 }
+    }
+  </style>
+  <rect width="1000" height="306" fill="#F2F1EE"/>
+
+  <text x="96" y="40" fill="#6E6B66" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11"
+    font-weight="600" letter-spacing="3.4">PHASE STATUS</text>
+  <text x="96" y="62" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="15" font-weight="600">
+    Where the project actually is</text>
+  <circle cx="648" cy="46" r="7" fill="#0A0A0A"/><text x="661" y="50" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">done</text><circle cx="766" cy="46" r="7" fill="none" stroke="#E05316" stroke-width="2.2"/><text x="779" y="50" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">in progress</text><circle cx="884" cy="46" r="7" fill="none" stroke="#6E6B66" stroke-width="1.5" stroke-dasharray="3 3"/><text x="897" y="50" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11">not started</text>
+
+  <path d="M96 152H904" stroke="#DAD8D3" stroke-width="1.5"/>
+  <g id="n0" opacity="0"><circle cx="96.0" cy="152" r="17" fill="#0A0A0A"/><text x="96.0" y="157" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">0</text><text x="96.0" y="196" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">NVMe +</text><text x="96.0" y="211" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">restore</text></g>
+  <g id="n1" opacity="0"><circle cx="230.66666666666666" cy="152" r="17" fill="#0A0A0A"/><text x="230.66666666666666" y="157" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">1</text><text x="230.66666666666666" y="196" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">C2</text><text x="230.66666666666666" y="211" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">protocol</text></g>
+  <g id="n2" opacity="0"><circle id="pulse2" cx="365.3333333333333" cy="152" r="17" fill="none" stroke="#E05316" stroke-width="2"/><circle cx="365.3333333333333" cy="152" r="17" fill="#F2F1EE" stroke="#E05316" stroke-width="2.6"/><text x="365.3333333333333" y="157" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">2</text><text x="365.3333333333333" y="196" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">laptop</text><text x="365.3333333333333" y="211" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">client</text></g>
+  <g id="n3" opacity="0"><circle cx="500.0" cy="152" r="17" fill="#0A0A0A"/><text x="500.0" y="157" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">3</text><text x="500.0" y="196" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">Heltec</text><text x="500.0" y="211" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">firmware</text></g>
+  <g id="n4" opacity="0"><circle cx="634.6666666666666" cy="152" r="17" fill="#0A0A0A"/><text x="634.6666666666666" y="157" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">4</text><text x="634.6666666666666" y="196" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">Jetson</text><text x="634.6666666666666" y="211" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">C2 server</text></g>
+  <g id="n5" opacity="0"><circle id="pulse5" cx="769.3333333333333" cy="152" r="17" fill="none" stroke="#E05316" stroke-width="2"/><circle cx="769.3333333333333" cy="152" r="17" fill="#F2F1EE" stroke="#E05316" stroke-width="2.6"/><text x="769.3333333333333" y="157" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle" font-weight="700">5</text><text x="769.3333333333333" y="196" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">GPS +</text><text x="769.3333333333333" y="211" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">waypoints</text></g>
+  <g id="n6" opacity="0"><circle cx="904.0" cy="152" r="17" fill="#F2F1EE" stroke="#6E6B66" stroke-width="1.6" stroke-dasharray="4 4"/><text x="904.0" y="157" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="14" text-anchor="middle">6</text><text x="904.0" y="196" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">polish +</text><text x="904.0" y="211" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5" text-anchor="middle">avoidance</text></g>
+
+  <g id="sumbar" opacity="0">
+    <path d="M96 240H904" stroke="#DAD8D3" stroke-width="1"/>
+  </g>
+
+  <g id="ticker">
+    <text id="c0" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">0 · NVMe install + project restore</text>
+    <text id="c1" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">1 · C2 protocol — newline JSON, handshake, ACK / retransmit</text>
+    <text id="c2" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">2 · laptop client — runs today with --mock; CI builds .exe and .app</text>
+    <text id="c3" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">3 · firmware — flashed and validated on real radios, OLED on both sticks</text>
+    <text id="c4" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">4 · Jetson server — working over real LoRa, zero-touch boot service</text>
+    <text id="c5" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">5 · waypoint flight — built and bench-tested; the GPS is not fitted yet</text>
+    <text id="c6" x="96" y="282" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">6 · polish and obstacle avoidance — not started</text>
+    <text id="cs" x="96" y="282" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">4 done · 2 in progress · 1 not started — the link works end to end; flight is what is left</text>
+  </g>
+</svg>
