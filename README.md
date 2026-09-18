@@ -20,7 +20,11 @@
 </p>
 
 <p align="center">
-  <img alt="A command leaves the ground station over 915 MHz LoRa, the Jetson relays it to the Pixhawk over MAVLink, and the reply comes back the same way" src="assets/brand/system-light.svg" width="900">
+  <a href="https://sarreola07.github.io/VENATOR/"><strong>See it running →</strong></a>
+</p>
+
+<p align="center">
+  <img alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops" src="assets/brand/conops-light.svg" width="900">
 </p>
 
 The ground station sends a command over LoRa, the Jetson runs it against the

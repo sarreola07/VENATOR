@@ -24,6 +24,7 @@ flight is still pending.
 | — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock); hover 2 m on GPS, person detection over LoRa; real flight outdoors, true 3 ft with lidar |
 | — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
+| 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
 
 ## Phase details
 
@@ -50,6 +51,15 @@ flight is still pending.
   RTL-last, bench-validate acceptance, then fly outdoors.
 - **6 — Polish:** zero-click launch agents on your own Win/Mac, a saved places
   library, a browser GUI, and the OFFBOARD-mode camera-follow port.
+- **6 — Obstacle avoidance** *(not started):* nothing in this repo avoids
+  anything today — `run_mission2` steers toward a person and otherwise hovers in
+  place, and the only rangefinder discussed is a *downward* lidar for altitude.
+  The hardware is already most of the way there: `drone/camera_publisher.py`
+  runs a `MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so
+  forward obstacle distance is a matter of reading the depth map rather than the
+  detections. PX4 1.13 accepts `OBSTACLE_DISTANCE` / `DISTANCE_SENSOR` from a
+  companion computer and will brake against it with `CP_DIST`. The patrol
+  animation shows this deviation marked as not built.
 
 ## Open decisions (needed by Phase 4/5)
 

@@ -8,9 +8,11 @@
     @keyframes fly {
       0%,33% { transform: translate(150px, 316px) }
       39%     { transform: translate(150px, 316px) }
-      46.6338% { transform: translate(320px, 150px) }
-      55.2176% { transform: translate(585px, 116px) }
-      63.5902% { transform: translate(812px, 244px) }
+      46.3581% { transform: translate(320px, 150px) }
+      54.6318% { transform: translate(585px, 116px) }
+      56.6608% { transform: translate(648px, 98px) }
+      59.2746% { transform: translate(730px, 118px) }
+      63.9301% { transform: translate(812px, 244px) }
       73% { transform: translate(536px, 342px) }
       87%,100%  { transform: translate(150px, 316px) }
     }
@@ -19,12 +21,16 @@
     @keyframes spin { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.3) } }
 
     /* The flown line grows under the aircraft: same schedule, dashoffset to 0. */
-    #flown { stroke-dasharray: 1058.3; stroke-dashoffset: 1058.3;
-             animation: draw 16s linear infinite }
-    @keyframes draw {
-      0%,39% { stroke-dashoffset: 1058.3 }
-      73%,100%  { stroke-dashoffset: 0 }
-    }
+    #flownA { animation: drawA 16s linear infinite }
+    @keyframes drawA { 0%,39% { stroke-dashoffset: 504.8 }
+                       54.6318%,100% { stroke-dashoffset: 0 } }
+    #flownB { animation: drawB 16s linear infinite }
+    @keyframes drawB { 0%,63.9301% { stroke-dashoffset: 292.9 }
+                       73%,100% { stroke-dashoffset: 0 } }
+    /* The deviation is dashed to mark it as the one thing here that is not
+       built, so it reveals rather than grows — dasharray is already spent. */
+    #dev, #devChip, #obstWarn { opacity:0; animation: kDev 16s steps(1,end) infinite }
+    @keyframes kDev { 0%,54.5318% {opacity:0} 54.6318%,100% {opacity:1} }
     #rtl { stroke-dasharray: 386.9; stroke-dashoffset: 386.9;
            animation: drawR 16s linear infinite }
     @keyframes drawR {
@@ -50,9 +56,9 @@
     #wpOn1, #wpNum1 { opacity:0; animation: kwp1 16s steps(1,end) infinite }
     #wpOn2, #wpNum2 { opacity:0; animation: kwp2 16s steps(1,end) infinite }
     #wpOn3, #wpNum3 { opacity:0; animation: kwp3 16s steps(1,end) infinite }
-    @keyframes kwp0 { 0%,46.5338% {opacity:0} 46.6338%,100% {opacity:1} }
-    @keyframes kwp1 { 0%,55.1176% {opacity:0} 55.2176%,100% {opacity:1} }
-    @keyframes kwp2 { 0%,63.4902% {opacity:0} 63.5902%,100% {opacity:1} }
+    @keyframes kwp0 { 0%,46.2581% {opacity:0} 46.3581%,100% {opacity:1} }
+    @keyframes kwp1 { 0%,54.5318% {opacity:0} 54.6318%,100% {opacity:1} }
+    @keyframes kwp2 { 0%,63.8301% {opacity:0} 63.9301%,100% {opacity:1} }
     @keyframes kwp3 { 0%,72.9% {opacity:0} 73%,100% {opacity:1} }
     #ticker text { opacity:0 }
     #p7 { opacity:1 }
@@ -61,6 +67,8 @@
     #p2 { animation: kp2 16s steps(1,end) infinite }
     #p3 { animation: kp3 16s steps(1,end) infinite }
     #p4 { animation: kp4 16s steps(1,end) infinite }
+    #p4b { animation: kp4b 16s steps(1,end) infinite }
+    #p4c { animation: kp4c 16s steps(1,end) infinite }
     #p5 { animation: kp5 16s steps(1,end) infinite }
     #p6 { animation: kp6 16s steps(1,end) infinite }
     #p7 { animation: kp7 16s steps(1,end) infinite }
@@ -68,14 +76,17 @@
     @keyframes kp1 { 0%,8.9% {opacity:0} 9%,25.9% {opacity:1} 26%,100% {opacity:0} }
     @keyframes kp2 { 0%,25.9% {opacity:0} 26%,32.9% {opacity:1} 33%,100% {opacity:0} }
     @keyframes kp3 { 0%,32.9% {opacity:0} 33%,38.9% {opacity:1} 39%,100% {opacity:0} }
-    @keyframes kp4 { 0%,38.9% {opacity:0} 39%,72.9% {opacity:1} 73%,100% {opacity:0} }
+    @keyframes kp4 { 0%,38.9% {opacity:0} 39%,54.5318% {opacity:1} 54.6318%,100% {opacity:0} }
+    @keyframes kp4b { 0%,54.5318% {opacity:0} 54.6318%,63.8301% {opacity:1} 63.9301%,100% {opacity:0} }
+    @keyframes kp4c { 0%,63.8301% {opacity:0} 63.9301%,72.9% {opacity:1} 73%,100% {opacity:0} }
     @keyframes kp5 { 0%,72.9% {opacity:0} 73%,86.9% {opacity:1} 87%,100% {opacity:0} }
     @keyframes kp6 { 0%,86.9% {opacity:0} 87%,92.9% {opacity:1} 93%,100% {opacity:0} }
     @keyframes kp7 { 0%,92.9% {opacity:0} 93%,100% {opacity:1} }
     @media (prefers-reduced-motion: reduce) {
       #drone, #rotor circle, #ping, #ping circle { animation: none }
       #ping { display: none }
-      #flown, #rtl { animation: none; stroke-dashoffset: 0 }
+      #flownA, #flownB, #rtl { animation: none; stroke-dashoffset: 0 }
+      #dev, #devChip, #obstWarn { opacity: 1; animation: none }
       #plan, #armed { opacity: 1; animation: none }
       [id^="wpOn"], [id^="wpNum"] { opacity: 1; animation: none }
       #ticker text { animation: none; opacity: 0 }
@@ -93,7 +104,19 @@
 
   <path id="plan" d="M150,316 L320,150 L585,116 L812,244 L536,342" fill="none" stroke="#8A8781"
     stroke-width="1.2" stroke-dasharray="5 5"/>
-  <path id="flown" d="M150,316 L320,150 L585,116 L812,244 L536,342" fill="none" stroke="#E05316" stroke-width="2.2"/>
+  <g>
+    <defs><clipPath id="oclip"><rect x="664" y="152" width="72" height="56"/></clipPath></defs>
+    <g clip-path="url(#oclip)"><path d="M612 208L668 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M625 208L681 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M638 208L694 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M651 208L707 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M664 208L720 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M677 208L733 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M690 208L746 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M703 208L759 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M716 208L772 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M729 208L785 152" stroke="#8A8781" stroke-width="1" opacity=".55"/><path d="M742 208L798 152" stroke="#8A8781" stroke-width="1" opacity=".55"/></g>
+    <rect x="664" y="152" width="72" height="56" fill="none"
+      stroke="#F2F1EE" stroke-width="1.6"/>
+    <text x="700.0" y="244" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="9.5" text-anchor="middle" letter-spacing="1">OBSTACLE</text>
+    <ellipse id="obstWarn" cx="700.0" cy="180.0" rx="58.0" ry="50.0"
+      fill="none" stroke="#E05316" stroke-width="1.3" stroke-dasharray="4 4"/>
+  </g>
+  <path id="flownA" d="M150,316 L320,150 L585,116" fill="none" stroke="#E05316" stroke-width="2.2" stroke-dasharray="504.8" stroke-dashoffset="504.8"/>
+  <path id="dev" d="M585,116 L648,98 L730,118 L812,244" fill="none" stroke="#E05316" stroke-width="2.2" stroke-dasharray="7 5" opacity="0"/>
+  <path id="flownB" d="M812,244 L536,342" fill="none" stroke="#E05316" stroke-width="2.2" stroke-dasharray="292.9" stroke-dashoffset="292.9"/>
   <path id="rtl" d="M536,342 L150,316" fill="none" stroke="#E05316"
     stroke-width="2.2" stroke-dasharray="386.9"/>
 
@@ -148,6 +171,13 @@
     <circle r="7.5" fill="#F2F1EE"/>
   </g>
 
+  <g id="devChip" transform="translate(700.0,106)">
+    <rect x="-96" y="-15" width="192" height="22" rx="2" fill="#0A0A0A"
+      stroke="#E05316" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5"
+      text-anchor="middle" letter-spacing="0.6">DEVIATE · Phase 6, not built</text>
+  </g>
+
   <g id="armed" transform="translate(800,60)">
     <circle r="4" cx="0" cy="-4" fill="#E05316"/>
     <text x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
@@ -160,6 +190,8 @@
     <text id="p2" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">validated: 0 &lt; alt ≤ 50 m  →  ACK{uploaded}  →  CONFIRM  →  ARMED</text>
     <text id="p3" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.TAKEOFF  →  first waypoint altitude</text>
     <text id="p4" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.MISSION  ·  flying the circuit</text>
+    <text id="p4b" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">OAK-D depth  →  obstacle ahead  →  deviating ·  Phase 6, not built</text>
+    <text id="p4c" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">clear  ·  back on the uploaded route</text>
     <text id="p5" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">RTL  ·  the mission's own last item</text>
     <text id="p6" x="56" y="398" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">landed  ·  disarmed  ·  DONE{result}</text>
     <text id="p7" x="56" y="398" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">Target system — Phase 5 in docs/ROADMAP.md · upload, gate and RTL bench-tested; GPS not yet fitted</text>
