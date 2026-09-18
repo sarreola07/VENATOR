@@ -7,8 +7,8 @@ name: Build Venator GCS
 on:
   push:
     paths:
-      - "gcs_client.py"
-      - "c2_protocol.py"
+      - "ground/gcs_client.py"
+      - "radio/protocol.py"
       - ".github/workflows/build-gcs.yml"
   pull_request:
   workflow_dispatch:
@@ -30,7 +30,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install pyserial pyinstaller
-      - run: pyinstaller --onefile --console --name VenatorGCS gcs_client.py
+      # --paths . so `from radio import protocol` resolves from the repo root
+      - run: pyinstaller --onefile --console --paths . --name VenatorGCS ground/gcs_client.py
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

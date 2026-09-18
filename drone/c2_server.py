@@ -24,8 +24,15 @@ import json
 import socket
 import sys
 import time
+from pathlib import Path
 
-import c2_protocol as p
+
+# Runnable from any folder: put the repo root on the import path so the
+# sibling packages (radio/, drone/, ground/) import the same modules
+# whether this is started by path, by a desktop launcher or by systemd.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from radio import protocol as p
 
 MAX_ALT_M = 50.0        # reject uploaded waypoints above this relative altitude
 LINK_LOSS_S = 4.0       # in flight, no client ping for this long -> RTL failsafe

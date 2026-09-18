@@ -1,7 +1,7 @@
 # Venator C2 protocol (v1)
 
-The command-and-control protocol between the **laptop client** (`gcs_client.py`)
-and the **Jetson server** (Phase 4). Defined once in [`c2_protocol.py`](../c2_protocol.py)
+The command-and-control protocol between the **laptop client** (`ground/gcs_client.py`)
+and the **Jetson server** (Phase 4). Defined once in [`radio/protocol.py`](../radio/protocol.py)
 and imported by both, so they can never drift.
 
 ## Wire format

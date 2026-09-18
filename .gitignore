@@ -2,5 +2,11 @@ venv/
 __pycache__/
 *.pyc
 
+# Heltec ESP32 core copies every compile's binaries into <sketch>/build/ (~50 MB)
+radio/firmware/*/build/
+
 # Classmates' ArduPilot SITL project — its own git repo, kept out of this one
 hexacopter-follow/
+
+# Design review write-up and its generated figures — kept out of the repo
+design_review_SA/

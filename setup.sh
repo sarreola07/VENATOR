@@ -28,7 +28,7 @@ echo "==> Installing pymavlink..."
 
 echo
 echo "Done. Run the test with:"
-echo "    ./venv/bin/python check_pixhawk.py"
+echo "    ./venv/bin/python drone/checks/check_pixhawk.py"
 echo
 echo "Note: the 'dialout' group membership becomes permanent after you log out"
 echo "and back in (or reboot). Until then the setfacl above covers this session."
