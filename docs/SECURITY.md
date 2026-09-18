@@ -9,10 +9,11 @@ Everything here is derivable from the code in this repo. None of it is a secret.
 
 ## Known limitations
 
-### 1. The command link is not authenticated — **critical**
+### 1. The command link is not authenticated by default — **critical**
 
-`drone/c2_server.py` acts on any protocol message that arrives on its serial
-port. There is no identity on a message, no shared secret, and no signature:
+Authentication exists but is **off until you create a key** — see "Turning
+authentication on" below. Until then, `drone/c2_server.py` acts on any protocol
+message that arrives on its serial port, with no identity and no signature:
 
 ```python
 if t == p.RUN:        server.run_and_report(msg, link.send)
@@ -50,15 +51,38 @@ which is the point of the project.
   the physical kill path are the real controls right now.
 - Do not leave a `--real --props-on` server running unattended.
 
-**Planned fix.** An HMAC over every message using a shared secret read from a
-file outside the repo, with anything that fails verification dropped before it
-reaches the dispatcher. Roughly 30 lines using stdlib `hmac`, in
-[`radio/protocol.py`](../radio/protocol.py). It is a breaking protocol change:
-the Jetson and every client have to be updated together and share a key. The
-firmware does not change — it is a transparent line bridge and never inspects
-what it carries.
+### Turning authentication on
 
-Tracked as part of open decision 5 in [ROADMAP.md](ROADMAP.md).
+[`radio/auth.py`](../radio/auth.py) signs every message with a truncated
+HMAC-SHA256 over its canonical form, plus a per-message nonce. A receiver with a
+key drops anything unsigned, tampered with, replayed, or signed with a different
+key, before it reaches the dispatcher. Signing lives in
+[`radio/serial_link.py`](../radio/serial_link.py), so every tool that opens a
+stick gets it.
+
+**It is off until a key exists**, and with no key the link behaves exactly as it
+always did. That is deliberate: it means the code could ship without a flag day.
+To switch it on, on **both** machines:
+
+```bash
+python3 radio/auth.py --init     # writes ~/.venator/key, mode 0600
+python3 radio/auth.py            # shows whether a key is present
+```
+
+Copy the file the first machine produced to the same path on the second — the
+key must be identical. Restart both ends. Until both have the same key, the end
+that has one will reject the other's messages and say so.
+
+The server and the client each state which mode they are in at startup. If you
+do not see the link reported as authenticated, it is not.
+
+**What this does not cover.** A packet captured and replayed *later* is refused
+only while its nonce is still in the receiver's window (the last 512 messages).
+A determined attacker who recorded a `CONFIRM` and replayed it after a restart
+would get past that. The props and GPS gates, PX4's own pre-arm checks and
+manual RC override remain the other layers. Sender identity — which would let
+the arm gate remember which station armed it — is open decision 5 in
+[ROADMAP.md](ROADMAP.md).
 
 ### 2. Radio traffic is not encrypted — **medium**
 

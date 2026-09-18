@@ -30,6 +30,12 @@ jobs:
       - name: LoRa link survives the stick disappearing
         run: python3 tests/test_link_reconnect.py
 
+      # Two links over a fake wire: unsigned, tampered, replayed and
+      # wrong-key messages must all be refused, and no key must behave
+      # exactly as the link did before authentication existed.
+      - name: Command link authentication
+        run: python3 tests/test_auth.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 

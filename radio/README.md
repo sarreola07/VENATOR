@@ -19,6 +19,19 @@ They appear as a CP2102 USB-serial port: `/dev/ttyUSB0` on Linux,
 `/dev/cu.usbserial-*` on macOS. Radio settings are identical on both and must
 stay that way: **915 MHz, SF7, syncword 0x12, 14 dBm**.
 
+## Authenticating the link
+
+Off by default. Without a key, anything in radio range that speaks this protocol
+can command the aircraft — see [../docs/SECURITY.md](../docs/SECURITY.md).
+
+```bash
+python3 radio/auth.py --init   # on both machines, then copy the key across
+python3 radio/auth.py          # is a key present?
+```
+
+Both ends must hold the same key at `~/.venator/key`. The tools say which mode
+they are in when they start.
+
 ## Check a link
 
 ```bash

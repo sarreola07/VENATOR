@@ -909,6 +909,13 @@ def serve(server, link, log=print):
     """Main loop: pump protocol messages between the LoRa link and the server."""
     log(f"C2 server up ({server.fc.name} FC, props {'OFF' if server.props_off else 'ON'}). "
         f"Waiting for the laptop...")
+    if getattr(link, "authenticated", False):
+        log("Link authenticated - unsigned commands will be ignored.")
+    else:
+        log("WARNING: the command link is NOT authenticated. Anything in radio "
+            "range that speaks this protocol can command this aircraft. "
+            "Run 'python3 radio/auth.py --init' on both machines. "
+            "See docs/SECURITY.md.")
     while True:
         msg = link.poll()
         if msg is None:
