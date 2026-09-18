@@ -21,8 +21,15 @@ import json
 import socket
 import sys
 import time
+from pathlib import Path
 
-from lora_helper import listen as listen_lora
+
+# Runnable from any folder: put the repo root on the import path so the
+# sibling packages (radio/, drone/, ground/) import the same modules
+# whether this is started by path, by a desktop launcher or by systemd.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from radio.listener import listen as listen_lora
 
 try:
     from pymavlink import mavutil

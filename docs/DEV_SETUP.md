@@ -42,7 +42,7 @@ from a **local** Claude Code session on that machine. Install the CLI
       ┌────────────────────▼───┐          ┌──▼─────────────────────┐
       │ Ubuntu box             │          │ MacBook                │
       │ "the Jetson, for now"  │          │ the ground station     │
-      │ jetson_c2_server.py    │          │ gcs_client.py          │
+      │ drone/c2_server.py    │          │ ground/gcs_client.py          │
       │ Heltec on /dev/ttyUSB0 │          │ Heltec on /dev/cu.*    │
       └───────────┬────────────┘          └───────────┬────────────┘
                   └─────────── 915 MHz LoRa ──────────┘
@@ -73,7 +73,7 @@ The two local Claudes **cannot message each other.** They share exactly two
 channels, and that is enough:
 
 1. **Git** — for code. One pushes, the other pulls.
-2. **The LoRa link itself** — for messages. That is what `link_test.py --chat`
+2. **The LoRa link itself** — for messages. That is what `radio/link_test.py --chat`
    is for, and it is the same link the drone commands ride on.
 
 ### If both sessions need to write code
@@ -83,12 +83,12 @@ file, so two Claudes never touch the same one:
 
 | File | Owner |
 |---|---|
-| `gcs_client.py` | MacBook session |
-| `jetson_c2_server.py`, `missions.py`, `camera_publisher.py` | Ubuntu session |
-| `c2_protocol.py`, `docs/PROTOCOL.md` | **One session at a time, never both** |
-| `firmware/` | Whoever has the Arduino IDE open |
+| `ground/gcs_client.py` | MacBook session |
+| `drone/c2_server.py`, `drone/missions.py`, `drone/camera_publisher.py` | Ubuntu session |
+| `radio/protocol.py`, `docs/PROTOCOL.md` | **One session at a time, never both** |
+| `radio/firmware/` | Whoever has the Arduino IDE open |
 
-`c2_protocol.py` is the one file both ends import, and its whole purpose is that
+`radio/protocol.py` is the one file both ends import, and its whole purpose is that
 the two ends cannot drift. Change it in one place, push, and pull on the other
 **before** running anything. A protocol change deployed to only one end looks
 exactly like a broken radio.
@@ -103,14 +103,14 @@ know which one it was.
 
 ### Rung 0 — both sticks in one computer
 
-Flash both Heltec sticks with `firmware/LoRa_Transceiver/LoRa_Transceiver.ino`
-(see [../firmware/README.md](../firmware/README.md)), plug both into the *same*
+Flash both Heltec sticks with `radio/firmware/LoRa_Transceiver/LoRa_Transceiver.ino`
+(see [../radio/firmware/README.md](../radio/firmware/README.md)), plug both into the *same*
 machine, and prove the radios talk before a second computer is involved:
 
 ```bash
-python3 link_test.py --list                            # names both sticks
-python3 link_test.py --listen --port /dev/ttyUSB0 &    # one terminal
-python3 link_test.py --send   --port /dev/ttyUSB1      # the other
+python3 radio/link_test.py --list                            # names both sticks
+python3 radio/link_test.py --listen --port /dev/ttyUSB0 &    # one terminal
+python3 radio/link_test.py --send   --port /dev/ttyUSB1      # the other
 ```
 
 You want `Link OK ✓`. If this fails it is the radios or the firmware, and
@@ -122,10 +122,10 @@ One stick per machine, ideally in different rooms so you also learn the range.
 
 ```bash
 # Ubuntu box
-python3 link_test.py --listen
+python3 radio/link_test.py --listen
 
 # MacBook
-python3 link_test.py --send --count 20
+python3 radio/link_test.py --send --count 20
 ```
 
 The Mac prints per-packet round-trip times and a loss summary, and exits `0`
@@ -137,20 +137,20 @@ To carry free text across — the quickest way to confirm a human-visible messag
 really crosses the gap — run this on **both** machines and type:
 
 ```bash
-python3 link_test.py --chat
+python3 radio/link_test.py --chat
 ```
 
 ### Rung 2 — the real protocol, still no drone
 
-`jetson_c2_server.py` defaults to a **mock flight controller**, so the Ubuntu
+`drone/c2_server.py` defaults to a **mock flight controller**, so the Ubuntu
 box needs neither a Pixhawk nor pymavlink — only `pyserial`:
 
 ```bash
 # Ubuntu box — standing in for the Jetson
-python3 jetson_c2_server.py --props-off
+python3 drone/c2_server.py --props-off
 
 # MacBook — the real ground station
-python3 gcs_client.py
+python3 ground/gcs_client.py
 ```
 
 The Mac should handshake and draw the mission menu the *server* advertises.
@@ -163,7 +163,7 @@ missions exactly as they will in the field.
 This is where the Ubuntu choice pays off. Same command, real machine:
 
 ```bash
-./venv/bin/python jetson_c2_server.py --props-off
+./venv/bin/python drone/c2_server.py --props-off
 ```
 
 `--lora-port auto` resolves through `/dev/serial/by-id/` on both boxes, which
@@ -205,7 +205,7 @@ dead radio. Recent macOS usually drives the CP2102 with no install; if no
 ```bash
 python3 -m venv venv
 ./venv/bin/pip install pyserial        # the client side needs nothing else
-./venv/bin/python link_test.py --list
+./venv/bin/python radio/link_test.py --list
 ```
 
 ### Both
@@ -216,7 +216,7 @@ is an Arduino Serial Monitor still open on that stick — or a previous run of t
 server you forgot to stop, which holds the port exclusively and makes the next
 one fail with `Could not exclusively lock port`.
 
-> A Windows PC also works as either end — `link_test.py --list` names the `COM`
+> A Windows PC also works as either end — `radio/link_test.py --list` names the `COM`
 > ports, `--lora-port auto` finds the stick by USB ID, and CI already builds
 > `VenatorGCS.exe`. Run Claude Code in PowerShell rather than WSL, which cannot
 > see COM ports without `usbipd-win`.
@@ -224,6 +224,6 @@ one fail with `Could not exclusively lock port`.
 ## What to hand the web session
 
 A cloud session cannot run any of the above, so it is only as good as what you
-paste back. The useful things are the full `link_test.py` summary block, the
+paste back. The useful things are the full `radio/link_test.py` summary block, the
 server's log lines, and the exact error text — not a description of them. With
 those it can find the bug; without them it is guessing at hardware it cannot see.

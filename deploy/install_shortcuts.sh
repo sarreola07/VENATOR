@@ -9,28 +9,37 @@
 # The AI camera is intentionally NOT a boot service: it is optional and toggled
 # by hand, fully decoupled from the core MAVLink/telemetry background services.
 #
-# Run from your desktop terminal:  bash install.sh
+# The launchers in desktop/ are templates: __REPO__ is replaced with wherever
+# this clone actually lives, so the same repo works on the Jetson, a laptop or
+# any folder name. Re-run this after moving or re-cloning the repo.
+#
+# Run from your desktop terminal:  bash deploy/install_shortcuts.sh
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 APPS="${HOME}/.local/share/applications"
 DESKTOP_DIR="${HOME}/Desktop"
-mkdir -p "${APPS}"
+mkdir -p "${APPS}" "${DESKTOP_DIR}"
 
-chmod +x "${REPO}/run_missions.sh" "${REPO}/ai_camera.sh" "${REPO}/camera_publisher.py" \
-         "${REPO}/wifi_mode.sh"
+chmod +x "${REPO}/drone/run_missions.sh" "${REPO}/drone/camera.sh" \
+         "${REPO}/drone/camera_publisher.py" "${REPO}/deploy/wifi_mode.sh"
 
 install_launcher() {
-    local file="$1"          # basename of the .desktop in the repo
+    local file="$1"          # basename of the .desktop this produces
+    local template="${REPO}/deploy/desktop/${file}.in"
     local dest="${DESKTOP_DIR}/${file}"
-    install -m 755 "${REPO}/${file}" "${dest}"
-    install -m 644 "${REPO}/${file}" "${APPS}/${file}"
+    local rendered
+    rendered="$(mktemp)"
+    sed "s|__REPO__|${REPO}|g" "${template}" > "${rendered}"
+    install -m 755 "${rendered}" "${dest}"
+    install -m 644 "${rendered}" "${APPS}/${file}"
+    rm -f "${rendered}"
     # GNOME requires desktop launchers to be marked trusted before they run.
     gio set "${dest}" metadata::trusted true 2>/dev/null || true
     echo "    installed ${file}"
 }
 
-echo "==> Installing desktop shortcuts..."
+echo "==> Installing desktop shortcuts for ${REPO} ..."
 install_launcher "hexacopter-mission.desktop"
 install_launcher "ai-camera-toggle.desktop"
 install_launcher "ai-camera-preview.desktop"
@@ -47,5 +56,5 @@ echo "  - 'AI Camera (web stream)' starts the tracker with video for laptop brow
 echo "  - 'Wi-Fi Hotspot (toggle)' switches between school Wi-Fi and the VenatorDrone hotspot."
 echo
 echo "Both can also be driven from a terminal:"
-echo "  ./ai_camera.sh start | stream | stop | status | restart | preview"
-echo "  ./wifi_mode.sh on | off | toggle | status"
+echo "  ./drone/camera.sh start | stream | stop | status | restart | preview"
+echo "  ./deploy/wifi_mode.sh on | off | toggle | status"
