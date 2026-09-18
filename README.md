@@ -20,7 +20,12 @@
 </p>
 
 <p align="center">
-  <a href="https://sarreola07.github.io/VENATOR/"><strong>See it running →</strong></a>
+  <a href="https://sarreola07.github.io/VENATOR/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/cta-dark.svg">
+      <img alt="See it running — live demo" src="assets/brand/cta-light.svg" width="300">
+    </picture>
+  </a>
 </p>
 
 <p align="center">
