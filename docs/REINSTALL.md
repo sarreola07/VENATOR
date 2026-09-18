@@ -8,7 +8,7 @@ the fresh install to get everything working again.
 
 | Item | Survives? | Notes |
 |---|---|---|
-| `flight_test` repo | ✅ on GitHub | `git clone` it back |
+| `VENATOR` repo | ✅ on GitHub | `git clone` it back |
 | PX4 parameters (`COM_CPU_MAX=-1`, `EKF2_AID_MASK=1`, airframe) | ✅ | Stored on the Pixhawk FMU, not the Jetson |
 | Mission venv (`venv/`) | ❌ rebuild | `setup.sh` recreates it |
 | Camera env (`~/oak_drone_project/`, 588 MB) | ❌ rebuild | steps below |
@@ -18,7 +18,7 @@ the fresh install to get everything working again.
 ## 1. Clone the project and build the mission venv
 
 ```bash
-git clone https://github.com/sarreola07/flight_test.git ~/Desktop/pixhawk-test
+git clone https://github.com/sarreola07/VENATOR.git ~/Desktop/pixhawk-test
 cd ~/Desktop/pixhawk-test
 bash setup.sh          # venv + pymavlink + pyserial + dialout access
 ./venv/bin/pip install pillow   # only needed if you regenerate the icons
