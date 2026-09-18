@@ -1,7 +1,31 @@
-# Pixhawk ↔ Jetson Connection Test
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-dark.svg">
+    <img alt="Venator — autonomous flight systems" src="assets/brand/lockup-light.svg" width="360">
+  </picture>
+</p>
 
-Minimal, no-GUI test of the MAVLink link between the companion computer and the
-flight controller. No QGroundControl or IDE required — just Python and a USB cable.
+<p align="center">
+  <strong>A hexarotor, a companion computer and a 915 MHz command link.</strong><br>
+  <sub>PX4 v1.13.3 · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sarreola07/VENATOR/actions/workflows/build-gcs.yml">
+    <img alt="Ground station build" src="https://github.com/sarreola07/VENATOR/actions/workflows/build-gcs.yml/badge.svg">
+  </a>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
+    <img alt="Ground station over 915 MHz LoRa to the Jetson, and MAVLink to the Pixhawk" src="assets/brand/system-light.svg" width="900">
+  </picture>
+</p>
+
+The ground station sends a command over LoRa, the Jetson runs it against the
+flight controller, and the reply comes back the same way. No QGroundControl, no
+GUI, no internet — a laptop, a radio and a drone.
 
 ## Where everything lives
 
@@ -30,28 +54,15 @@ a laptop, or both. After moving or re-cloning it on the Jetson, re-run
 `bash deploy/install_shortcuts.sh` and `bash deploy/install_service.sh` so the
 launchers and the service point at the new path.
 
-## Current hardware setup
+## Documentation
 
-| Component | Details |
+| Document | What it covers |
 |---|---|
-| Companion computer | NVIDIA Jetson Orin Nano Developer Kit |
-| OS | Ubuntu 24.04.4 LTS (L4T R39.2, kernel 6.8 tegra) |
-| Flight controller | Pixhawk 2.4.8 (FMUv2, shows as `26ac:0011 3D Robotics PX4 FMU v2.x`) |
-| Firmware | PX4 v1.13.3 |
-| Connection | USB → `/dev/ttyACM0` (baud rate is ignored on USB CDC) |
-| Ground station | None installed (this repo replaces QGC for basic checks) |
-
-Other serial ports available on the Jetson if you later wire TELEM2 to the
-40-pin header: `/dev/ttyTHS1` and `/dev/ttyTHS2` (UARTs, typically 57600 or
-921600 baud — must match the `SER_TEL2_BAUD` PX4 parameter).
-
-> Reinstalling the Jetson (e.g. moving to NVMe)? The camera environment and
-> venvs live outside this repo — see [docs/REINSTALL.md](docs/REINSTALL.md) to
-> rebuild everything from a fresh clone.
-
-> Working on the LoRa link from two computers at once (laptop on one end, Jetson
-> or a stand-in on the other)? See [docs/DEV_SETUP.md](docs/DEV_SETUP.md) for the
-> bring-up order, and `radio/link_test.py` for a scripted two-ended link check.
+| [docs/PROTOCOL.md](docs/PROTOCOL.md) | The C2 wire format, message by message |
+| [docs/DEV_SETUP.md](docs/DEV_SETUP.md) | Working the link from two computers at once |
+| [docs/REINSTALL.md](docs/REINSTALL.md) | Rebuilding a Jetson from a fresh clone |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Phases, what is validated, what is next |
+| [docs/BRAND.md](docs/BRAND.md) | Mark, palette and type |
 
 ## First-time setup
 
@@ -88,38 +99,28 @@ python drone/checks/check_pixhawk.py --timeout 20                          # slo
 
 ![drone/checks/check_pixhawk.py output](docs/check_pixhawk.png)
 
-## What the script checks
+## Current hardware setup
 
-1. **Serial port opens** — cable present, permissions OK.
-2. **Heartbeat** — the autopilot is alive and speaking MAVLink; prints
-   system/component ID, autopilot type, vehicle type, armed state.
-3. **Firmware version** — requests `AUTOPILOT_VERSION` (should report 1.13.3).
-4. **Telemetry** — battery voltage (`SYS_STATUS`), GPS fix and satellite count
-   (`GPS_RAW_INT`, skipped gracefully if no GPS module), attitude from the IMU
-   (`ATTITUDE`).
-5. **Parameter read** — reads `SYS_AUTOSTART` to prove two-way communication.
+| Component | Details |
+|---|---|
+| Companion computer | NVIDIA Jetson Orin Nano Developer Kit |
+| OS | Ubuntu 24.04.4 LTS (L4T R39.2, kernel 6.8 tegra) |
+| Flight controller | Pixhawk 2.4.8 (FMUv2, shows as `26ac:0011 3D Robotics PX4 FMU v2.x`) |
+| Firmware | PX4 v1.13.3 |
+| Connection | USB → `/dev/ttyACM0` (baud rate is ignored on USB CDC) |
+| Ground station | None installed (this repo replaces QGC for basic checks) |
 
-Exit code is `0` when everything passes, `1` otherwise — safe to use in scripts.
+Other serial ports available on the Jetson if you later wire TELEM2 to the
+40-pin header: `/dev/ttyTHS1` and `/dev/ttyTHS2` (UARTs, typically 57600 or
+921600 baud — must match the `SER_TEL2_BAUD` PX4 parameter).
 
-Expected output on a healthy USB-powered bench setup:
+> Reinstalling the Jetson (e.g. moving to NVMe)? The camera environment and
+> venvs live outside this repo — see [docs/REINSTALL.md](docs/REINSTALL.md) to
+> rebuild everything from a fresh clone.
 
-```
-[PASS] Heartbeat from system 1 component 1
-[INFO]   Autopilot: MAV_AUTOPILOT_PX4   Vehicle type: MAV_TYPE_QUADROTOR
-[PASS] Firmware version: 1.13.3
-[PASS] Battery: 0.00 V  (no battery / USB power only)
-...
-All good: the Jetson can talk to the Pixhawk. ✅
-```
-
-## Troubleshooting
-
-- **`Permission denied` on `/dev/ttyACM0`** — log out/in (or reboot) so the
-  `dialout` group takes effect, or re-run `setup.sh`.
-- **Device missing** — check `ls /dev/ttyACM*` and `lsusb | grep 26ac`.
-  Try a different USB cable (data lines required, not charge-only).
-- **No heartbeat** — wait ~30 s after plugging in for PX4 to boot; make sure
-  nothing else (e.g. MAVProxy) already has the port open.
+> Working on the LoRa link from two computers at once (laptop on one end, Jetson
+> or a stand-in on the other)? See [docs/DEV_SETUP.md](docs/DEV_SETUP.md) for the
+> bring-up order, and `radio/link_test.py` for a scripted two-ended link check.
 
 ## Missions (drone/missions.py)
 
@@ -205,22 +206,6 @@ Notes for this vehicle (PX4 v1.13.3, FMUv2):
 - FMUv2 quirk: PX4 v1.13 on this board doesn't run `load_mon`, so the
   "No CPU load information" preflight check fails out of the box. We set
   `COM_CPU_MAX=-1` to disable that check.
-
-## Install: desktop shortcuts
-
-```bash
-bash deploy/install_shortcuts.sh
-```
-
-No sudo, no systemd — this only installs user-level Desktop shortcuts:
-
-1. **Hexacopter Mission** — opens a terminal running the mission menu
-   (`drone/run_missions.sh` → `drone/missions.py`).
-2. **AI Camera (toggle)** — starts/stops the OAK-D tracker on demand.
-3. **AI Camera (preview)** — live camera window on the Jetson's own screen.
-4. **AI Camera (web stream)** — starts the tracker with video for laptop browsers.
-5. **Wi-Fi Hotspot (toggle)** — switches between school Wi-Fi and the Jetson's
-   own hotspot (opens a terminal, since it asks for sudo).
 
 ## AI camera toggle (decoupled from the drone link)
 
@@ -327,6 +312,55 @@ NetworkManager saves. On the laptop, join `VenatorDrone`, then
   `HOTSPOT_SSID=... HOTSPOT_PASSWORD=... HOTSPOT_BAND=a|bg ./deploy/wifi_mode.sh on`.
 - Campus Wi-Fi systems can detect and knock out personal hotspots, and school
   rules may not allow them — it is most reliable off campus or at the field.
+
+## Deploy on the Jetson
+
+```bash
+bash deploy/install_shortcuts.sh
+```
+
+No sudo, no systemd — this only installs user-level Desktop shortcuts:
+
+1. **Hexacopter Mission** — opens a terminal running the mission menu
+   (`drone/run_missions.sh` → `drone/missions.py`).
+2. **AI Camera (toggle)** — starts/stops the OAK-D tracker on demand.
+3. **AI Camera (preview)** — live camera window on the Jetson's own screen.
+4. **AI Camera (web stream)** — starts the tracker with video for laptop browsers.
+5. **Wi-Fi Hotspot (toggle)** — switches between school Wi-Fi and the Jetson's
+   own hotspot (opens a terminal, since it asks for sudo).
+
+## What the script checks
+
+1. **Serial port opens** — cable present, permissions OK.
+2. **Heartbeat** — the autopilot is alive and speaking MAVLink; prints
+   system/component ID, autopilot type, vehicle type, armed state.
+3. **Firmware version** — requests `AUTOPILOT_VERSION` (should report 1.13.3).
+4. **Telemetry** — battery voltage (`SYS_STATUS`), GPS fix and satellite count
+   (`GPS_RAW_INT`, skipped gracefully if no GPS module), attitude from the IMU
+   (`ATTITUDE`).
+5. **Parameter read** — reads `SYS_AUTOSTART` to prove two-way communication.
+
+Exit code is `0` when everything passes, `1` otherwise — safe to use in scripts.
+
+Expected output on a healthy USB-powered bench setup:
+
+```
+[PASS] Heartbeat from system 1 component 1
+[INFO]   Autopilot: MAV_AUTOPILOT_PX4   Vehicle type: MAV_TYPE_QUADROTOR
+[PASS] Firmware version: 1.13.3
+[PASS] Battery: 0.00 V  (no battery / USB power only)
+...
+All good: the Jetson can talk to the Pixhawk. ✅
+```
+
+## Troubleshooting
+
+- **`Permission denied` on `/dev/ttyACM0`** — log out/in (or reboot) so the
+  `dialout` group takes effect, or re-run `setup.sh`.
+- **Device missing** — check `ls /dev/ttyACM*` and `lsusb | grep 26ac`.
+  Try a different USB cable (data lines required, not charge-only).
+- **No heartbeat** — wait ~30 s after plugging in for PX4 to boot; make sure
+  nothing else (e.g. MAVProxy) already has the port open.
 
 ## Follow-me code from classmates (`hexacopter-follow/`)
 
