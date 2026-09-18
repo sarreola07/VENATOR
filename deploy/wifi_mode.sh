@@ -5,10 +5,10 @@
 #             reach the Jetson at 10.42.0.1 (SSH, camera web stream), with no
 #             school firewall in between
 #
-#   ./wifi_mode.sh on       # HOTSPOT
-#   ./wifi_mode.sh off      # CLIENT: rejoin the Wi-Fi network used before
-#   ./wifi_mode.sh toggle   # flip between the two
-#   ./wifi_mode.sh status   # current mode, address, joined laptops
+#   ./deploy/wifi_mode.sh on       # HOTSPOT
+#   ./deploy/wifi_mode.sh off      # CLIENT: rejoin the Wi-Fi network used before
+#   ./deploy/wifi_mode.sh toggle   # flip between the two
+#   ./deploy/wifi_mode.sh status   # current mode, address, joined laptops
 #
 # The Jetson has ONE Wi-Fi card, so while the hotspot is on it is off the school
 # Wi-Fi (no internet, unless Ethernet is plugged in — the hotspot then shares it).
@@ -205,7 +205,7 @@ hotspot_on() {
     if [[ "$(nmcli -e no -g 802-11-wireless.band connection show "${CON}")" == "a" ]]; then
         say "5 GHz hotspots aren't allowed on every card or country setting:"
         say "  - 'iw reg get' should show your country (e.g. country US), not 00"
-        say "  - or use 2.4 GHz:  HOTSPOT_BAND=bg ./wifi_mode.sh on"
+        say "  - or use 2.4 GHz:  HOTSPOT_BAND=bg ./deploy/wifi_mode.sh on"
         say "    (if your RC transmitter is 2.4 GHz, turn the hotspot off before flying)"
     fi
     return 1
@@ -264,7 +264,7 @@ status() {
         echo "  Jetson address : ${ip}"
         echo "  Laptops joined : ${clients:-0}"
         echo "  SSH            : ssh ${USER:-$(id -un)}@${ip}"
-        echo "  Camera stream  : http://${ip}:${STREAM_PORT}   (after ./ai_camera.sh stream)"
+        echo "  Camera stream  : http://${ip}:${STREAM_PORT}   (after ./drone/camera.sh stream)"
     elif [[ -n "${con}" ]]; then
         echo "Wi-Fi mode: CLIENT — connected to '${con}' (IP ${ip:-none})"
     else

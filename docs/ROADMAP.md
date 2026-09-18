@@ -8,7 +8,7 @@ the Jetson**, including a "fly to these coordinates" mission.
 | Phase | What | State |
 |---|---|---|
 | 0 | NVMe install + restore project (see [REINSTALL.md](REINSTALL.md)) | ✅ done |
-| 1 | C2 protocol ([PROTOCOL.md](PROTOCOL.md), `c2_protocol.py`) | ✅ done |
+| 1 | C2 protocol ([PROTOCOL.md](PROTOCOL.md), `radio/protocol.py`) | ✅ done |
 | 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | 🔵 in progress |
 | 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks |
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ working over real LoRa (motor test); boot service + rich menu done |
@@ -21,18 +21,18 @@ the Jetson**, including a "fly to these coordinates" mission.
 
 - **1 — Protocol** *(done):* versioned, newline-JSON messages; handshake, menu,
   run, waypoint upload, ACK/retransmit. Shared by client and Jetson server.
-- **2 — Client** *(in progress):* `gcs_client.py` auto-detects the Heltec
+- **2 — Client** *(in progress):* `ground/gcs_client.py` auto-detects the Heltec
   (CP210x VID), handshakes, renders the Jetson's menu, uploads waypoints. Runs
   today with `--mock` (no hardware). The GitHub Actions workflow builds
   `VenatorGCS.exe` and `.app` — download from the run's Artifacts.
 - **3 — Firmware:** merge the two working sketches into one half-duplex
   transceiver (transparent line bridge, same 915 MHz/SF7/syncword). Flash both
   sticks.
-- **4 — Jetson server** *(server done):* `jetson_c2_server.py` owns the LoRa
-  serial and the Pixhawk; serves the menu, runs missions (reusing `missions.py`),
+- **4 — Jetson server** *(server done):* `drone/c2_server.py` owns the LoRa
+  serial and the Pixhawk; serves the menu, runs missions (reusing `drone/missions.py`),
   streams ACK/DONE. Defaults to a **mock FC** and **props OFF** (safe); `--real`
   connects the Pixhawk, `--props-on` enables flight. Tested end-to-end against the
-  real client over a loopback — props + GPS gates verified. `systemd/venator-c2.service`
+  real client over a loopback — props + GPS gates verified. `deploy/systemd/venator-c2.service`
   is the zero-touch boot unit (enable deliberately). Still TODO: two-step arm
   confirm, link-loss → RTL, and threaded execution so ABORT/heartbeat work mid-mission.
 - **5 — Waypoint flight:** fit a GPS (M8N → Pixhawk GPS port; `EKF2_AID_MASK=1`

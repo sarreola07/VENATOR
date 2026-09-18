@@ -8,15 +8,15 @@
 # cannot restart the drone or interrupt background telemetry.
 #
 # Usage:
-#   ./ai_camera.sh            # toggle: start if stopped, stop if running
-#   ./ai_camera.sh start|stop|restart|status
-#   ./ai_camera.sh stream     # start with the web stream: watch the video in a
+#   ./drone/camera.sh            # toggle: start if stopped, stop if running
+#   ./drone/camera.sh start|stop|restart|status
+#   ./drone/camera.sh stream     # start with the web stream: watch the video in a
 #                             # laptop browser (Windows/Mac) at http://<jetson-ip>:8080
 set -uo pipefail
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 CAMERA_PY="${CAMERA_PY:-/home/jetson/oak_drone_project/depthai-env/bin/python}"
-SCRIPT="${REPO}/camera_publisher.py"
+SCRIPT="${REPO}/drone/camera_publisher.py"
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ai-camera"
 PIDFILE="${STATE_DIR}/camera.pid"

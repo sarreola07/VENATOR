@@ -38,7 +38,7 @@ cd depthai-python/examples
 ../../depthai-env/bin/python install_requirements.py
 ```
 
-Confirm the blob `camera_publisher.py` expects now exists:
+Confirm the blob `drone/camera_publisher.py` expects now exists:
 `~/oak_drone_project/depthai-python/examples/models/mobilenet-ssd_openvino_2021.4_6shave.blob`
 
 ## 3. OAK-D udev rule (non-root USB access)
@@ -60,7 +60,7 @@ PY
 ## 4. Desktop shortcuts
 
 ```bash
-cd ~/Desktop/pixhawk-test && bash install.sh
+cd ~/Desktop/pixhawk-test && bash deploy/install_shortcuts.sh
 ```
 
 Installs the Desktop icons — Hexacopter Mission, AI Camera (toggle / preview /
@@ -79,6 +79,6 @@ It is git-ignored by this repo, so it stays a separate checkout.
 
 ```bash
 cd ~/Desktop/pixhawk-test
-./venv/bin/python check_pixhawk.py     # MAVLink link to the Pixhawk
-./ai_camera.sh start && sleep 10 && ./ai_camera.sh status && ./ai_camera.sh stop
+./venv/bin/python drone/checks/check_pixhawk.py     # MAVLink link to the Pixhawk
+./drone/camera.sh start && sleep 10 && ./drone/camera.sh status && ./drone/camera.sh stop
 ```

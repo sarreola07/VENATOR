@@ -5,7 +5,7 @@
 `LoRa_Transceiver/LoRa_Transceiver.ino` is a **half-duplex transparent bridge**:
 a line sent to USB serial goes out over 915 MHz LoRa verbatim, and any packet
 received over the air is printed to USB serial verbatim. This lets the Venator
-C2 protocol (newline-delimited JSON, see [../docs/PROTOCOL.md](../docs/PROTOCOL.md))
+C2 protocol (newline-delimited JSON, see [../docs/PROTOCOL.md](../../docs/PROTOCOL.md))
 flow in **both directions**.
 
 It replaces the original one-way sketches (`LoRa_TX.ino` + `LoRa_RX.ino`), which
@@ -36,9 +36,9 @@ Or from the command line (`--list` below tells you the port):
 
 ```bash
 FQBN=Heltec-esp32:esp32:heltec_wireless_stick_V3
-arduino-cli compile --fqbn $FQBN --output-dir /tmp/venator-fw firmware/LoRa_Transceiver
+arduino-cli compile --fqbn $FQBN --output-dir /tmp/venator-fw radio/firmware/LoRa_Transceiver
 arduino-cli upload  --fqbn $FQBN --board-options UploadSpeed=230400 \
-    --port /dev/cu.usbserial-XXXX --input-dir /tmp/venator-fw firmware/LoRa_Transceiver
+    --port /dev/cu.usbserial-XXXX --input-dir /tmp/venator-fw radio/firmware/LoRa_Transceiver
 ```
 
 Uploading from `--input-dir` flashes exactly the binary you just built.
@@ -69,15 +69,15 @@ instead of leaving you to judge what scrolled past — which is what you want ov
 SSH, in a script, or when a Claude session is driving one end:
 
 ```bash
-python3 link_test.py --list                  # which port is which stick
-python3 link_test.py --listen                # on one machine
-python3 link_test.py --send --count 20       # on the other: RTT + loss summary
-python3 link_test.py --chat                  # on both: type lines back and forth
+python3 radio/link_test.py --list                  # which port is which stick
+python3 radio/link_test.py --listen                # on one machine
+python3 radio/link_test.py --send --count 20       # on the other: RTT + loss summary
+python3 radio/link_test.py --chat                  # on both: type lines back and forth
 ```
 
 Close the Arduino Serial Monitor first — only one program can hold a stick's
 port at a time. For the two-computer workflow around this, see
-[../docs/DEV_SETUP.md](../docs/DEV_SETUP.md).
+[../docs/DEV_SETUP.md](../../docs/DEV_SETUP.md).
 
 ## The onboard OLED
 
@@ -119,7 +119,7 @@ drops (minutes past 1000 s).
 
 ```bash
 arduino-cli compile --fqbn $FQBN --output-dir /tmp/venator-fw-simple \
-    --build-property "compiler.cpp.extra_flags=-DOLED_SIMPLE=1" firmware/LoRa_Transceiver
+    --build-property "compiler.cpp.extra_flags=-DOLED_SIMPLE=1" radio/firmware/LoRa_Transceiver
 ```
 
 Then upload with `--input-dir /tmp/venator-fw-simple`. In the Arduino IDE, change
