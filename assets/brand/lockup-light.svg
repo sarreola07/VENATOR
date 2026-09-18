@@ -1,10 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64" role="img" aria-label="Venator — autonomous flight systems">
-  <path d="M13 12 32 46 51 12" stroke="#0A0A0A" stroke-width="4" stroke-linecap="square" fill="none"/>
-  <path d="M6 22a30 30 0 0 1 4-12" stroke="#0A0A0A" stroke-width="2.5" opacity=".7" fill="none"/>
-  <path d="M58 22a30 30 0 0 0-4-12" stroke="#0A0A0A" stroke-width="2.5" opacity=".7" fill="none"/>
-  <circle cx="32" cy="46" r="5" fill="#E05316"/>
-  <text x="84" y="36" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif"
-        font-size="26" font-weight="600" letter-spacing="8.4">VENATOR</text>
-  <text x="86" y="52" fill="#6E6B66" font-family="Helvetica Neue,Helvetica,Arial,sans-serif"
-        font-size="9" letter-spacing="2.6">AUTONOMOUS FLIGHT SYSTEMS</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 84" width="470" height="84"
+     role="img" aria-label="Venator — autonomous flight systems">
+  <g fill="#0A0A0A"><path d="M8 6 46 21 46 32 8 17Z"/><path d="M112 6 74 21 74 32 112 17Z"/><path d="M18 30 60 80 102 30 84 30 60 60 36 30Z"/></g>
+  <text x="152" y="46" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="11">VENATOR</text>
+  <text x="154" y="66" fill="#6E6B66" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="10.5" letter-spacing="4.6">AUTONOMOUS FLIGHT SYSTEMS</text>
 </svg>

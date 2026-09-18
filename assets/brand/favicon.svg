@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 26 92 58" width="92" height="58">
   <style>
-    .ink { stroke: #0A0A0A; }
-    @media (prefers-color-scheme: dark) { .ink { stroke: #F2F1EE; } }
+    .ink { fill: #0A0A0A; }
+    @media (prefers-color-scheme: dark) { .ink { fill: #F2F1EE; } }
   </style>
-  <path class="ink" d="M13 13 32 45 51 13" stroke-width="7" stroke-linecap="square" fill="none"/>
-  <circle cx="32" cy="45" r="7" fill="#E05316"/>
+  <g class="ink"><path d="M18 30 60 80 102 30 84 30 60 60 36 30Z"/></g>
 </svg>
