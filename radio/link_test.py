@@ -100,36 +100,98 @@ def autodetect_port():
     return None
 
 
+class LinkDown(RuntimeError):
+    """The stick's serial port is not currently usable."""
+
+
 class Link:
     """A paced, line-oriented protocol link over the LoRa stick's serial port."""
 
+    # A stick that re-enumerates (unplugged, USB reset, Jetson power blip) comes
+    # back on the same port a second or two later. Without this the process kept
+    # the dead handle and printed a read failure on every poll -- tens of
+    # thousands of identical lines while the link sat there, fixable by nothing
+    # except a restart.
+    RECONNECT_WAIT_S = 2.0
+
     def __init__(self, port, baud=115200, settle=DEFAULT_SETTLE_S):
+        self.port, self.baud, self.settle = port, baud, settle
+        self.ser = None
+        self._buf = ""
+        self._last_send = 0.0
+        self._retry_at = 0.0
+        self._down_reported = False
+        self._open()
+
+    def _open(self):
         import serial
         # exclusive=True so a stray serial monitor can't grab the port and
         # silently eat half the conversation.
-        self.ser = serial.Serial(port, baud, timeout=0.2, exclusive=True)
+        self.ser = serial.Serial(self.port, self.baud, timeout=0.2, exclusive=True)
         self._buf = ""
-        self._last_send = 0.0
-        if settle > 0:
-            time.sleep(settle)
+        if self.settle > 0:
+            time.sleep(self.settle)
             self.ser.reset_input_buffer()    # drop the firmware's boot banner
 
+    def _drop(self, exc):
+        """The port went away. Report it once, not once per read."""
+        if not self._down_reported:
+            print(f"{C_ERR}{self.port} went away ({exc}) - retrying every "
+                  f"{self.RECONNECT_WAIT_S:g}s{C_OFF}", flush=True)
+            self._down_reported = True
+        try:
+            if self.ser is not None:
+                self.ser.close()
+        except Exception:
+            pass
+        self.ser = None
+        self._retry_at = time.time() + self.RECONNECT_WAIT_S
+
+    def _ensure(self):
+        """True if the port is usable. Retries on a timer while it is not."""
+        if self.ser is not None:
+            return True
+        if time.time() < self._retry_at:
+            return False
+        try:
+            self._open()
+        except Exception:
+            self._retry_at = time.time() + self.RECONNECT_WAIT_S
+            return False
+        print(f"{C_OK}{self.port} is back{C_OFF}", flush=True)
+        self._down_reported = False
+        return True
+
+    @property
+    def up(self):
+        return self.ser is not None
+
     def send(self, msg):
+        """Raises LinkDown if the port is not there, so callers can say so
+        rather than dying on an AttributeError deep in a worker thread."""
+        if not self._ensure():
+            raise LinkDown(f"{self.port} is not available")
         gap = MIN_SEND_GAP_S - (time.time() - self._last_send)
         if gap > 0:
             time.sleep(gap)
-        self.ser.write(p.encode(msg).encode("utf-8"))
-        self.ser.flush()
+        try:
+            self.ser.write(p.encode(msg).encode("utf-8"))
+            self.ser.flush()
+        except Exception as exc:
+            self._drop(exc)
+            raise LinkDown(f"{self.port} went away mid-send") from exc
         self._last_send = time.time()
 
     def poll(self):
         """Next protocol message, or None. Non-protocol lines are returned as
         ('raw', text) so the caller can show the firmware banner rather than
         swallowing it — a silent link and a chatty one look very different."""
+        if not self._ensure():
+            return None
         try:
             data = self.ser.read(256).decode("utf-8", errors="replace")
         except Exception as exc:
-            print(f"{C_ERR}serial read failed: {exc}{C_OFF}", flush=True)
+            self._drop(exc)
             return None
         if data:
             self._buf += data
@@ -143,9 +205,11 @@ class Link:
 
     def close(self):
         try:
-            self.ser.close()
+            if self.ser is not None:
+                self.ser.close()
         except Exception:
             pass
+        self.ser = None
 
 
 def show(item):

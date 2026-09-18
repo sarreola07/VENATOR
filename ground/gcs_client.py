@@ -43,7 +43,10 @@ class SerialTransport:
 
     def __init__(self, port, baud=115200):
         import serial
-        self.ser = serial.Serial(port, baud, timeout=0.2)
+        # exclusive=True to match link_test.Link and the Jetson's LoRaLink: a
+        # stray serial monitor on the same port silently eats half the
+        # conversation, and this is the client an operator runs in the field.
+        self.ser = serial.Serial(port, baud, timeout=0.2, exclusive=True)
         self._buf = ""
 
     def send(self, m):
