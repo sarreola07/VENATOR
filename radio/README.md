@@ -41,5 +41,18 @@ from a phone on the same Wi-Fi. A message shows **delivered** once the far end
 confirms it over the air; after three tries without confirmation it says so.
 With both sticks on one computer it runs both ends at once.
 
+The address ends in `?k=` and an access key, because the page is served on every
+interface and anyone on the Wi-Fi can reach the port. **A fresh key is generated
+each start**, so a bookmark from last time will be refused — copy the address the
+relay just printed, or pin one with `--key`:
+
+```bash
+python3 radio/phone_relay.py --names Jetson --key ourflight
+```
+
 Only one program can hold a stick's serial port, so stop the relay, any serial
-monitor, and on the Jetson the C2 service, before using another tool on it.
+monitor, `ground/gcs_client.py`, and on the Jetson the C2 service, before using
+another tool on it.
+
+If a stick is unplugged or its USB re-enumerates, the tools here say so once and
+reconnect on their own when it comes back — there is no need to restart them.
