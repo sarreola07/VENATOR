@@ -12,6 +12,11 @@ python3 ground/gcs_client.py              # auto-detects the stick
 python3 ground/gcs_client.py --port COM5  # or name the port
 ```
 
+It holds the stick's serial port exclusively, so close any serial monitor or
+`radio/link_test.py` on that port first — otherwise one of the two silently eats
+half the conversation. If the stick is unplugged mid-session it reconnects on its
+own once the port returns.
+
 It needs only Python and `pyserial`, so a laptop doesn't need the flight
 software installed. It speaks [`../radio/protocol.py`](../radio/protocol.py),
 and the link itself can be checked first with

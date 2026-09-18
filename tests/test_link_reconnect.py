@@ -101,6 +101,22 @@ check("poll still returns None", link2.poll(), None)
 check("still down", link2.up, False)
 FakeSerial.available = True
 
+print("\n  The ground client has its own transport — it must behave the same")
+from ground.gcs_client import SerialTransport  # noqa: E402
+
+FakeSerial.available = True
+gc = SerialTransport("/dev/fake3")
+check("opens exclusively", gc.ser.exclusive, True)
+check("reports up", gc.up, True)
+gc.ser.alive = False
+check("poll returns None, does not raise", gc.poll(), None)
+check("reports down", gc.up, False)
+gc.send({"t": "PING", "seq": 1})           # must not raise: the client keeps running
+check("send while down is survivable", gc.up, False)
+gc._retry_at = 0
+check("poll reconnects", gc.poll(), None)
+check("reports up again", gc.up, True)
+
 print("\n  ====================================================")
 print(f"  {'ALL CHECKS PASSED' if not FAIL else f'{FAIL} CHECK(S) FAILED'}")
 sys.exit(1 if FAIL else 0)
