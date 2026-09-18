@@ -3,6 +3,33 @@
 Minimal, no-GUI test of the MAVLink link between the companion computer and the
 flight controller. No QGroundControl or IDE required — just Python and a USB cable.
 
+## Where everything lives
+
+The top level is grouped by **where it runs**. Each folder has its own README
+with the commands for that part.
+
+| Folder | What's in it | Runs on |
+|---|---|---|
+| [`radio/`](radio/README.md) | The 915 MHz link: protocol, bench tools, stick firmware | Any machine with a stick |
+| [`drone/`](drone/README.md) | C2 server, missions, camera, health checks | The Jetson |
+| [`ground/`](ground/README.md) | The ground-station client | A laptop |
+| [`deploy/`](deploy/README.md) | Installers, systemd unit, desktop launchers, Wi-Fi + flight mode | The Jetson |
+| [`tests/`](tests/README.md) | Mock regression tests — nothing flies | Any machine |
+| `docs/` | Protocol, two-machine setup, reinstall, roadmap | — |
+
+Every script works from any folder, so paths are written from the repo root:
+
+```bash
+python3 radio/link_test.py --list      # which port is which stick
+./venv/bin/python drone/missions.py    # the mission menu
+python3 tests/test_missions.py         # the mock tests
+```
+
+Nothing hard-codes an install location, so the same clone works on the Jetson,
+a laptop, or both. After moving or re-cloning it on the Jetson, re-run
+`bash deploy/install_shortcuts.sh` and `bash deploy/install_service.sh` so the
+launchers and the service point at the new path.
+
 ## Current hardware setup
 
 | Component | Details |
