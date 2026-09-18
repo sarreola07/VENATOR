@@ -56,11 +56,11 @@ hears every packet with no firmware change at all. The radio layer is free. What
 is not free is that nothing in the protocol says who a message is *from* or *to*.
 Two consequences, the second of which matters before the drone flies.
 
-**Delivery confirmation stops being honest.** `phone_relay.py` ACKs every LOG it
+**Delivery confirmation stops being honest.** `radio/phone_relay.py` ACKs every LOG it
 hears, unconditionally, before its own dedup check. With two peers instead of
 one, both hear a message at the same instant and both transmit an ACK
 immediately -- those two ACKs collide on air and cancel each other out. The
-`MIN_SEND_GAP_S` pacing in `link_test.Link` is per-node and knows nothing about
+`MIN_SEND_GAP_S` pacing in `radio.link_test.Link` is per-node and knows nothing about
 what other nodes are doing. The likely result is that both peers display the
 message correctly while the sender shows "not confirmed", i.e. the confirmation
 gets less trustworthy as the network grows. And an ACK that does survive only
@@ -72,7 +72,7 @@ sender wait for ACKs from N-1 distinct peers before reporting delivered, showing
 partial state ("1 of 2") rather than a bare tick; and give each node a
 deterministic ACK delay derived from its name so the replies do not overlap.
 
-**Command authority is not divisible today.** `jetson_c2_server.py` keeps a
+**Command authority is not divisible today.** `drone/c2_server.py` keeps a
 single server-level `self._pending` -- it is not per-client. RUN sets it and
 CONFIRM consumes it, with no record of which station sent either. On a
 broadcast channel with three radios and no sender identity, one station's RUN
