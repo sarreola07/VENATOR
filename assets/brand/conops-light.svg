@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400"
+     role="img" aria-label="Venator concept of operations: a laptop commands the drone over 915 MHz LoRa, it takes off, follows a person at 3 m, and returns home when the link drops">
+  <title>Venator — concept of operations (target system)</title>
+  <style>
+    #drone, #walker { transform-box: view-box; transform-origin: 0 0 }
+    /* Base position is the follow leg, not the pad: with animation off this is
+       the frame the reader is left with, so the camera cone has to point at
+       the person rather than at empty sky. */
+    #drone  { transform: translate(620px, 150px);
+              animation: flight 20s ease-in-out infinite }
+    #walker { transform: translate(780px, 0px);
+              animation: walk 20s linear infinite }
+
+    /* The flight path. Holds on the pad, climbs, follows, drifts on after the
+       link drops, then returns and lands. */
+    @keyframes flight {
+      0%,21%  { transform: translate(300px, 320px) }
+      31%,40% { transform: translate(300px, 150px) }
+      58%    { transform: translate(620px, 150px) }
+      68%         { transform: translate(620px, 150px) }
+      82%        { transform: translate(300px, 150px) }
+      90%,100%   { transform: translate(300px, 320px) }
+    }
+    @keyframes walk {
+      0%,40%   { transform: translate(780px, 0px) }
+      68%,100%    { transform: translate(880px, 0px) }
+    }
+
+    #rotorL, #rotorR, #rfGround circle, #rfDrone circle {
+      transform-box: fill-box; transform-origin: center }
+    #rotorL, #rotorR { animation: spin .34s linear infinite }
+    @keyframes spin { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.26) } }
+
+    #rfGround { opacity: 0; animation: kRf 20s steps(1,end) infinite }
+    #rfDrone  { opacity: 0; animation: kTlm 20s steps(1,end) infinite }
+    #cone     { opacity: 0; animation: kCone 20s steps(1,end) infinite }
+    #lock     { opacity: 0; animation: kLock 20s steps(1,end) infinite }
+    #linkX    { opacity: 0; animation: kX 20s steps(1,end) infinite }
+    #armed    { opacity: 0; animation: kArm 20s steps(1,end) infinite }
+    #rfGround circle, #rfDrone circle { animation: ping 1.4s linear infinite }
+    #rfGround circle:nth-child(2), #rfDrone circle:nth-child(2) { animation-delay: .46s }
+    #rfGround circle:nth-child(3), #rfDrone circle:nth-child(3) { animation-delay: .92s }
+    @keyframes ping { 0% { transform: scale(1); opacity: .8 }
+                      100% { transform: scale(7.6); opacity: 0 } }
+
+    @keyframes kRf { 0%,5.9% {opacity:0} 6%,20.9% {opacity:1} 21%,100% {opacity:0} }
+    @keyframes kTlm { 0%,39.9% {opacity:0} 40%,57.9% {opacity:1} 58%,100% {opacity:0} }
+    @keyframes kCone { 0%,30.9% {opacity:0} 31%,67.9% {opacity:1} 68%,100% {opacity:0} }
+    @keyframes kLock { 0%,32.9% {opacity:0} 33%,67.9% {opacity:1} 68%,100% {opacity:0} }
+    @keyframes kX { 0%,57.9% {opacity:0} 58%,67.9% {opacity:1} 68%,100% {opacity:0} }
+    @keyframes kArm { 0%,13.9% {opacity:0} 14%,89.9% {opacity:1} 90%,100% {opacity:0} }
+
+    #c0 { animation: kc0 20s steps(1,end) infinite }
+    #c1 { animation: kc1 20s steps(1,end) infinite }
+    #c2 { animation: kc2 20s steps(1,end) infinite }
+    #c3 { animation: kc3 20s steps(1,end) infinite }
+    #c4 { animation: kc4 20s steps(1,end) infinite }
+    #c5 { animation: kc5 20s steps(1,end) infinite }
+    #c6 { animation: kc6 20s steps(1,end) infinite }
+    #c7 { animation: kc7 20s steps(1,end) infinite }
+    #c8 { animation: kc8 20s steps(1,end) infinite }
+    #c9 { animation: kc9 20s steps(1,end) infinite }
+    @keyframes kc0 { 0%,5.9% {opacity:1} 6%,100% {opacity:0} }
+    @keyframes kc1 { 0%,5.9% {opacity:0} 6%,13.9% {opacity:1} 14%,100% {opacity:0} }
+    @keyframes kc2 { 0%,13.9% {opacity:0} 14%,20.9% {opacity:1} 21%,100% {opacity:0} }
+    @keyframes kc3 { 0%,20.9% {opacity:0} 21%,30.9% {opacity:1} 31%,100% {opacity:0} }
+    @keyframes kc4 { 0%,30.9% {opacity:0} 31%,39.9% {opacity:1} 40%,100% {opacity:0} }
+    @keyframes kc5 { 0%,39.9% {opacity:0} 40%,57.9% {opacity:1} 58%,100% {opacity:0} }
+    @keyframes kc6 { 0%,57.9% {opacity:0} 58%,67.9% {opacity:1} 68%,100% {opacity:0} }
+    @keyframes kc7 { 0%,67.9% {opacity:0} 68%,81.9% {opacity:1} 82%,100% {opacity:0} }
+    @keyframes kc8 { 0%,81.9% {opacity:0} 82%,89.9% {opacity:1} 90%,100% {opacity:0} }
+    @keyframes kc9 { 0%,89.9% {opacity:0} 90%,100% {opacity:1} }
+
+    /* This piece is almost entirely movement, so reduced motion gets a still:
+       the aircraft parks at its base transform (hover) with the camera on. */
+    @media (prefers-reduced-motion: reduce) {
+      #drone, #walker, #rotorL, #rotorR,
+      #rfGround circle, #rfDrone circle { animation: none }
+      #rfGround, #rfDrone, #linkX { display: none }
+      #cone, #lock, #armed { opacity: 1; animation: none }
+      #ticker text { animation: none; opacity: 0 }
+      #c9 { opacity: 1 }
+    }
+  </style>
+  <rect width="1000" height="400" fill="#F2F1EE"/>
+
+  <text x="60" y="44" fill="#6E6B66" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11"
+    font-weight="600" letter-spacing="3.4">CONCEPT OF OPERATIONS</text>
+  <text x="60" y="64" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="15" font-weight="600">
+    Mission 2 — command from a laptop, follow a person, come home on link loss</text>
+
+  <path d="M40 340H960" stroke="#DAD8D3" stroke-width="1.5"/>
+  <path d="M276 340h48" stroke="#6E6B66" stroke-width="3"/>
+  <text x="300" y="358" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10"
+    text-anchor="middle" letter-spacing="1">PAD</text>
+
+  <!-- ground station -->
+  <rect x="60" y="260" width="150" height="80" fill="#FFFFFF" stroke="#DAD8D3" stroke-width="1.5"/>
+  <text x="74" y="284" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="13"
+    font-weight="600" letter-spacing="2">GROUND</text>
+  <text x="74" y="304" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5">gcs_client.py</text>
+  <text x="74" y="320" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10.5">laptop · any OS</text>
+  <path d="M196 260v-34" stroke="#6E6B66" stroke-width="1.5"/>
+  <g transform="translate(196,222)"><g id="rfGround" fill="none" stroke="#E05316" stroke-width="1.6"><circle r="6"/><circle r="6"/><circle r="6"/></g></g>
+  <g id="armed" transform="translate(74,332)">
+    <circle r="4" cx="4" cy="-4" fill="#E05316"/>
+    <text x="14" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10"
+      letter-spacing="1.4">ARMED</text>
+  </g>
+
+  <!-- the person being followed -->
+  <g id="walker">
+    <g transform="translate(0,340)" fill="#0A0A0A">
+      <circle cx="0" cy="-42" r="7"/>
+      <path d="M-6 -34h12l3 20h-6l-2 14h-4l-2-14h-6z"/>
+    </g>
+    <g id="lock" transform="translate(0,340)" fill="none" stroke="#E05316" stroke-width="1.6">
+      <path d="M-20-58h-10v10M20-58h10v10M-20 8h-10V-2M20 8h10V-2"/>
+    </g>
+  </g>
+
+  <!-- the aircraft -->
+  <g id="drone">
+    <g id="cone" fill="#E05316" opacity=".1">
+      <path d="M0 14 L150 190 L-40 190Z" fill="#E05316" opacity=".07"/>
+      <path d="M0 14 L150 190 L-40 190Z" fill="none" stroke="#E05316"
+        stroke-width="1" opacity=".32" stroke-dasharray="4 4"/>
+    </g>
+    <g id="rfDrone" transform="translate(0,-16)" fill="none" stroke="#E05316" stroke-width="1.6"><circle r="6"/><circle r="6"/><circle r="6"/></g>
+    <path d="M-34 -4h68" stroke="#0A0A0A" stroke-width="3"/>
+    <path d="M-34 -4l-6-10M34 -4l6-10" stroke="#0A0A0A" stroke-width="2.5"/>
+    <rect x="-16" y="-8" width="32" height="16" rx="2" fill="#0A0A0A"/>
+    <circle cx="0" cy="12" r="6" fill="#0A0A0A"/>
+    <circle cx="0" cy="12" r="2.4" fill="#F2F1EE"/>
+    <ellipse id="rotorL" cx="-40" cy="-15" rx="19" ry="2.6" fill="#6E6B66"/>
+    <ellipse id="rotorR" cx="40" cy="-15" rx="19" ry="2.6" fill="#6E6B66"/>
+  </g>
+
+  <g id="linkX" transform="translate(470,132)">
+    <path d="M-12-12l24 24M12-12l-24 24" stroke="#E05316" stroke-width="3"/>
+    <text x="0" y="34" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+      text-anchor="middle" letter-spacing="1.4">LINK LOST</text>
+  </g>
+
+  <g id="ticker">
+    <text id="c0" x="60" y="382" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">GROUND · operator selects Mission 2 — follow</text>
+    <text id="c1" x="60" y="382" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">RUN{"id":2}  →  915 MHz SF7</text>
+    <text id="c2" x="60" y="382" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">ACK{accepted}  →  CONFIRM  →  ARMED   ·   two-step arm gate</text>
+    <text id="c3" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">AUTO.TAKEOFF  →  hover</text>
+    <text id="c4" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">OAK-D  →  person detected   ·   {x,y,z} over UDP 5005</text>
+    <text id="c5" x="60" y="382" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">OFFBOARD velocity follow   ·   keep 3 m   ·   telemetry home over LoRa</text>
+    <text id="c6" x="60" y="382" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">link lost > 4 s   →   failsafe</text>
+    <text id="c7" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">AUTO.RTL  →  return to launch</text>
+    <text id="c8" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">AUTO.LAND  →  disarm</text>
+    <text id="c9" x="60" y="382" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">Target system — Mission 2 in docs/ROADMAP.md · bench-tested against mocks, outdoor flight pending</text>
+  </g>
+</svg>

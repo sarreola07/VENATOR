@@ -22,6 +22,7 @@ no accent inside the mark.
 | `assets/brand/favicon.svg` | 16–32 px. The V alone; the wings close up below ~20 px. |
 | `assets/brand/social-preview.png` | 1280×640 card for GitHub, Slack, chat unfurls. |
 | `assets/brand/system-dark.svg`, `system-light.svg` | The system diagram, animated. See **Motion**. |
+| `assets/brand/conops-dark.svg`, `conops-light.svg` | Concept of operations — Mission 2 end to end, animated. |
 | `assets/brand/lockup-stacked-*.svg` | Mark above the wordmark — banners, posters, title slides. |
 | `assets/brand/png/` | High-resolution PNG exports of all of the above. |
 
