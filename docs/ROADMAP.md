@@ -3,6 +3,14 @@
 End goal: command the drone from any laptop over LoRa, with **zero interaction on
 the Jetson**, including a "fly to these coordinates" mission.
 
+<p align="center">
+  <img alt="Concept of operations: a laptop commands the drone over 915 MHz LoRa, it takes off, follows a person at 3 m, and returns home when the link drops" src="../assets/brand/conops-light.svg" width="900">
+</p>
+
+The sequence above is Mission 2 as designed, end to end. It is the target, not a
+recording: the missions are built and bench-tested against mocks, and outdoor
+flight is still pending.
+
 ## Status
 
 | Phase | What | State |
@@ -33,8 +41,10 @@ the Jetson**, including a "fly to these coordinates" mission.
   streams ACK/DONE. Defaults to a **mock FC** and **props OFF** (safe); `--real`
   connects the Pixhawk, `--props-on` enables flight. Tested end-to-end against the
   real client over a loopback — props + GPS gates verified. `deploy/systemd/venator-c2.service`
-  is the zero-touch boot unit (enable deliberately). Still TODO: two-step arm
-  confirm, link-loss → RTL, and threaded execution so ABORT/heartbeat work mid-mission.
+  is the zero-touch boot unit (enable deliberately). The two-step arm confirm
+  (`CONFIRM` gates every flight), the link-loss failsafe (`LINK_LOSS_S = 4.0` →
+  RTL) and mid-mission `ABORT` are all in place: the mission loops poll the link
+  while flying instead of blocking, so aborts and heartbeats are handled promptly.
 - **5 — Waypoint flight:** fit a GPS (M8N → Pixhawk GPS port; `EKF2_AID_MASK=1`
   already set). Upload via `MISSION_ITEM_INT` → `AUTO.MISSION`, altitude cap +
   RTL-last, bench-validate acceptance, then fly outdoors.
