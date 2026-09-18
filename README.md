@@ -29,7 +29,10 @@
 </p>
 
 <p align="center">
-  <img alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops" src="assets/brand/conops-light.svg" width="900">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
+    <img alt="System self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS not fitted; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
+  </picture>
 </p>
 
 The ground station sends a command over LoRa, the Jetson runs it against the
