@@ -11,6 +11,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/sarreola07/VENATOR/actions/workflows/tests.yml">
+    <img alt="Tests" src="https://github.com/sarreola07/VENATOR/actions/workflows/tests.yml/badge.svg">
+  </a>
   <a href="https://github.com/sarreola07/VENATOR/actions/workflows/build-gcs.yml">
     <img alt="Ground station build" src="https://github.com/sarreola07/VENATOR/actions/workflows/build-gcs.yml/badge.svg">
   </a>

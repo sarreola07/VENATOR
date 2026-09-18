@@ -1,0 +1,37 @@
+name: Tests
+
+# The mission tests run against a mock flight controller — no Pixhawk, no radio,
+# no motors — so they are safe and fast to run on every push. They cover the
+# behaviour that is expensive to get wrong in the air: returning home on link
+# loss, holding position when the camera loses the person, and surviving
+# corrupted LoRa packets.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No pip install: the suite is stdlib-only by design, which is what lets it
+      # run identically on a laptop, the Jetson and here.
+      - name: Mission regression tests
+        run: python3 tests/test_missions.py
+
+      - name: Every Python file compiles
+        run: python3 -m compileall -q radio drone ground tests
+
+      - name: Every shell script parses
+        run: |
+          status=0
+          for f in $(git ls-files '*.sh'); do
+            bash -n "$f" || { echo "syntax error in $f"; status=1; }
+          done
+          exit $status
