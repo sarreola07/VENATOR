@@ -647,33 +647,12 @@ class C2Server:
             send(p.message(p.DONE, 0, id="mission1", result=f"FAILED: {exc}"))
             return
 
-        phase = "takeoff"
         hover_start = None
         people_seen = 0
         person_present = False
-        last_ping = time.time()
-        last_status = 0.0
-        rtl = False
-        deadline = time.time() + FLIGHT_MAX_S
-        while time.time() < deadline:
-            now = time.time()
-            msg = link.poll()
-            if msg:
-                mt = msg.get("t")
-                if mt == p.PING:
-                    last_ping = now
-                    send(p.message(p.PONG, msg.get("seq", 0)))
-                elif mt == p.ABORT and not rtl:
-                    send(p.message(p.LOG, 0, text="ABORT — returning home"))
-                    self.fc.set_flight_mode("RTL")
-                    rtl = True
-            if not rtl and now - last_ping > LINK_LOSS_S:
-                self.log("MISSION1: LINK LOST -> RTL")
-                send(p.message(p.LOG, 0, text="LINK LOST — returning home"))
-                self.fc.set_flight_mode("RTL")
-                rtl = True
-
-            st = self.fc.flight_state()
+        flight = MonitoredFlight(self, link, send, "mission1", "MISSION1",
+                                 on_close=lambda: cam.close() if cam else None)
+        for now, st in flight.ticks():
             person = self._read_person(cam)
             if person is not None:
                 if not person_present:
@@ -682,36 +661,27 @@ class C2Server:
             else:
                 person_present = False
 
-            if not rtl:
-                if phase == "takeoff" and st["alt"] >= HOVER_ALT_M * 0.9:
-                    phase = "hover"
+            if flight.flying:
+                if flight.phase == "takeoff" and st["alt"] >= HOVER_ALT_M * 0.9:
+                    flight.phase = "hover"
                     hover_start = now
                     send(p.message(p.LOG, 0, text="hovering — detecting people"))
-                elif phase == "hover" and hover_start and now - hover_start > HOVER_TIME_S:
-                    phase = "land"
+                elif (flight.phase == "hover" and hover_start
+                      and now - hover_start > HOVER_TIME_S):
+                    flight.phase = "land"
                     self.fc.set_flight_mode("LAND")
                     send(p.message(p.LOG, 0, text="hover complete — landing in place"))
 
-            if now - last_status >= STATUS_INTERVAL_S:
-                send(p.message(p.STATUS, 0, rtl=rtl, phase="RTL" if rtl else phase,
-                               person=person_present, seen=people_seen,
-                               pz=round(person["z"], 2) if person else None, **st))
-                last_status = now
+            flight.extra = {"person": person_present, "seen": people_seen,
+                            "pz": round(person["z"], 2) if person else None}
 
-            if not st["armed"]:
-                if cam:
-                    cam.close()
-                send(p.message(p.DONE, 0, id="mission1",
-                               result="landed & disarmed — {} person-detection(s){}".format(
-                                   people_seen, " (RTL)" if rtl else "")))
-                self.log("MISSION1: landed & disarmed")
-                return
-            time.sleep(0.15)
-
-        if cam:
-            cam.close()
-        self.fc.set_flight_mode("RTL")
-        send(p.message(p.DONE, 0, id="mission1", result="time cap -> RTL"))
+        if flight.timed_out:
+            send(p.message(p.DONE, 0, id="mission1", result="time cap -> RTL"))
+            return
+        send(p.message(p.DONE, 0, id="mission1",
+                       result="landed & disarmed — {} person-detection(s){}".format(
+                           people_seen, " (RTL)" if flight.rtl else "")))
+        self.log("MISSION1: landed & disarmed")
 
     @staticmethod
     def _follow_setpoint(person):
@@ -757,39 +727,14 @@ class C2Server:
             send(p.message(p.DONE, 0, id="mission2", result=f"FAILED: {exc}"))
             return
 
-        last_ping = time.time()
-        last_status = 0.0
-        rtl = False
-        ending = None            # None -> flying; "STOP"/"ABORT"/"LINKLOSS"
         offboard = False
-        last_person_t = 0.0
-        deadline = time.time() + FLIGHT_MAX_S
-        while time.time() < deadline:
-            now = time.time()
-            msg = link.poll()
-            if msg:
-                mt = msg.get("t")
-                if mt == p.PING:
-                    last_ping = now
-                    send(p.message(p.PONG, msg.get("seq", 0)))
-                elif mt == p.STOP and ending is None:
-                    ending = "STOP"
-                    send(p.message(p.LOG, 0, text="STOP — landing in place"))
-                    self.fc.set_flight_mode("LAND")
-                elif mt == p.ABORT and ending is None:
-                    ending, rtl = "ABORT", True
-                    send(p.message(p.LOG, 0, text="ABORT — returning home"))
-                    self.fc.set_flight_mode("RTL")
-            if ending is None and now - last_ping > LINK_LOSS_S:
-                ending, rtl = "LINKLOSS", True
-                self.log("MISSION2: LINK LOST -> RTL")
-                send(p.message(p.LOG, 0, text="LINK LOST — returning home"))
-                self.fc.set_flight_mode("RTL")
-
-            st = self.fc.flight_state()
+        flight = MonitoredFlight(self, link, send, "mission2", "MISSION2",
+                                 allow_stop=True, tick=0.1,
+                                 on_close=lambda: cam.close() if cam else None)
+        for now, st in flight.ticks():
             person = self._read_person(cam)
             following = False
-            if ending is None:
+            if flight.flying:
                 # once at altitude, enter OFFBOARD and stream velocity setpoints
                 if not offboard and st["alt"] >= HOVER_ALT_M * 0.9:
                     for _ in range(10):
@@ -800,34 +745,23 @@ class C2Server:
                     send(p.message(p.LOG, 0, text="following — send STOP to land"))
                 if offboard:
                     if person is not None:
-                        last_person_t = now
                         vx, yaw = self._follow_setpoint(person)
                         following = True
                     else:
                         vx, yaw = 0.0, 0.0        # no person -> hover, don't drift
                     self.fc.send_velocity(vx, 0, 0, yaw)
 
-            if now - last_status >= STATUS_INTERVAL_S:
-                send(p.message(p.STATUS, 0, rtl=rtl,
-                               phase=("RTL" if rtl else (ending or ("follow" if offboard else "takeoff"))),
-                               person=person is not None, following=following,
-                               pz=round(person["z"], 2) if person else None, **st))
-                last_status = now
+            flight.phase = "follow" if offboard else "takeoff"
+            flight.extra = {"person": person is not None, "following": following,
+                            "pz": round(person["z"], 2) if person else None}
 
-            if not st["armed"]:
-                if cam:
-                    cam.close()
-                how = {"STOP": "landed (stopped)", "ABORT": "landed (RTL)",
-                       "LINKLOSS": "landed (link-loss RTL)"}.get(ending, "landed & disarmed")
-                send(p.message(p.DONE, 0, id="mission2", result=how))
-                self.log("MISSION2: landed & disarmed")
-                return
-            time.sleep(0.1)
-
-        if cam:
-            cam.close()
-        self.fc.set_flight_mode("RTL")
-        send(p.message(p.DONE, 0, id="mission2", result="time cap -> RTL"))
+        if flight.timed_out:
+            send(p.message(p.DONE, 0, id="mission2", result="time cap -> RTL"))
+            return
+        how = {"STOP": "landed (stopped)", "ABORT": "landed (RTL)",
+               "LINKLOSS": "landed (link-loss RTL)"}.get(flight.ending, "landed & disarmed")
+        send(p.message(p.DONE, 0, id="mission2", result=how))
+        self.log("MISSION2: landed & disarmed")
 
     def run_flight(self, link, send):
         """CONFIRM received: arm + AUTO.MISSION, then monitor with a link-loss
@@ -853,43 +787,109 @@ class C2Server:
             send(p.message(p.DONE, 0, id="fly", result=f"FAILED: {exc}"))
             return
 
-        last_ping = time.time()
-        last_status = 0.0
-        rtl = False
-        deadline = time.time() + FLIGHT_MAX_S
-        while time.time() < deadline:
+        flight = MonitoredFlight(self, link, send, "fly", "FLIGHT")
+        for _now, _st in flight.ticks():
+            pass                               # nothing mission-specific to do
+
+        if flight.timed_out:
+            send(p.message(p.DONE, 0, id="fly", result="flight time cap -> RTL"))
+            return
+        send(p.message(p.DONE, 0, id="fly",
+                       result="landed & disarmed" + (" (RTL)" if flight.rtl else "")))
+        self.log("FLIGHT: landed & disarmed")
+
+
+class MonitoredFlight:
+    """Everything that must be true on every tick of a flight, in one place.
+
+    The three missions differ in what they ask the aircraft to do. They do not
+    differ in how a flight is watched: answer PINGs, honour ABORT, come home if
+    the link goes quiet, push a status heartbeat, stop when it disarms, and give
+    up at the time cap. That was written out three times, which is how failsafes
+    drift apart. This repo has already paid for the same mistake once -- the
+    serial transport was copied three times and grew three different bugs.
+
+    Use it as the loop, and do the mission's own work in the body:
+
+        flight = MonitoredFlight(self, link, send, "mission1", "MISSION1")
+        for now, st in flight.ticks():
+            ...                       # st is the current flight state
+            flight.phase = "hover"    # shown in STATUS
+            flight.extra = {...}      # extra STATUS fields
+        if flight.timed_out: ...
+
+    LINK_LOSS_S, STATUS_INTERVAL_S and FLIGHT_MAX_S are read from the module at
+    run time, not captured, because the tests set them.
+    """
+
+    def __init__(self, server, link, send, mission_id, log_tag, *,
+                 allow_stop=False, tick=0.15, on_close=None):
+        self.server, self.link, self.send = server, link, send
+        self.mission_id, self.log_tag = mission_id, log_tag
+        self.allow_stop, self.tick, self.on_close = allow_stop, tick, on_close
+        self.rtl = False
+        self.ending = None          # None -> flying; "STOP"/"ABORT"/"LINKLOSS"
+        self.phase = "takeoff"
+        self.extra = {}
+        self.timed_out = False
+        self._last_ping = time.time()
+        self._last_status = 0.0
+        self._deadline = time.time() + FLIGHT_MAX_S
+
+    @property
+    def flying(self):
+        """True while nothing has ended the flight — guard mission work with it."""
+        return self.ending is None
+
+    def _close(self):
+        if self.on_close:
+            self.on_close()
+
+    def _go_home(self, why, text):
+        self.server.log(f"{self.log_tag}: {why}")
+        self.send(p.message(p.LOG, 0, text=text))
+        self.server.fc.set_flight_mode("RTL")
+        self.rtl = True
+
+    def ticks(self):
+        while time.time() < self._deadline:
             now = time.time()
-            msg = link.poll()
+            msg = self.link.poll()
             if msg:
                 mt = msg.get("t")
                 if mt == p.PING:
-                    last_ping = now
-                    send(p.message(p.PONG, msg.get("seq", 0)))
-                elif mt == p.ABORT and not rtl:
-                    self.log("FLIGHT: ABORT -> RTL")
-                    send(p.message(p.LOG, 0, text="ABORT — returning home"))
-                    self.fc.set_flight_mode("RTL")
-                    rtl = True
-            if not rtl and now - last_ping > LINK_LOSS_S:
-                self.log("FLIGHT: LINK LOST -> RTL")
-                send(p.message(p.LOG, 0, text="LINK LOST — returning home"))
-                self.fc.set_flight_mode("RTL")
-                rtl = True
+                    self._last_ping = now
+                    self.send(p.message(p.PONG, msg.get("seq", 0)))
+                elif mt == p.STOP and self.allow_stop and self.ending is None:
+                    self.ending = "STOP"
+                    self.server.log(f"{self.log_tag}: STOP -> LAND")
+                    self.send(p.message(p.LOG, 0, text="STOP — landing in place"))
+                    self.server.fc.set_flight_mode("LAND")
+                elif mt == p.ABORT and self.ending is None:
+                    self.ending = "ABORT"
+                    self._go_home("ABORT -> RTL", "ABORT — returning home")
+            if self.ending is None and now - self._last_ping > LINK_LOSS_S:
+                self.ending = "LINKLOSS"
+                self._go_home("LINK LOST -> RTL", "LINK LOST — returning home")
 
-            st = self.fc.flight_state()
-            if now - last_status >= STATUS_INTERVAL_S:
-                send(p.message(p.STATUS, 0, rtl=rtl, **st))
-                last_status = now
-            if not st["armed"]:
-                send(p.message(p.DONE, 0, id="fly",
-                               result="landed & disarmed" + (" (RTL)" if rtl else "")))
-                self.log("FLIGHT: landed & disarmed")
+            st = self.server.fc.flight_state()
+            yield now, st                      # the mission does its own work here
+
+            if now - self._last_status >= STATUS_INTERVAL_S:
+                self.send(p.message(p.STATUS, 0, rtl=self.rtl,
+                                    phase="RTL" if self.rtl else (self.ending or self.phase),
+                                    **self.extra, **st))
+                self._last_status = now
+
+            if not st["armed"]:                # it landed and disarmed
+                self._close()
                 return
-            time.sleep(0.15)
+            time.sleep(self.tick)
 
-        self.log("FLIGHT: time cap reached -> RTL")
-        self.fc.set_flight_mode("RTL")
-        send(p.message(p.DONE, 0, id="fly", result="flight time cap -> RTL"))
+        self.timed_out = True
+        self._close()
+        self.server.log(f"{self.log_tag}: time cap reached -> RTL")
+        self.server.fc.set_flight_mode("RTL")
 
 
 # --------------------------------------------------------------------------

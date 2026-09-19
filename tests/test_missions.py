@@ -94,6 +94,62 @@ def make_server(gps=True, props_off=False, mission=False):
     return srv.C2Server(fc, props_off=props_off)
 
 
+# --------------------------------------------------------- shared failsafe loop
+def test_monitored_flight():
+    """MonitoredFlight is now the only failsafe loop, so all three missions
+    inherit whatever it does. That makes it worth testing head-on — especially
+    STOP, which it understands but which most missions must ignore."""
+    print("\n[shared failsafe loop]")
+
+    # Globals are restored afterwards so this test cannot change how the ones
+    # after it behave.
+    hover_was, cap_was = srv.HOVER_TIME_S, srv.FLIGHT_MAX_S
+    try:
+        # A mission 1 that correctly ignores STOP runs to its hover timeout, so
+        # shorten it — on the default 60 s this one check costs a minute.
+        srv.HOVER_TIME_S = 1.0
+
+        # STOP must land mission 2 and be ignored by everything else. If the
+        # allow_stop gate were wrong, a STOP would put a flying aircraft into
+        # LAND during a mission that never offered STOP as an option.
+        _, link = run_mission(2, stop_at=0.3)
+        check("mission 2 honours STOP", "stopped" in (link.done() or ""), link.done())
+        _, link = run_mission(1, stop_at=0.3)
+        check("mission 1 ignores STOP", "stopped" not in (link.done() or ""), link.done())
+
+        s = make_server()
+        s.props_off = False
+        link = FakeLink(ping_for=100.0)
+        real_poll, sent_abort = link.poll, []
+
+        def abort_after_a_moment():
+            if time.time() - link.t0 > 0.3 and not sent_abort:
+                sent_abort.append(True)
+                return c2.message(c2.ABORT, 0)
+            return real_poll()
+
+        link.poll = abort_after_a_moment
+        s._pending = "mission1"
+        srv.HOVER_TIME_S = 30.0      # long enough that ABORT is what ends it
+        s.run_mission1(link, link.send)
+        check("ABORT returns home", "RTL" in (link.done() or ""), link.done())
+        check("and says so on the link",
+              any("ABORT" in t for t in link.texts()), str(link.texts()[:3]))
+
+        # The time cap is the backstop when nothing else fires. run_flight is
+        # gated on an uploaded mission, so this needs _pending "waypoints" --
+        # anything else and it declines before it ever reaches the loop.
+        s2 = make_server(mission=True)
+        s2.props_off = False
+        s2._pending = "waypoints"
+        quiet = FakeLink(ping_for=100.0)
+        srv.FLIGHT_MAX_S = 1.5       # long enough to arm, short enough to cap
+        s2.run_flight(quiet, quiet.send)
+        check("time cap ends the flight", "time cap" in (quiet.done() or ""), quiet.done())
+    finally:
+        srv.HOVER_TIME_S, srv.FLIGHT_MAX_S = hover_was, cap_was
+
+
 # ---------------------------------------------------------------- menu / packets
 def test_menu():
     print("\n[menu + LoRa packet safety]")
@@ -249,6 +305,7 @@ def test_client_robustness():
 
 
 if __name__ == "__main__":
+    test_monitored_flight()
     test_menu()
     test_props()
     test_fly_gates()
