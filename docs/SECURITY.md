@@ -35,14 +35,28 @@ person. It was never designed to do more than that.
 
 **What limits the exposure today**
 
-- The server defaults to a mock flight controller with props off; `--real` and
-  `--props-on` are both opt-in.
 - PX4's own pre-arm checks still apply, including the GPS fix requirement.
+- Flight needs a second message: `RUN` prepares it, `CONFIRM` launches it.
 - An attacker needs to be within LoRa range, with the right hardware, at the
   right time.
+- A server started by hand talks to a **mock** flight controller unless `--real`
+  is passed.
 
-None of those are access control. The first two are off in field configuration,
-which is the point of the project.
+**Be careful about what the props flag does and does not do.** Props default to
+**ON** — `C2Server(props_off=False)`, and `--props-on` is a no-op kept for
+compatibility; `--props-off` is the flag that does something. The interlock
+stops motor tests running with props fitted and blocks flight once props are
+*declared off*. It is not a default-safe gate, and it was built that way on
+purpose: `tests/test_missions.py` asserts "props default to ON (flight ready out
+of the box)".
+
+**And the Jetson's boot service passes `--real`**
+([`deploy/systemd/`](../deploy/systemd/)), so the mock-FC default does not apply
+there. A Jetson that has booted is a real flight controller with props declared
+on, waiting for a command, and — until you create a key — it will take that
+command from anyone.
+
+None of the above is access control.
 
 **Operational guidance until this is fixed**
 
@@ -112,9 +126,19 @@ Open an issue, or for anything you would rather not post publicly, contact the
 repository owner through their GitHub profile. This is a personal project with
 no security team and no response-time commitment.
 
+### 4. The camera stream has no access control at all — **medium**
+
+`drone/camera_publisher.py` serves `/`, `/status.json` and `/stream.mjpg` from
+`ThreadingHTTPServer` bound to `0.0.0.0` with no key, no token and no check of
+any kind. Anyone who can reach the port can watch the aircraft's camera and read
+the detection status.
+
+The relay at least has a key. This has nothing. On the Jetson's own hotspot that
+is arguably the intent; on a shared or untrusted network it is a live video feed
+served to that network. `CAMERA_STREAM_HOST` can be set to `127.0.0.1` to limit
+it to the Jetson itself, which breaks viewing it from a laptop.
+
 ## Scope note
 
-The camera stream and the relay both bind to every interface so a phone on the
-same Wi-Fi can reach them. On the Jetson's own hotspot that is the intent. On a
-shared or untrusted network it means anyone on that network can reach the port,
-and the relay's access key is the only thing in the way.
+Both the camera stream and the relay bind to every interface so a phone on the
+same Wi-Fi can reach them. Only the relay checks anything.
