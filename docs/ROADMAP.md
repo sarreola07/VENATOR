@@ -59,7 +59,7 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   sticks.
 - **4 — Jetson server** *(server done):* `drone/c2_server.py` owns the LoRa
   serial and the Pixhawk; serves the menu, runs missions (reusing `drone/missions.py`),
-  streams ACK/DONE. Defaults to a **mock FC** and **props OFF** (safe); `--real`
+  streams ACK/DONE. Defaults to a **mock FC** (`--real` connects the Pixhawk) but props default **ON**; `--real`
   connects the Pixhawk, `--props-on` enables flight. Tested end-to-end against the
   real client over a loopback — props + GPS gates verified. `deploy/systemd/venator-c2.service`
   is the zero-touch boot unit (enable deliberately). The two-step arm confirm
