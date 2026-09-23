@@ -1,8 +1,8 @@
-# Developing across two computers (and two Claude sessions)
+# Developing across two computers
 
 How to work on the Venator C2 link when the two ends of that link are two
 different machines — an **Ubuntu box** standing in for the Jetson, and a
-**MacBook** as the ground station — with a Claude session on each.
+**MacBook** as the ground station — with a development session on each.
 
 Using Ubuntu for the drone side is deliberate and worth the trouble: the Jetson
 Orin Nano runs Ubuntu 24.04, so the stand-in shares its serial naming
@@ -10,30 +10,29 @@ Orin Nano runs Ubuntu 24.04, so the stand-in shares its serial naming
 venv layout. Rung 3 below — moving the server onto the real Jetson — is then
 close to a no-op, which is the whole point.
 
-## First: which Claude can see your LoRa stick?
+## First: which environment can see your LoRa stick?
 
 This is the thing that catches everyone, so it goes first.
 
-| Where Claude runs | Sees your USB LoRa stick? |
+| Where the code runs | Sees your USB LoRa stick? |
 |---|---|
-| **Claude Code on the web** (claude.ai/code) | **No.** Every web session runs in a throwaway Linux container in the cloud, with a fresh `git clone` of this repo. No USB, no serial ports, no route to your machine — `ls /dev/ttyUSB*` there comes back empty. |
-| **Claude Code CLI** on the MacBook | Yes — same machine, same `/dev`, same ports. |
-| **Claude Code CLI** on the Ubuntu box | Yes, once you are in the `dialout` group. |
+| **A cloud dev environment** (in the browser) | **No.** Every cloud session runs in a throwaway Linux container in the cloud, with a fresh `git clone` of this repo. No USB, no serial ports, no route to your machine — `ls /dev/ttyUSB*` there comes back empty. |
+| **A local terminal** on the MacBook | Yes — same machine, same `/dev`, same ports. |
+| **A local terminal** on the Ubuntu box | Yes, once you are in the `dialout` group. |
 
-A web session also cannot tell which computer you are typing into. The browser
+A cloud session also cannot tell which computer you are typing into. The browser
 is yours; the container is not. So "I'm on the MacBook" changes nothing about
-what a web session can reach — only which machine you install the CLI on.
+what a cloud session can reach — only which machine you run the code on.
 
 **Consequence:** anything touching the radio, the Pixhawk or the camera runs
-from a **local** Claude Code session on that machine. Install the CLI
-(`npm install -g @anthropic-ai/claude-code`, or see
-<https://code.claude.com/docs>) on both the Ubuntu box and the MacBook.
+from a **local** session on that machine — a terminal on the Ubuntu box and a
+terminal on the MacBook.
 
 ## Who plays which role
 
 ```
                      ┌──────────────────────────────┐
-                     │ Claude Code on the web       │  writes code,
+                     │ Cloud dev environment        │  writes code,
                      │ (cloud container, no USB)    │  pushes a branch
                      └───────────────┬──────────────┘
                                      │ git push
@@ -58,18 +57,18 @@ never becomes the Jetson.
 Pick this assignment and keep it. Swapping mid-project costs you an afternoon of
 "which end was stale?"
 
-## Two Claude sessions, one codebase
+## One codebase, one writer
 
 Three sessions, one job each. The point is that **only one session writes
-code**, so you never merge two Claudes against each other.
+code**, so you never merge two sessions' work against each other.
 
-- **Web session** — reads the whole repo, writes the code, pushes to the feature
+- **Cloud session** — reads the whole repo, writes the code, pushes to the feature
   branch. It cannot test against hardware, so do not let it guess: paste the
   real output back.
 - **Ubuntu session** — pulls, runs the server, reports what it logged.
 - **MacBook session** — pulls, runs the client, reports what it logged.
 
-The two local Claudes **cannot message each other.** They share exactly two
+The two local sessions **cannot message each other.** They share exactly two
 channels, and that is enough:
 
 1. **Git** — for code. One pushes, the other pulls.
@@ -79,7 +78,7 @@ channels, and that is enough:
 ### If both sessions need to write code
 
 Sometimes the hardware side needs a fix on the spot. Then split ownership by
-file, so two Claudes never touch the same one:
+file, so two sessions never touch the same one:
 
 | File | Owner |
 |---|---|
@@ -130,8 +129,8 @@ python3 radio/link_test.py --send --count 20
 
 The Mac prints per-packet round-trip times and a loss summary, and exits `0`
 only if loss is within `--allow-loss` (20% by default). That exit code is what
-makes this useful to a Claude session: it can run the command, read the verdict
-and act, instead of a human interpreting a scrolling serial monitor.
+makes this useful to scripts and automation: they can run the command, read the
+verdict and act, instead of a human interpreting a scrolling serial monitor.
 
 To carry free text across — the quickest way to confirm a human-visible message
 really crosses the gap — run this on **both** machines and type:
@@ -218,10 +217,10 @@ one fail with `Could not exclusively lock port`.
 
 > A Windows PC also works as either end — `radio/link_test.py --list` names the `COM`
 > ports, `--lora-port auto` finds the stick by USB ID, and CI already builds
-> `VenatorGCS.exe`. Run Claude Code in PowerShell rather than WSL, which cannot
+> `VenatorGCS.exe`. Run it from PowerShell rather than WSL, which cannot
 > see COM ports without `usbipd-win`.
 
-## What to hand the web session
+## What to hand the cloud session
 
 A cloud session cannot run any of the above, so it is only as good as what you
 paste back. The useful things are the full `radio/link_test.py` summary block, the

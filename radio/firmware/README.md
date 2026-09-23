@@ -66,7 +66,7 @@ into one monitor; the other should print that exact line.
 
 `../link_test.py` runs the same check from the command line and exits `0` or `1`
 instead of leaving you to judge what scrolled past — which is what you want over
-SSH, in a script, or when a Claude session is driving one end:
+SSH, in a script, or in any automated run:
 
 ```bash
 python3 radio/link_test.py --list                  # which port is which stick
