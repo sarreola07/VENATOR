@@ -2,6 +2,9 @@
 # Camera 1 — OAK-D-S2 wildlife detection.
 #
 #   ./oak_camera.sh              # detect animals/people, print distance
+#   ./oak_camera.sh view         # live view, auto day (colour) / night (mono)
+#   ./oak_camera.sh day|night    # force one mode
+#   ./oak_camera.sh calibrate    # AE readings, to tune the thresholds
 #   ./oak_camera.sh info         # what OAK is this, which sensors, IR?
 #   ./oak_camera.sh test         # prove it streams colour + stereo depth
 #   ./oak_camera.sh images DIR   # run the detector over image files
@@ -89,6 +92,23 @@ case "${1:-detect}" in
             --save-dir "$SAVE_DIR" 2>&1 | tee -a "$LOG"
         exit "${PIPESTATUS[0]}"
         ;;
+    view|daynight)
+        # Live view that picks colour or mono from what auto-exposure is doing.
+        check_free
+        run "$PY" "$HERE/oak_daynight.py" "${@:2}"
+        ;;
+    night)
+        check_free
+        run "$PY" "$HERE/oak_daynight.py" --force night "${@:2}"
+        ;;
+    day)
+        check_free
+        run "$PY" "$HERE/oak_daynight.py" --force day "${@:2}"
+        ;;
+    calibrate)
+        check_free
+        run "$PY" "$HERE/oak_daynight.py" --calibrate
+        ;;
     info)
         check_free
         run "$PY" "$HERE/oak_info.py"
@@ -122,6 +142,6 @@ case "${1:-detect}" in
         if [ -n "${OAK_HOLD:-}" ]; then echo; read -r -p "Press Enter to close... " _ || true; fi
         ;;
     *)
-        die "unknown command '$1' (expected detect, info, test, images, classes or status)"
+        die "unknown command '$1' (expected detect, view, day, night, calibrate, info, test, images, classes or status)"
         ;;
 esac

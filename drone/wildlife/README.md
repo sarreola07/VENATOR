@@ -25,7 +25,9 @@ person-tracker. That one stays on depthai 2.32 in
 | `oak_test.py` | Proves the OAK streams colour and stereo depth. |
 | `test_detector.py` | Runs the detector over image files, so you can check what it sees before flying it. |
 | `setup_cam0.sh` | One-time device-tree overlay enable for CAM0. Needs sudo; dry-run by default. |
-| `oak_night.py` | Night-vision live view from the mono pair, the OAK's actual low-light path. |
+| `oak_daynight.py` | Live view that switches itself between colour and mono from what auto-exposure is doing. |
+| `oak_night.py` | Mono-only night view (both sensors side by side, for comparison). |
+| `lib_pid.sh` | Shared process lookup. `pgrep -f` alone matches shells that merely mention a script name. |
 | `oak_ir_test.py` | Does this OAK see infrared? Locks exposure and compares all three sensors. |
 | `checks/` | `check_camera.sh` (8-point camera health), `system_check.sh` (whole box, incl. the 7 W guard), `diagnose.sh` (GUI wrapper). |
 | `config/` | Known-good boot config and checksums — see [Recovery](#recovery). |
@@ -43,6 +45,9 @@ to use.
 
 # camera 1 — OAK-D
 ./drone/wildlife/oak_camera.sh               # detect, with distance
+./drone/wildlife/oak_camera.sh view          # live view, auto colour/mono
+./drone/wildlife/oak_camera.sh day|night     # force one mode
+./drone/wildlife/oak_camera.sh calibrate     # AE readings, to tune thresholds
 ./drone/wildlife/oak_camera.sh info          # what OAK is this?
 ./drone/wildlife/oak_camera.sh status        # who currently owns the device?
 ./drone/wildlife/oak_camera.sh images ~/Pictures/testset/   # test on photos
@@ -153,6 +158,37 @@ bar. If a check ever fires:
 sudo nvpmodel -m 1
 sudo sed -i 's/PM_CONFIG DEFAULT=0/PM_CONFIG DEFAULT=1/' /etc/nvpmodel.conf
 ```
+
+## Camera 1 day/night: read auto-exposure, not brightness
+
+`oak_daynight.py` switches between the colour sensor and the mono sensor by
+reading what auto-exposure **chose**, not how bright the picture looks.
+
+Measuring brightness does not work. AE drives every scene toward mid-grey, so a
+blacked-out room and a lit one report nearly the same mean — on the CSI camera
+the meter read 101/255 in the dark against a "night" threshold of 40. Reading
+AE's own settings sidesteps that entirely, because it measures how much light
+actually arrived.
+
+Measured on this unit in a dark room:
+
+| Sensor | exposure | ISO | AE load |
+|---|---|---|---|
+| CAM_A colour | 30008 µs (max) | 1599 (max) | **1.00 — given up** |
+| CAM_B mono | 29992 µs (max) | 424 | 0.27 |
+
+AE load is `exposure × ISO` as a fraction of the sensor's ceiling. Above
+`--night-load` (0.80) it switches to mono; below `--day-load` (0.45) back to
+colour. Two guards stop it flapping:
+
+- **`--settle 3`** — ignore the first seconds entirely. AE has not converged,
+  and the garbage readings flipped the mode three times in two seconds.
+- **`--dwell 3`** — the threshold must hold continuously before acting, so a
+  drone panning across the sky or a passing headlight cannot trigger a switch.
+
+Both sensors stream the whole time; switching picks which frame to draw, so the
+change is instant and CAM_A keeps working as the light meter even while mono is
+on screen. Run `oak_camera.sh calibrate` to pick thresholds for your own site.
 
 ## Night vision, measured
 
