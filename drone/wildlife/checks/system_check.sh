@@ -17,8 +17,42 @@ printf '  kernel %s | ubuntu %s\n' "$(uname -r)" "$(. /etc/os-release && echo "$
 printf '  uptime %s (booted %s)\n' "$(uptime -p | sed 's/^up //')" "$(uptime -s)"
 
 sec "Power / thermal"
-printf '  %s | cores online %s\n' "$(nvpmodel -q 2>/dev/null | paste -sd' ')" \
-  "$(cat /sys/devices/system/cpu/online)"
+# The rig is required to run at 7 W (nvpmodel ID 1). Checking only the live
+# mode is not enough: on 2026-09-28 it silently reverted to 15 W across a
+# reboot because /etc/nvpmodel.conf still carried DEFAULT=0, and nothing
+# flagged it. So verify the live mode AND the two things that decide what
+# comes back after a power cycle.
+REQUIRED_MODE=1
+REQUIRED_NAME=7W
+
+pm=$(nvpmodel -q 2>/dev/null)
+pm_name=$(printf '%s\n' "$pm" | sed -n 's/.*NV Power Mode: *//p' | tr -d ' ')
+pm_id=$(printf '%s\n' "$pm" | sed -n '2p' | tr -d ' ')
+cores=$(cat /sys/devices/system/cpu/online)
+printf '  mode %s (id %s) | cores online %s\n' "${pm_name:-?}" "${pm_id:-?}" "$cores"
+
+if [ "${pm_id:-}" = "$REQUIRED_MODE" ]; then
+  good "running at $REQUIRED_NAME (nvpmodel id $REQUIRED_MODE)"
+else
+  warn "running at ${pm_name:-unknown}, NOT $REQUIRED_NAME  ->  sudo nvpmodel -m $REQUIRED_MODE"
+fi
+
+# Survives a reboot? DEFAULT= in the config wins on a fresh boot; the status
+# file records the last explicit selection.
+pm_default=$(sed -n 's/.*PM_CONFIG *DEFAULT=\([0-9]\+\).*/\1/p' /etc/nvpmodel.conf 2>/dev/null)
+if [ "${pm_default:-}" = "$REQUIRED_MODE" ]; then
+  good "boot default is $REQUIRED_NAME (PM_CONFIG DEFAULT=$pm_default)"
+else
+  warn "boot default is id ${pm_default:-unknown}, not $REQUIRED_MODE - it will revert on reboot"
+  printf '  ----    sudo sed -i '"'"'s/PM_CONFIG DEFAULT=%s/PM_CONFIG DEFAULT=%s/'"'"' /etc/nvpmodel.conf\n' \
+    "${pm_default:-0}" "$REQUIRED_MODE"
+fi
+
+pm_saved=$(sed -n 's/^pmode:0*\([0-9]\+\)$/\1/p' /var/lib/nvpmodel/status 2>/dev/null)
+[ -z "$pm_saved" ] && grep -q 'pmode:0000' /var/lib/nvpmodel/status 2>/dev/null && pm_saved=0
+if [ -n "$pm_saved" ] && [ "$pm_saved" != "$REQUIRED_MODE" ]; then
+  warn "saved state is mode $pm_saved (/var/lib/nvpmodel/status) - re-applying with nvpmodel -m $REQUIRED_MODE rewrites it"
+fi
 for h in /sys/class/hwmon/hwmon*; do
   [ "$(cat "$h/name" 2>/dev/null)" = "ina3221" ] || continue
   for i in 1 2 3; do

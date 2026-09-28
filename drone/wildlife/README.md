@@ -25,7 +25,9 @@ person-tracker. That one stays on depthai 2.32 in
 | `oak_test.py` | Proves the OAK streams colour and stereo depth. |
 | `test_detector.py` | Runs the detector over image files, so you can check what it sees before flying it. |
 | `setup_cam0.sh` | One-time device-tree overlay enable for CAM0. Needs sudo; dry-run by default. |
-| `checks/` | `check_camera.sh` (8-point camera health), `system_check.sh` (whole box), `diagnose.sh` (GUI wrapper). |
+| `oak_night.py` | Night-vision live view from the mono pair, the OAK's actual low-light path. |
+| `oak_ir_test.py` | Does this OAK see infrared? Locks exposure and compares all three sensors. |
+| `checks/` | `check_camera.sh` (8-point camera health), `system_check.sh` (whole box, incl. the 7 W guard), `diagnose.sh` (GUI wrapper). |
 | `config/` | Known-good boot config and checksums — see [Recovery](#recovery). |
 
 ## Everyday commands
@@ -131,6 +133,46 @@ The infrared **illuminator LEDs are not software-controllable at all**. They are
 wired to the camera board's 3.3 V pads and lit whenever it has power; switching
 them would need a MOSFET in that supply. IR is invisible — point a phone camera
 at them to check.
+
+## The 7 W budget is guarded, because it drifted once
+
+`system_check.sh` verifies three separate things, not just the live mode:
+
+| Check | Why |
+|---|---|
+| `nvpmodel` id == 1 | the mode right now |
+| `PM_CONFIG DEFAULT=1` in `/etc/nvpmodel.conf` | what comes back after a reboot |
+| `/var/lib/nvpmodel/status` == `pmode:0001` | the last explicit selection |
+
+On 2026-09-28 the rig silently came back at **15 W** after a reboot because the
+config still carried `DEFAULT=0`. The live mode alone would not have caught it
+in advance, and nothing flagged it — the only clue was "15W" in the GNOME top
+bar. If a check ever fires:
+
+```bash
+sudo nvpmodel -m 1
+sudo sed -i 's/PM_CONFIG DEFAULT=0/PM_CONFIG DEFAULT=1/' /etc/nvpmodel.conf
+```
+
+## Night vision, measured
+
+The OAK's mono pair is the real low-light sensor on this rig. Same dark room,
+same night:
+
+| Camera | mean | std dev | result |
+|---|---|---|---|
+| IMX219 (CSI) | 37.6 | 0.5 | blank field |
+| **OAK OV9282 mono** | 116 | **15.6** | **usable image at 30 fps** |
+
+At an identical locked exposure the monos read **132 against the colour
+camera's 22** — no Bayer filter discarding two thirds of the light, plus
+OmniVision's "best-in-class NIR QE". `oak_night.py` is that view.
+
+The colour IMX378 carries an IR-cut filter and the monos, on the evidence of
+the OAK-D-PRO illuminating these same sensors at 940 nm, do not — so the mono
+pair should also see an 850 nm laser. `oak_ir_test.py` settles it with a TV
+remote. Note the S2 has **no IR emitters** (`getIrDrivers() == []`): it is a
+passive sensor and still needs some light.
 
 ## Recovery
 
