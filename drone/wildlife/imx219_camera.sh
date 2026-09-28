@@ -49,8 +49,12 @@ die() {
   exit 1
 }
 
-# PID of an existing live-feed window, if any.
-running_pid() { pgrep -f 'imx219_feed\.py --display' | head -1; }
+# shellcheck source=lib_pid.sh
+. "$(dirname "$(readlink -f "$0")")/lib_pid.sh"
+
+# PID of an existing live-feed window, if any. Uses script_pid so a shell
+# that merely mentions the script name cannot be mistaken for a live feed.
+running_pid() { script_pid imx219_feed.py --display; }
 
 # Ask to stop an existing feed. Returns 0 if the camera is now free.
 take_over() {

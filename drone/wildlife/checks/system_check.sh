@@ -128,7 +128,8 @@ done
 [ -n "$miss" ] && warn "missing GStreamer elements:$miss" || good "all 6 GStreamer elements present"
 
 sec "Live feed"
-p=$(pgrep -f 'imx219_feed\.py --display' | head -1)
+. "$(dirname "$(readlink -f "$0")")/../lib_pid.sh"
+p=$(script_pid imx219_feed.py --display)
 if [ -n "$p" ]; then
   good "feed running (pid $p, $(ps -o etime= -p "$p" | tr -d ' ') elapsed, $(ps -o %cpu= -p "$p" | tr -d ' ')% cpu)"
 else
@@ -140,13 +141,19 @@ sec "Project files"
 # the check works from any clone path, not just the one it was written on.
 W="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 echo "  module: $W"
-for f in imx219_feed.py ircut.py imx219_camera.sh setup_cam0.sh \
-         oak_wildlife.py oak_info.py oak_test.py \
-         checks/check_camera.sh checks/system_check.sh checks/diagnose.sh; do
-  q="$W/$f"
-  if [ ! -e "$q" ]; then warn "$f MISSING"
-  elif [ ! -x "$q" ]; then warn "$f not executable"
-  else good "$f"; fi
+# Enumerate what is actually there rather than checking a hand-written list.
+# The hardcoded version silently ignored four files added after it was written,
+# which is exactly the failure a file check exists to catch.
+missing=0
+while IFS= read -r q; do
+  f="${q#"$W"/}"
+  if [ ! -x "$q" ]; then warn "$f not executable"; missing=1; fi
+done < <(find "$W" -type f \( -name '*.py' -o -name '*.sh' \) ! -name '__init__.py' | sort)
+n=$(find "$W" -type f \( -name '*.py' -o -name '*.sh' \) ! -name '__init__.py' | wc -l)
+[ "$missing" = 0 ] && good "$n scripts present and executable"
+# The two entry points must exist by name; everything else is discovered.
+for f in imx219_camera.sh oak_camera.sh; do
+  [ -x "$W/$f" ] && good "entry point $f" || warn "entry point $f MISSING"
 done
 # The repo ships a __REPO__ template, not a literal .desktop, so validate the
 # copy that install_shortcuts.sh rendered rather than the template itself.

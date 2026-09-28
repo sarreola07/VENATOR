@@ -19,6 +19,8 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib_pid.sh
+. "$HERE/lib_pid.sh"
 PY="${OAK_PY:-/home/jetson/oak-venv/bin/python}"
 LOG="${XDG_STATE_HOME:-$HOME/.local/state}/wildlife/oak.log"
 mkdir -p "$(dirname "$LOG")"
@@ -41,12 +43,8 @@ Run:  ${PY%/python}/pip install depthai"
 # The OAK allows exactly one host process. The flight tracker and this detector
 # both want it, so say plainly who has it rather than failing with a device
 # error 20 seconds later.
-tracker_pid() {
-    pgrep -f 'camera_publisher\.py' 2>/dev/null | head -1
-}
-mine_pid() {
-    pgrep -f 'oak_wildlife\.py' 2>/dev/null | head -1
-}
+tracker_pid() { script_pid camera_publisher.py; }
+mine_pid() { script_pid oak_wildlife.py; }
 
 check_free() {
     local t; t="$(tracker_pid)"

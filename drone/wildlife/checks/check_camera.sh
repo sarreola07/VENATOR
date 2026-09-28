@@ -9,6 +9,10 @@ ok()   { printf '  \033[32mPASS\033[0m  %s\n' "$1"; pass=$((pass+1)); }
 no()   { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; fail=$((fail+1)); }
 info() { printf '  ----  %s\n' "$1"; }
 
+. "$(dirname "$(readlink -f "$0")")/../lib_pid.sh"
+live_feed_pid() { script_pid imx219_feed.py --display; }
+
+
 # Printed whenever frames fail to arrive. Re-probes I2C rather than reusing
 # the earlier reading, because during a failed capture the sensor is powered
 # up and so the probe is meaningful at this point even if it was not before.
@@ -105,23 +109,33 @@ else no "nvargus-daemon not active"; fi
 #    Argus permits only one consumer of the sensor, so if the live feed is
 #    already up this test cannot run and would report a bogus failure. Detect
 #    that first and say so instead.
-if [ -e /dev/video0 ] && pgrep -f 'imx219_feed\.py --display' >/dev/null 2>&1; then
-  info "live feed is already running (pid $(pgrep -f 'imx219_feed\.py --display' | head -1))"
+feed_pid=$(live_feed_pid)
+if [ -e /dev/video0 ] && [ -n "$feed_pid" ]; then
+  info "live feed is already running (pid $feed_pid)"
   info "  skipping the end-to-end capture: Argus allows only one consumer."
   info "  A running feed is itself proof that capture works."
 elif [ -e /dev/video0 ]; then
   tmp=$(mktemp -d)
+  err="$tmp/err"
   if timeout 60 gst-launch-1.0 nvarguscamerasrc sensor-id=0 sensor-mode=4 num-buffers=10 \
         ! 'video/x-raw(memory:NVMM),width=1280,height=720,framerate=60/1' \
-        ! nvjpegenc ! multifilesink location="$tmp/f_%d.jpg" >/dev/null 2>&1; then
+        ! nvjpegenc ! multifilesink location="$tmp/f_%d.jpg" >/dev/null 2>"$err"; then
     sz=$(stat -c%s "$tmp/f_9.jpg" 2>/dev/null || echo 0)
-    # A black or broken frame compresses to almost nothing.
-    if [ "$sz" -gt 20000 ]; then
+    # Threshold separates a blank frame from a real one across day AND night.
+    # Measured on this rig: blank/no-signal field ~4 kB, a genuine dark
+    # monochrome night frame ~17 kB, a lit colour frame 120-200 kB. The
+    # original 20 kB cut was set from a lit scene only, so it failed every
+    # legitimate night capture.
+    if [ "$sz" -gt 8000 ]; then
       ok "captured 10 frames; last JPEG ${sz} bytes (real image data)"
     else
       no "capture produced no real image data (last JPEG ${sz} bytes)"
       mipi_hint
     fi
+  elif grep -q 'Failed to create CaptureSession' "$err" 2>/dev/null; then
+    # Something grabbed the sensor between the check above and now. That is a
+    # busy device, not a broken one, and must not be reported as a fault.
+    info "camera is busy: another process took it mid-check (Argus allows one)"
   else
     no "Argus capture failed to run"
     mipi_hint
