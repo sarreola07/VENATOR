@@ -11,6 +11,7 @@ the Pixhawk, the camera tracker, and the health checks.
 | `camera_publisher.py` | OAK-D person tracker; publishes tracks over UDP and can serve video to a browser. |
 | `camera.sh` | Start/stop/preview/stream the tracker. Deliberately not a boot service. |
 | `checks/` | Read-only hardware checks: `check_pixhawk.py`, `check_rc.py`, `preflight_audit.py`. |
+| `wildlife/` | The two [wildlife cameras](wildlife/README.md): the CSI day/night feed and OAK-D animal/person detection. Separate from the tracker above, and on a different depthai version. |
 
 ## Everyday commands
 
@@ -19,6 +20,7 @@ the Pixhawk, the camera tracker, and the health checks.
 ./drone/camera.sh toggle                      # start/stop the tracker
 ./drone/camera.sh stream                      # tracker + video for a laptop browser
 ./venv/bin/python drone/checks/check_pixhawk.py   # is the flight controller talking?
+./drone/wildlife/imx219_camera.sh             # CSI feed, colour by day / mono at night
 ```
 
 ## Two things want the same ports

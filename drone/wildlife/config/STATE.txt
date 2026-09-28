@@ -1,0 +1,42 @@
+IMX219-160 IR-CUT on CAM0 - known-good state
+captured: 2026-09-28T00:08:11-05:00
+verified: live 1280x720 feed at 7W, 134KB JPEG capture, all 7 checks pass
+
+== camera 2 runtime defaults ==
+daynight:    schedule (sunrise/sunset, -6 deg civil twilight)
+lat/lon:     30.2672, -97.7431  (Austin TX)
+flip:        2  (rotate 180)
+wbmode:      3  (fluorescent - compensates for the missing IR-CUT filter;
+                 set 1/auto once the IR-CUT GPIO wire is fitted)
+saturation:  1.0 day / 0.0 night
+
+== platform ==
+NVIDIA Jetson Orin Nano Developer Kit
+# R39 (release), REVISION: 2.0, GCID: 45755727, BOARD: generic, EABI: aarch64, DATE: Mon Jun  1 09:28:48 PM UTC 2026
+kernel 6.8.12-1021-tegra | ubuntu 24.04
+
+== boot ==
+DEFAULT JetsonIO
+FDT /boot/dtb/tegra234-p3768-0000+p3767-0005-nv.dtb
+OVERLAYS /boot/tegra234-p3767-camera-p3768-imx219-A.dtbo
+
+== checksums (verify these if the camera ever stops working) ==
+b428ac1c7cfd4d93b2a2f0f4c5443602bcbd39643078e0e6ce9b4ca09beb44be  /boot/dtb/tegra234-p3768-0000+p3767-0005-nv.dtb
+2b9325fac4fe5654e87dbd90c9ccb9824ec3660888e1ed19b91ce8ffc20bd446  /boot/tegra234-p3767-camera-p3768-imx219-A.dtbo
+
+== sensor node ==
+node:        rbpcv2_imx219_a
+port-index:  1  (1 = CSI port B)
+lanes:       2
+mclk_khz:    24000
+badge:       jakku_front_RBP194
+
+== camera 1 (OAK) ==
+model:       OAK-D-S2-FF  MxID 194430107164191300  platform RVC2
+depthai:     3.10.0 in /home/jetson/oak-venv  (flight tracker uses 2.32 elsewhere)
+usb:         480 Mbps (USB 2.0) - move to the USB 3.0 hub
+
+== open items ==
+- IR-CUT GPIO wire not fitted (40-pin BOARD pin 7); day mode still IR-tinted
+- IR illuminator boards not connected; no usable night image
+- detection model is COCO yolov6-nano: no deer/hog/coyote/armadillo classes
