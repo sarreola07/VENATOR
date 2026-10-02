@@ -1,0 +1,103 @@
+name: Site audit
+
+# The site is one static page — index.html plus the animated SVGs in
+# assets/brand — served by GitHub Pages straight from main. This audits that
+# exact page on every change to it, so a regression shows up on the commit that
+# caused it instead of on someone's phone.
+#
+# Blocking: valid HTML, Lighthouse thresholds (.github/lighthouserc.json), and
+# zero WCAG 2.1 A/AA violations in light and dark mode at phone and desktop width.
+# Warnings only: axe best-practice rules, and diagram text that renders too small
+# to read on a phone.
+
+on:
+  push:
+    paths:
+      - "index.html"
+      - "assets/**"
+      - ".github/lighthouserc.json"
+      - ".github/workflows/site-audit.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "assets/**"
+      - ".github/lighthouserc.json"
+      - ".github/workflows/site-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # The lowercase <!doctype html> is valid HTML5; only the style rule objects.
+      - name: HTML is valid
+        run: npx --yes html-validate@11 --rule 'doctype-style:off' index.html
+
+      # Runs Lighthouse three times against a local copy and checks the scores
+      # in .github/lighthouserc.json. The report link is printed in the log.
+      - name: Lighthouse
+        run: npx --yes @lhci/cli@0.15 autorun --config=.github/lighthouserc.json
+
+      - name: Install browser for accessibility checks
+        run: |
+          npm i --no-save playwright@1.56 @axe-core/playwright@4
+          npx playwright install --with-deps chromium
+
+      # prefers-color-scheme swaps every image, so light and dark are two
+      # different pages as far as contrast is concerned — check both.
+      - name: Accessibility (axe, light + dark, phone + desktop)
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &
+          sleep 1
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright';
+          import AxeBuilder from '@axe-core/playwright';
+          const browser = await chromium.launch();
+          let blocking = 0;
+          for (const scheme of ['light', 'dark']) {
+            for (const [name, width, height] of [['phone', 390, 844], ['desktop', 1280, 900]]) {
+              const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width, height } });
+              const page = await ctx.newPage();
+              const errors = [];
+              page.on('pageerror', e => errors.push(e.message));
+              page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+              await page.goto('http://127.0.0.1:8765/index.html', { waitUntil: 'networkidle' });
+              const wcag = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+              const bp = await new AxeBuilder({ page }).withTags(['best-practice']).analyze();
+              const scroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+              for (const v of wcag.violations) console.log(`::error::${scheme}/${name}: ${v.id} (${v.impact}) x${v.nodes.length} — ${v.help}`);
+              for (const v of bp.violations) console.log(`::warning::${scheme}/${name}: ${v.id} x${v.nodes.length} — ${v.help}`);
+              for (const e of errors) console.log(`::error::${scheme}/${name}: console error — ${e}`);
+              if (scroll) console.log(`::error::${scheme}/${name}: page scrolls sideways`);
+              blocking += wcag.violations.length + errors.length + (scroll ? 1 : 0);
+              console.log(`${scheme}/${name}: ${wcag.violations.length} WCAG, ${bp.violations.length} best-practice, sideways scroll ${scroll}`);
+              await ctx.close();
+            }
+          }
+          await browser.close();
+          process.exit(blocking ? 1 : 0);
+          EOF
+
+      # The diagrams are 900-1000 units wide and scale down to the screen, so a
+      # 9-unit label is about 3 px on a phone. Lighthouse can't see text inside an
+      # <img>, so measure it from the source. Warn below 7 px at 358 px wide.
+      - name: Diagram text is readable on a phone
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re
+          used = re.findall(r'src="(assets/brand/[\w-]+-light\.svg)"', pathlib.Path("index.html").read_text())
+          for svg in map(pathlib.Path, used):
+              s = svg.read_text()
+              vb = re.search(r'viewBox="[\d.\s-]+?\s([\d.]+)\s[\d.]+"', s)
+              sizes = [float(x) for x in re.findall(r'font-size[:=]"?\s*([\d.]+)', s)]
+              if not vb or not sizes:
+                  continue
+              px = min(sizes) * 358 / float(vb.group(1))
+              flag = "::warning::" if px < 7 else ""
+              print(f"{flag}{svg.name}: smallest label {px:.1f} px on a phone")
+          EOF
