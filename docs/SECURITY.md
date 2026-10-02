@@ -29,7 +29,7 @@ indistinguishable from the operator's own ground station. That covers arming and
 launching, and it covers interrupting a flight that is already underway.
 
 **The two-step arm gate is not a security control.** `RUN` followed by `CONFIRM`
-exists so that a single mistaken keypress cannot launch a hexacopter. Both steps
+exists so that a single mistaken keypress cannot launch a quadcopter. Both steps
 arrive over the same unauthenticated channel, so it stops an accident, not a
 person. It was never designed to do more than that.
 

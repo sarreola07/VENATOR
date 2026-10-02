@@ -9,7 +9,7 @@ the fresh install to get everything working again.
 | Item | Survives? | Notes |
 |---|---|---|
 | `VENATOR` repo | ✅ on GitHub | `git clone` it back |
-| PX4 parameters (`COM_CPU_MAX=-1`, `EKF2_AID_MASK=1`, airframe) | ✅ | Stored on the Pixhawk FMU, not the Jetson |
+| PX4 parameters (`COM_CPU_MAX=-1`, `EKF2_AID_MASK=1`, airframe) | ❌ | Must be set again on the new Pixhawk 6X; airframe must be re-selected as a quadcopter in QGroundControl |
 | Mission venv (`venv/`) | ❌ rebuild | `setup.sh` recreates it |
 | Camera env (`~/oak_drone_project/`, 588 MB) | ❌ rebuild | steps below |
 | OAK-D udev rule (`80-movidius.rules`) | ❌ rebuild | steps below |
@@ -63,7 +63,7 @@ PY
 cd ~/Desktop/pixhawk-test && bash deploy/install_shortcuts.sh
 ```
 
-Installs the Desktop icons — Hexacopter Mission, AI Camera (toggle / preview /
+Installs the Desktop icons — Venator Mission, AI Camera (toggle / preview /
 web stream) and Wi-Fi Hotspot (toggle) — at user level, no sudo.
 
 ## 5. (Optional) the classmates' ArduPilot SITL project
