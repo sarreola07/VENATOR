@@ -36,20 +36,29 @@
   a{color:inherit}
   img{max-width:100%; height:auto; display:block}
 
+  /* ---- the dark band ----------------------------------------------------
+     Masthead and hero sit on near-black in BOTH colour schemes, the way
+     hero-*.svg already does. It is one fixed band at the top of the page,
+     not a section that inverts with the theme, so colours here are literal
+     rather than tokens: paper on #0A0A0A measures 17.5:1 and the muted grey
+     5.5:1, both clear of AA. */
+  .band{background:#0A0A0A; color:#F2F1EE}
+  .band .wrap{padding-top:0; padding-bottom:0}
+
   /* ---- masthead: one line, 64px ---------------------------------------- */
   .mast{
     display:flex; align-items:center; justify-content:space-between;
-    gap:24px; height:64px; border-bottom:1px solid var(--line);
+    gap:24px; height:64px; border-bottom:1px solid #2A2A27;
   }
   .mast img{width:clamp(132px,19vw,168px)}
   .mast nav{display:flex; gap:clamp(14px,3vw,28px)}
   .mast nav a{
     font-size:12px; letter-spacing:.14em; text-transform:uppercase;
-    text-decoration:none; color:var(--muted); white-space:nowrap;
+    text-decoration:none; color:#8A8781; white-space:nowrap;
     padding:6px 0; border-bottom:1px solid transparent;
     transition:color .18s ease, border-color .18s ease;
   }
-  .mast nav a:hover,.mast nav a:focus-visible{color:var(--ink); border-color:var(--ink)}
+  .mast nav a:hover,.mast nav a:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -63,18 +72,22 @@
   }
   .hero p{
     margin:0; max-width:36ch;
-    font-size:clamp(1rem,1.5vw,1.125rem); color:var(--muted);
+    font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
   }
   .act{display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(20px,2.6vw,26px)}
   .act a{
     display:inline-block; padding:12px 22px; text-decoration:none;
     font-size:12.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
-    border:1.5px solid var(--ink); color:var(--ink); white-space:nowrap;
+    border:1.5px solid #F2F1EE; color:#F2F1EE; white-space:nowrap;
     transition:transform .14s ease, background .18s ease, color .18s ease;
   }
-  .act a.key{background:var(--ink); color:var(--paper)}
+  .act a.key{background:#F2F1EE; color:#0A0A0A}
   .act a:hover,.act a:focus-visible{transform:translateY(-1px)}
   .act a:active{transform:translateY(1px)}
+
+  /* the aircraft, full bleed, closing the dark band */
+  .shot{display:block; width:100%; margin:0}
+  .shot img{display:block; width:100%; height:auto}
 
   /* ---- figures ---------------------------------------------------------- */
   figure{margin:0; border:1px solid var(--line); background:var(--panel); overflow:hidden}
@@ -178,13 +191,14 @@
 </head>
 <body>
 
+<div class="band">
 <div class="wrap">
 
   <header class="mast">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-dark.svg">
-      <img src="assets/brand/lockup-light.svg" alt="Venator, autonomous flight systems" width="168" height="30">
-    </picture>
+    <!-- The masthead band is near-black in both colour schemes, so the lockup
+         is always the near-white one. BRAND.md: "dark" means the ink is
+         near-white, for dark backgrounds. -->
+    <img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30">
     <nav aria-label="Primary">
       <a href="#how">How it works</a>
       <a href="#status">Status</a>
@@ -204,12 +218,15 @@
     </div>
   </div>
 
-  <figure class="selftest">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-      <img src="assets/brand/hero-light.svg" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
-    </picture>
+  </div><!-- /wrap -->
+
+  <figure class="shot">
+    <img src="assets/x500-hero.webp" width="1800" height="760"
+         alt="The Venator aircraft: a Holybro X500 V2 quadcopter with four arms, four propellers, landing gear, and the flight controller, companion computer and GPS mast mounted on the body plate">
   </figure>
+</div><!-- /band -->
+
+<div class="wrap">
 
   <div class="nums">
     <div>
@@ -253,6 +270,21 @@
         <img src="assets/brand/system-light.svg" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
       </picture>
     </figure>
+
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>What is actually fitted</h3>
+          <p>Every line is a real part of the repository. The one that is not an OK is the one that has not happened yet.</p>
+        </div>
+        <figure class="selftest">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
+            <img src="assets/brand/hero-light.svg" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
+          </picture>
+        </figure>
+      </div>
+    </div>
   </section>
 
   <section>
