@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Venator Mission
+Comment=Run Pixhawk motor / flight / camera / LoRa missions
+Exec=gnome-terminal --title=Venator Mission -- __REPO__/drone/run_missions.sh
+Icon=__REPO__/assets/venator-mission.png
+Terminal=false
+Categories=Utility;

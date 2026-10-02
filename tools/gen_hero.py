@@ -2,9 +2,9 @@
 """README hero — the system self-test. Ten seconds, cold read.
 
 A console printing its own bring-up: radio, link, flight controller, camera,
-compute, C2. Every line is a real part of this repo, and the GPS line is
-deliberately NOT an OK — Phase 5 still lists the M8N as unfitted, so a hero that
-ticked everything green would be the one dishonest thing in the project.
+compute, C2, and GPS. Every line is a real part of this repo, and the FLIGHT
+line is deliberately NOT an OK — the aircraft has not flown outdoors yet, so a
+hero that ticked everything green would be the one dishonest thing in the project.
 
 Dark in both colour schemes, like cta-*.svg: a terminal is dark, and the neon
 needs something to burn against.
@@ -25,14 +25,15 @@ THEMES = {"light": "#0A0A0A", "dark": "#131314"}
 LINES = [
     ("RADIO",   "915 MHz · SF7 · syncword 0x12", "OK"),
     ("LINK",    "stick A ↔ stick B",         "OK"),
-    ("FC",      "Pixhawk 2.4.8 · PX4 v1.13.3",   "OK"),
+    ("FC",      "Pixhawk 6X · FMUv6X",           "OK"),
     ("CAMERA",  "OAK-D · spatial depth",         "OK"),
     ("COMPUTE", "Jetson Orin Nano",              "OK"),
     ("C2",      "c2_server.py · props OFF",      "OK"),
-    ("GPS",     "M8N · not fitted",              "--"),
+    ("GPS",     "M10 · 3D fix",                  "OK"),
+    ("FLIGHT",  "outdoor · not yet flown",       "--"),
 ]
 
-Y0, DY = 112, 31
+Y0, DY = 104, 29
 T_FIRST, T_STEP, T_OK = 0.5, 0.62, 0.34      # seconds
 T_READY, T_LIFT = 5.6, 5.9
 
@@ -74,7 +75,7 @@ def build(theme):
         kf.append(win(f"o{i}", pc(t + T_OK)))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"
-     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS not fitted; then ready and the aircraft lifts">
+     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready and the aircraft lifts">
   <title>Venator — system self-test</title>
   <style>
     #cur {{ animation: blink 1.05s steps(1,end) infinite }}

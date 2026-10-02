@@ -130,3 +130,30 @@ these tokens rather than inventing their own, so what runs on the bench looks
 like what is written about it. The diagram generator in this repo's history shows
 the shapes: 1.5 px hairlines, no rounded corners, labels in mono, a single
 accent stroke for the radio link.
+
+## Renders, and whose geometry they are
+
+`assets/renders/` and `assets/x500-hero.webp` are Cycles renders of the actual
+aircraft, built in Blender from manufacturer CAD rather than modelled by eye.
+They are our images, but the geometry inside them is not all ours, so it is
+written down here rather than left to memory.
+
+| Source | Used for | Terms |
+|---|---|---|
+| Holybro `x500v2-frame.step` | the airframe: plates, arms, 2216 motors, GPS mast, PM06, fasteners | published by Holybro on their X500 V2 download page for customers of the kit |
+| NVIDIA `Orin_Nano_Dev_Kit.STEP` | the companion computer under the payload shelf | NVIDIA's own CAD for the Developer Kit |
+| Pixhawk `PIXHAWK 5X-6X.STEP` | the flight controller on the top plate | vendor CAD; exact source to be recorded |
+| `10x4.7.STL` | the four propellers, scaled to a true 254 mm | downloaded from Printables; **author and licence still to be recorded** |
+
+None of those CAD files are committed here. Only the rendered images are, and a
+render of hardware we own is our own picture of our own aircraft. That said:
+
+- **The manufacturers' marks appear on their parts.** "Holybro" is embossed on
+  the arm clamps in their CAD, so it shows in close-ups. That is the hardware
+  having a name on it, not us putting someone's wordmark into our design, and
+  the rule above still holds: we add nobody's mark to anything we draw.
+- **Product photographs are a different thing** and are deliberately not in this
+  repository. A render we made is ours; a photograph somebody else shot is
+  theirs, and this repo is MIT, which would imply a licence we cannot grant.
+- The propeller is the one open item. Before these renders are used anywhere
+  beyond this repository, fill in that author and licence.

@@ -40,7 +40,7 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | 🔵 in progress |
 | 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks |
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ working over real LoRa (motor test); boot service + rich menu done |
-| 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested; real outdoor flight pending a fix |
+| 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested; real outdoor flight pending |
 | — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock); hover 2 m on GPS, person detection over LoRa; real flight outdoors, true 3 ft with lidar |
 | — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
@@ -66,9 +66,10 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   (`CONFIRM` gates every flight), the link-loss failsafe (`LINK_LOSS_S = 4.0` →
   RTL) and mid-mission `ABORT` are all in place: the mission loops poll the link
   while flying instead of blocking, so aborts and heartbeats are handled promptly.
-- **5 — Waypoint flight:** fit a GPS (M8N → Pixhawk GPS port; `EKF2_AID_MASK=1`
-  already set). Upload via `MISSION_ITEM_INT` → `AUTO.MISSION`, altitude cap +
-  RTL-last, bench-validate acceptance, then fly outdoors.
+- **5 — Waypoint flight:** the Holybro M10 is fitted and getting a fix
+  (`EKF2_AID_MASK=1` already set). Upload via `MISSION_ITEM_INT` →
+  `AUTO.MISSION`, altitude cap + RTL-last, bench-validate acceptance, then fly
+  outdoors.
 - **6 — Polish:** zero-click launch agents on your own Win/Mac, a saved places
   library, a browser GUI, and the OFFBOARD-mode camera-follow port.
 - **6 — Obstacle avoidance** *(not started):* nothing in this repo avoids
@@ -120,7 +121,7 @@ CONFIRM consumes it, with no record of which station sent either. On a
 broadcast channel with three radios and no sender identity, one station's RUN
 can be completed by a *different* station's CONFIRM, and neither operator would
 see that the two halves came from different people. The two-step arm gate exists
-precisely so nobody launches a hexacopter by accident, and with a third radio
+precisely so nobody launches a quadcopter by accident, and with a third radio
 present it quietly stops being a two-step gate.
 
 So: chat is the safe place to get addressing right. Add `from` before a third

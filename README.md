@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute.</strong><br>
-  <sub>PX4 v1.13.3 · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</sub>
+  <sub>Holybro X500 V2 · Pixhawk 6X · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</sub>
 </p>
 
 <p align="center">
@@ -43,10 +43,17 @@ GUI, no internet — a laptop, a radio and a drone.
 
 | Component | Details |
 |---|---|
+| Airframe | Holybro X500 V2, quadcopter, 500 mm wheelbase, 144x144 mm body plate, 610 g frame weight |
+| Flight controller | Pixhawk 6X (FMUv6X, v2A baseboard) |
+| Firmware | PX4 version TBD - confirm on hardware |
+| GPS | Holybro M10 (fitted, getting a fix) |
+| Motors | 4x Holybro 2216 KV920 |
+| ESCs | 4x BLHeli S 20A (4S compatible) |
+| Propellers | 1045 |
+| Battery | 4S 3000-5000 mAh 20C+ with XT60 (not included in kit) |
+| Telemetry radio | SiK Telemetry Radio V3 (915 MHz) — present but unused; shares band with LoRa C2 link |
 | Companion computer | NVIDIA Jetson Orin Nano Developer Kit |
 | OS | Ubuntu 24.04.4 LTS (L4T R39.2, kernel 6.8 tegra) |
-| Flight controller | Pixhawk 2.4.8 (FMUv2, shows as `26ac:0011 3D Robotics PX4 FMU v2.x`) |
-| Firmware | PX4 v1.13.3 |
 | Connection | USB → `/dev/ttyACM0` (baud rate is ignored on USB CDC) |
 | Ground station | None installed (this repo replaces QGC for basic checks) |
 
@@ -133,16 +140,22 @@ Mission 4 verifying the RC link before flight (aborted at the FLY prompt):
 
 ![mission 4 RC check](docs/mission4_rc_check.png)
 
-Notes for this vehicle (PX4 v1.13.3, FMUv2):
+Notes for this vehicle (Pixhawk 6X, FMUv6X):
 
 - Motor tests use `MAV_CMD_DO_MOTOR_TEST`; the safety switch must be pressed
   (solid LED) and a battery connected, or the FC rejects the command.
 - Mission 3 uses PX4's AUTO.TAKEOFF/AUTO.LAND modes. PX4's own preflight and
   arm-time checks must pass before it will arm; when it refuses, the script
   prints the FC's exact reason ("FC says: ...").
-- This vehicle is configured as airframe `SYS_AUTOSTART=6001` (DJI F550
-  hexarotor), safety switch bypassed (`CBRK_IO_SAFETY=22027`), arming without
-  GPS allowed (`COM_ARM_WO_GPS=1`).
-- FMUv2 quirk: PX4 v1.13 on this board doesn't run `load_mon`, so the
-  "No CPU load information" preflight check fails out of the box. We set
-  `COM_CPU_MAX=-1` to disable that check.
+- `SYS_AUTOSTART=6001` is for a DJI F550 hexarotor and is wrong for this
+  quadcopter. It must be re-selected as a quadcopter airframe in QGroundControl
+  and the value is to be confirmed.
+- `CBRK_IO_SAFETY=22027` bypasses the safety switch. The 2.4.8 build had no
+  switch wired; the 6X ships one, so this bypass should be re-decided rather
+  than carried over.
+- `COM_ARM_WO_GPS=1` allowed arming with no GPS because none was fitted. Now
+  that the M10 is fitted and getting a fix, this should be reviewed.
+- `COM_CPU_MAX=-1` was a workaround for an FMUv2 quirk where PX4 v1.13 did not
+  run `load_mon`. The 6X is a different, far more capable board, so this
+  workaround is likely unnecessary and should be re-tested rather than carried
+  over.

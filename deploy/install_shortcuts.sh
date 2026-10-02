@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install the desktop shortcuts (no sudo, no systemd — user level only):
-#   * Hexacopter Mission      — opens the mission menu in a terminal
+#   * Venator Mission         — opens the mission menu in a terminal
 #   * AI Camera (toggle)      — starts/stops the OAK-D tracker on demand
 #   * AI Camera (preview)     — live camera window on the Jetson's screen
 #   * AI Camera (web stream)  — tracker + video for laptop browsers
@@ -40,7 +40,7 @@ install_launcher() {
 }
 
 echo "==> Installing desktop shortcuts for ${REPO} ..."
-install_launcher "hexacopter-mission.desktop"
+install_launcher "venator-mission.desktop"
 install_launcher "ai-camera-toggle.desktop"
 install_launcher "ai-camera-preview.desktop"
 install_launcher "ai-camera-stream.desktop"
@@ -49,7 +49,7 @@ update-desktop-database "${APPS}" 2>/dev/null || true
 
 echo
 echo "Done. On your Desktop:"
-echo "  - 'Hexacopter Mission' opens the mission menu (loops until you quit)."
+echo "  - 'Venator Mission' opens the mission menu (loops until you quit)."
 echo "  - 'AI Camera (toggle)'  starts/stops the OAK-D tracker (headless)."
 echo "  - 'AI Camera (preview)' opens a live window to visually check the camera."
 echo "  - 'AI Camera (web stream)' starts the tracker with video for laptop browsers."
