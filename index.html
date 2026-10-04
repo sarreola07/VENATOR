@@ -99,6 +99,73 @@
      frame rather than the paper-coloured one. */
   .selftest{border-color:var(--line); background:#0A0A0A}
 
+  /* ---- the takeoff ------------------------------------------------------
+     Scroll-driven and deliberately scriptless: animation-timeline: view() ties
+     the keyframes to this element's pass through the viewport, so no listener
+     and no framework. Two stills crossfade rather than four sprites spinning --
+     at flight RPM a propeller is a blur disc, not four readable blades, so the
+     crossfade is what spinning up actually looks like.
+
+     BOTH gates below are load-bearing. Without @supports, a browser that
+     ignores animation-timeline falls back to the document timeline: the
+     aircraft would fly off once on load and never return. With it, those
+     browsers get a still photograph, which is the right answer. */
+  .takeoff{
+    position:relative;
+    margin-top:clamp(26px,3.5vw,36px);
+    border:1px solid var(--line); background:var(--panel);
+    /* clip-path, NOT overflow:hidden. overflow:hidden makes this element a
+       scroll container, which would become the nearest scrollport for the
+       aircraft inside it -- and since this box never scrolls, its view()
+       timeline froze at 50% and the animation never ran. clip-path clips the
+       same way without establishing one. */
+    clip-path:inset(0);
+  }
+  .craft{position:relative; display:block}
+  .craft img{display:block; width:100%; height:auto}
+  .craft .spin{position:absolute; top:0; left:0; width:100%; opacity:0}
+  /* the ground station, in the terminal's own voice */
+  .gcs{
+    position:absolute; left:clamp(12px,3vw,26px); bottom:clamp(12px,3vw,26px);
+    margin:0; padding:11px 14px;
+    border:1px solid var(--line); background:var(--paper);
+    font:13px/1.7 var(--mono); color:var(--ink);
+  }
+  .gcs b{font-weight:400; color:var(--muted)}
+  /* Signal reports live state and nothing else, and at 3.43:1 on paper it is
+     not legible enough to be text. So armed is said in ink, and the accent is
+     a lamp beside it -- a graphic, which is what the palette allows. */
+  .gcs .led{
+    display:inline-block; width:7px; height:7px; margin-right:7px;
+    background:var(--signal);
+  }
+
+  @media (prefers-reduced-motion: no-preference){
+    @supports (animation-timeline: view()){
+      .craft{
+        animation:lift linear both;
+        animation-timeline:view(); animation-range:entry 20% cover 62%;
+      }
+      .craft .spin{
+        animation:spinup linear both;
+        animation-timeline:view(); animation-range:entry 10% entry 55%;
+      }
+      .gcs{
+        animation:callout linear both;
+        animation-timeline:view(); animation-range:entry 30% cover 18%;
+      }
+      @keyframes lift{
+        0%,34%{transform:translate3d(0,0,0); opacity:1}
+        100%{transform:translate3d(-7%,-82%,0); opacity:0}
+      }
+      @keyframes spinup{from{opacity:0} to{opacity:1}}
+      @keyframes callout{
+        0%{opacity:0; transform:translateY(9px)}
+        38%,100%{opacity:1; transform:none}
+      }
+    }
+  }
+
   /* ---- numbers band ----------------------------------------------------- */
   .nums{
     margin-top:clamp(40px,6vw,72px);
@@ -295,6 +362,26 @@
     </div>
   </section>
 
+  <section class="flight">
+    <p class="lab">Arming</p>
+    <h2>Two commands, then it leaves the ground</h2>
+    <p class="cap">Arming is deliberately two steps. The ground station asks, the
+      Jetson acknowledges, and nothing spins until a second confirm arrives over
+      the same 915&nbsp;MHz link. Built and bench-tested against a mock flight
+      controller; the aircraft has not yet flown outdoors.</p>
+
+    <div class="takeoff">
+      <div class="craft">
+        <img src="assets/takeoff-rest.webp" width="1200" height="1000" loading="lazy"
+             alt="The Venator aircraft on its landing skids with the propellers stopped, seen from the front quarter with the OAK-D Pro camera on the nose bracket">
+        <img class="spin" src="assets/takeoff-spin.webp" width="1200" height="1000" loading="lazy" alt="">
+      </div>
+      <p class="gcs">&gt; FLY_REQ<br>
+        <b>&lt; ACK</b><br>
+        &gt; CONFIRM<br>
+        <b>&lt; STATUS</b> <span class="led"></span>armed</p>
+    </div>
+  </section>
   <section>
     <h2>What it is built to do</h2>
     <p class="cap">Three behaviours, written and bench-tested against a mock flight
@@ -342,6 +429,7 @@
       </div>
     </div>
   </section>
+
 
   <section id="status">
     <div class="status">
