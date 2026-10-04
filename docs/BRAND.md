@@ -143,7 +143,7 @@ written down here rather than left to memory.
 | Holybro `x500v2-frame.step` | the airframe: plates, arms, 2216 motors, GPS mast, PM06, fasteners | published by Holybro on their X500 V2 download page for customers of the kit |
 | NVIDIA `Orin_Nano_Dev_Kit.STEP` | the companion computer under the payload shelf | NVIDIA's own CAD for the Developer Kit |
 | Pixhawk `PIXHAWK 5X-6X.STEP` | the flight controller on the top plate | vendor CAD; exact source to be recorded |
-| `10x4.7.STL` | the four propellers, scaled to a true 254 mm | downloaded from Printables; **author and licence still to be recorded** |
+| Venator `Drone Propeller` | the four propellers, 254 mm span | modelled in Onshape for this project; ours outright |
 
 None of those CAD files are committed here. Only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
@@ -155,5 +155,9 @@ render of hardware we own is our own picture of our own aircraft. That said:
 - **Product photographs are a different thing** and are deliberately not in this
   repository. A render we made is ours; a photograph somebody else shot is
   theirs, and this repo is MIT, which would imply a licence we cannot grant.
-- The propeller is the one open item. Before these renders are used anywhere
-  beyond this repository, fill in that author and licence.
+- The propeller used to be the open item here. It is not any more: the one in
+  these renders was modelled for this project, replacing a downloaded STL whose
+  author and licence were never recorded.
+- The Pixhawk CAD is now the one open item. Its exact source is not written
+  down, and should be before these renders are used anywhere beyond this
+  repository.
