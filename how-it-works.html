@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Venator: Autonomous Flight Systems</title>
-<meta name="description" content="Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute. A laptop, a 915 MHz LoRa radio and an autonomous quadcopter, with no internet and no ground control software.">
+<title>How Venator works: LoRa command link and onboard autonomy</title>
+<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
 <link rel="icon" href="assets/brand/favicon.svg">
 <style>
   /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
@@ -287,147 +287,122 @@
          near-white, for dark backgrounds. -->
     <a href="index.html"><img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30"></a>
     <nav aria-label="Primary">
-      <a href="how-it-works.html">How it works</a>
+      <a href="how-it-works.html" aria-current="page">How it works</a>
       <a href="how-it-works.html#status">Status</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
     </nav>
   </header>
 
-  <div class="hero">
-    <h1>Fly it with no network at all.</h1>
-    <div>
-      <p>A laptop, a 915&nbsp;MHz radio and an autonomous quadcopter. No internet,
-        no cellular, no ground control software.</p>
-      <p class="act">
-        <a class="key" href="how-it-works.html">How it works</a>
-        <a href="https://github.com/sarreola07/VENATOR">View the source</a>
-      </p>
-    </div>
-  </div>
-
   </div><!-- /wrap -->
-
-  <figure class="shot">
-    <img src="assets/x500-hero.webp" width="2000" height="840"
-         alt="The Venator aircraft: a Holybro X500 V2 quadcopter, four carbon arms carrying 2216 motors and ten inch propellers, twin landing skids, and the GPS mast and power module on the body plate">
-  </figure>
 </div><!-- /band -->
 
 <div class="wrap">
 
-  <div class="nums">
-    <div>
-      <b>915<i>MHz</i></b>
-      <span>LoRa command link</span>
-      <em>Validated on hardware</em>
-    </div>
-    <div>
-      <b>0</b>
-      <span>Networks required</span>
-      <em>No internet, cell or GCS</em>
-    </div>
-    <div>
-      <b>18<i>min</i></b>
-      <span>Hover endurance</span>
-      <em>Holybro figure, stock airframe</em>
-    </div>
-    <div>
-      <b>1.5<i>kg</i></b>
-      <span>Payload capacity</span>
-      <em>Holybro figure, stock airframe</em>
-    </div>
-  </div>
+  <section id="how" class="stack">
+    <p class="lab">How it works</p>
+    <h2>Three boxes and two links</h2>
+    <p class="cap">A command leaves the laptop over 915&nbsp;MHz LoRa. The Jetson
+      relays it to the flight controller over MAVLink and sends the reply back the
+      same way. Nothing in the path touches a network.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
+        <img src="assets/brand/system-light.svg" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
+      </picture>
+    </figure>
 
-  <p class="note">
-    The two endurance and payload figures are Holybro's for the stock X500&nbsp;V2,
-    not measurements of this build, which carries a Jetson Orin Nano and an OAK-D&nbsp;Pro.
-    Everything shown below is built and bench-tested unless a caption says
-    otherwise. Outdoor flight is pending.
-  </p>
-
-  <section class="flight">
-    <p class="lab">Arming</p>
-    <h2>Two commands, then it leaves the ground</h2>
-    <p class="cap">Arming is deliberately two steps. The ground station asks, the
-      Jetson acknowledges, and nothing spins until a second confirm arrives over
-      the same 915&nbsp;MHz link. Built and bench-tested against a mock flight
-      controller; the aircraft has not yet flown outdoors.</p>
-
-    <div class="takeoff">
-      <div class="craft">
-        <img src="assets/takeoff-rest.webp" width="1200" height="1000" loading="lazy"
-             alt="The Venator aircraft on its landing skids with the propellers stopped, seen from the front quarter with the OAK-D Pro camera on the nose bracket">
-        <img class="spin" src="assets/takeoff-spin.webp" width="1200" height="1000" loading="lazy" alt="">
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>What is actually fitted</h3>
+          <p>Every line is a real part of the repository. The one that is not an OK is the one that has not happened yet.</p>
+        </div>
+        <figure class="selftest">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
+            <img src="assets/brand/hero-light.svg" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
+          </picture>
+        </figure>
       </div>
-      <p class="gcs">&gt; FLY_REQ<br>
-        <b>&lt; ACK</b><br>
-        &gt; CONFIRM<br>
-        <b>&lt; STATUS</b> <span class="led"></span>armed</p>
     </div>
   </section>
-  <section class="gallery">
-    <p class="lab">Hardware</p>
-    <h2>What is bolted to it</h2>
-    <p class="cap">Cycles renders built from the manufacturers' own CAD, not
-      photographs. Every part below is in the model because it is on the
-      aircraft.</p>
 
-    <div class="grid">
-      <div class="tile">
+  <section>
+    <h2>What it is built to do</h2>
+    <p class="cap">Three behaviours, written and bench-tested against a mock flight
+      controller. All of them hold the same rule: if the radio link drops for more than
+      four seconds, the aircraft returns to launch without being told.</p>
+
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>Follow a person</h3>
+          <p>Holds 3&nbsp;m behind until a STOP arrives. Losing the camera makes it hover, not guess.</p>
+        </div>
         <figure>
-          <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/conops-dark.svg">
+            <img src="assets/brand/conops-light.svg" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
+          </picture>
         </figure>
-        <h3>Pixhawk 6X</h3>
-        <p>Flight controller, FMUv6X, on the top plate.</p>
       </div>
 
-      <div class="tile">
+      <div class="item">
+        <div class="hd">
+          <h3>Patrol a route</h3>
+          <p>Coordinates go up one packet at a time, each acknowledged, and a second confirmation is required before anything spins.</p>
+        </div>
         <figure>
-          <img src="assets/renders/cu-jetson.webp" width="1400" height="1000" loading="lazy" alt="The Jetson Orin Nano developer kit mounted beneath the payload shelf, heatsink fins and connector bank visible">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
+            <img src="assets/brand/patrol-light.svg" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
+          </picture>
         </figure>
-        <h3>NVIDIA Jetson Orin Nano</h3>
-        <p>The companion computer, under the payload shelf. It runs the command server and talks MAVLink to the 6X.</p>
       </div>
 
-      <div class="tile">
+      <div class="item">
+        <div class="hd">
+          <h3>Reach every station at once</h3>
+          <p>LoRa is a broadcast medium, so one transmission arrives everywhere at the same instant.</p>
+        </div>
         <figure>
-          <img src="assets/renders/cu-oakd.webp" width="1400" height="1000" loading="lazy" alt="The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mesh-dark.svg">
+            <img src="assets/brand/mesh-light.svg" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
+          </picture>
         </figure>
-        <h3>OAK-D Pro</h3>
-        <p>Stereo depth camera on the nose bracket, with an IR dot projector and flood illumination.</p>
       </div>
+    </div>
+  </section>
 
-      <div class="tile">
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>Deviate around what it sees</h3>
+          <p>Phase&nbsp;6, and the one behaviour that is not started. The OAK-D&nbsp;Pro's forward depth finds a wall; the aircraft brakes, steps around it, and rejoins the line.</p>
+        </div>
         <figure>
-          <img src="assets/renders/cu-gps.webp" width="1400" height="1000" loading="lazy" alt="The Holybro M10 GPS on its mast above the tail, raised clear of the airframe">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/avoid-dark.svg">
+            <img src="assets/brand/avoid-light.svg" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
+          </picture>
         </figure>
-        <h3>Holybro M10</h3>
-        <p>GPS on the mast at the tail. Fitted, and getting a fix.</p>
       </div>
+    </div>
+  </section>
 
-      <div class="tile">
-        <figure>
-          <img src="assets/renders/cu-motor.webp" width="1400" height="1000" loading="lazy" alt="A 2216 brushless motor at the end of a carbon arm, carrying one ten inch propeller by its hub">
-        </figure>
-        <h3>2216 motor and propeller</h3>
-        <p>One of four. Holybro's CAD names it DJ-2216-KV880; the kit listing says KV920. Unresolved, so neither number is claimed here.</p>
-      </div>
-
-      <div class="tile">
-        <figure>
-          <img src="assets/renders/cu-power.webp" width="1400" height="1000" loading="lazy" alt="The Holybro PM06 power module mounted on the bottom plate with its XT60 lead">
-        </figure>
-        <h3>Holybro PM06</h3>
-        <p>Power module on the bottom plate, feeding the 6X and the motor ESCs.</p>
-      </div>
-
-      <div class="tile">
-        <figure>
-          <img src="assets/renders/cu-arm.webp" width="1400" height="1000" loading="lazy" alt="A carbon fibre arm tube held in its moulded clamp, with the Holybro name embossed on the clamp body">
-        </figure>
-        <h3>Carbon arm and clamp</h3>
-        <p>One of four, on a 500 mm wheelbase. The Holybro name is embossed in their own CAD, so it shows in close-up.</p>
-      </div>
+  <section id="status">
+    <div class="status">
+      <h2>Where it actually is</h2>
+      <p class="cap">Four phases done, two in progress, one not started. The command
+        link works end to end on real radios and the aircraft is built. Flying it
+        outdoors is what is left.</p>
+      <figure>
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/brand/phases-dark.svg">
+          <img src="assets/brand/phases-light.svg" alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
+        </picture>
+      </figure>
     </div>
   </section>
 

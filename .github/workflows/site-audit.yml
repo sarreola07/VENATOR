@@ -1,9 +1,11 @@
 name: Site audit
 
-# The site is one static page — index.html plus the animated SVGs in
-# assets/brand — served by GitHub Pages straight from main. This audits that
-# exact page on every change to it, so a regression shows up on the commit that
-# caused it instead of on someone's phone.
+# The site is two static pages — index.html (the product) and how-it-works.html
+# (the explanation) — plus the animated SVGs in assets/brand, served by GitHub
+# Pages straight from main. This audits BOTH pages on every change, so a
+# regression shows up on the commit that caused it instead of on someone's
+# phone. Every step below must name both pages: a page missing from any one of
+# them ships unaudited while this workflow stays green.
 #
 # Blocking: valid HTML, Lighthouse thresholds (.github/lighthouserc.json), and
 # zero WCAG 2.1 A/AA violations in light and dark mode at phone and desktop width.
@@ -14,12 +16,14 @@ on:
   push:
     paths:
       - "index.html"
+      - "how-it-works.html"
       - "assets/**"
       - ".github/lighthouserc.json"
       - ".github/workflows/site-audit.yml"
   pull_request:
     paths:
       - "index.html"
+      - "how-it-works.html"
       - "assets/**"
       - ".github/lighthouserc.json"
       - ".github/workflows/site-audit.yml"
@@ -36,7 +40,34 @@ jobs:
 
       # The lowercase <!doctype html> is valid HTML5; only the style rule objects.
       - name: HTML is valid
-        run: npx --yes html-validate@11 --rule 'doctype-style:off' index.html
+        run: npx --yes html-validate@11 --rule 'doctype-style:off' index.html how-it-works.html
+
+      # Both pages carry the whole stylesheet inline, because an external one is
+      # render-blocking and the performance score here is a blocking assertion.
+      # The cost of that choice is duplication, so the duplication is checked
+      # rather than trusted: if the two <style> blocks ever drift — a colour
+      # token changed on one page only is the obvious way — this fails loudly.
+      - name: Both pages carry the same stylesheet
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys, hashlib
+          blocks = {}
+          for f in ("index.html", "how-it-works.html"):
+              m = re.search(r"<style>.*?</style>", pathlib.Path(f).read_text(encoding="utf-8"), re.S)
+              if not m:
+                  print(f"::error::{f} has no <style> block"); sys.exit(1)
+              blocks[f] = m.group(0)
+              print(f"{f}: {len(m.group(0)):,} chars, sha {hashlib.sha256(m.group(0).encode()).hexdigest()[:12]}")
+          a, b = blocks.values()
+          if a != b:
+              import difflib
+              for line in list(difflib.unified_diff(a.splitlines(), b.splitlines(),
+                                                    "index.html", "how-it-works.html", lineterm=""))[:40]:
+                  print(line)
+              print("::error::the two pages' stylesheets have drifted apart")
+              sys.exit(1)
+          print("stylesheets match")
+          EOF
 
       # Runs Lighthouse three times against a local copy and checks the scores
       # in .github/lighthouserc.json. The report link is printed in the log.
@@ -59,6 +90,7 @@ jobs:
           import AxeBuilder from '@axe-core/playwright';
           const browser = await chromium.launch();
           let blocking = 0;
+          for (const slug of ['index.html', 'how-it-works.html']) {
           for (const scheme of ['light', 'dark']) {
             for (const [name, width, height] of [['phone', 390, 844], ['desktop', 1280, 900]]) {
               const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width, height } });
@@ -66,18 +98,19 @@ jobs:
               const errors = [];
               page.on('pageerror', e => errors.push(e.message));
               page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-              await page.goto('http://127.0.0.1:8765/index.html', { waitUntil: 'networkidle' });
+              await page.goto(`http://127.0.0.1:8765/${slug}`, { waitUntil: 'networkidle' });
               const wcag = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
               const bp = await new AxeBuilder({ page }).withTags(['best-practice']).analyze();
               const scroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-              for (const v of wcag.violations) console.log(`::error::${scheme}/${name}: ${v.id} (${v.impact}) x${v.nodes.length} — ${v.help}`);
-              for (const v of bp.violations) console.log(`::warning::${scheme}/${name}: ${v.id} x${v.nodes.length} — ${v.help}`);
-              for (const e of errors) console.log(`::error::${scheme}/${name}: console error — ${e}`);
-              if (scroll) console.log(`::error::${scheme}/${name}: page scrolls sideways`);
+              for (const v of wcag.violations) console.log(`::error::${slug} ${scheme}/${name}: ${v.id} (${v.impact}) x${v.nodes.length} — ${v.help}`);
+              for (const v of bp.violations) console.log(`::warning::${slug} ${scheme}/${name}: ${v.id} x${v.nodes.length} — ${v.help}`);
+              for (const e of errors) console.log(`::error::${slug} ${scheme}/${name}: console error — ${e}`);
+              if (scroll) console.log(`::error::${slug} ${scheme}/${name}: page scrolls sideways`);
               blocking += wcag.violations.length + errors.length + (scroll ? 1 : 0);
-              console.log(`${scheme}/${name}: ${wcag.violations.length} WCAG, ${bp.violations.length} best-practice, sideways scroll ${scroll}`);
+              console.log(`${slug} ${scheme}/${name}: ${wcag.violations.length} WCAG, ${bp.violations.length} best-practice, sideways scroll ${scroll}`);
               await ctx.close();
             }
+          }
           }
           await browser.close();
           process.exit(blocking ? 1 : 0);
@@ -90,7 +123,8 @@ jobs:
         run: |
           python3 - <<'EOF'
           import pathlib, re
-          used = re.findall(r'src="(assets/brand/[\w-]+-light\.svg)"', pathlib.Path("index.html").read_text())
+          pages = [pathlib.Path(p).read_text(encoding="utf-8") for p in ("index.html", "how-it-works.html")]
+          used = sorted({m for t in pages for m in re.findall(r'src="(assets/brand/[\w-]+-light\.svg)"', t)})
           for svg in map(pathlib.Path, used):
               s = svg.read_text()
               vb = re.search(r'viewBox="[\d.\s-]+?\s([\d.]+)\s[\d.]+"', s)
