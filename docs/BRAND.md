@@ -167,6 +167,8 @@ written down here rather than left to memory.
 | NVIDIA `Orin_Nano_Dev_Kit.STEP` | the companion computer under the payload shelf | NVIDIA's own CAD for the Developer Kit |
 | Pixhawk `PIXHAWK 5X-6X.STEP` | the flight controller on the top plate | vendor CAD; exact source to be recorded |
 | Venator `Drone Propeller` | the four propellers, 254 mm span | modelled in Onshape for this project; ours outright |
+| Luxonis `DM9098Pro_enclosure.stp` | the OAK-D Pro on the nose bracket | vendor CAD for the enclosure |
+| Venator `wireless_stick_litev3.3mf` | the LoRa radio on the shelf edge | modelled in Onshape for this project; ours outright |
 
 None of those CAD files are committed here. Only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
@@ -181,6 +183,11 @@ render of hardware we own is our own picture of our own aircraft. That said:
 - The propeller used to be the open item here. It is not any more: the one in
   these renders was modelled for this project, replacing a downloaded STL whose
   author and licence were never recorded.
+- **The radio render is a Lite, the hardware is a V3.** The geometry was
+  exported as `wireless_stick_litev3.3mf`, and the Lite has no display, so the
+  render is missing the V3's 0.49 inch OLED. The envelope is otherwise the same.
+  The gallery caption says so outright rather than letting the picture imply a
+  board that is not there.
 - The Pixhawk CAD is now the one open item. Its exact source is not written
   down, and should be before these renders are used anywhere beyond this
   repository.
