@@ -25,6 +25,7 @@
   if (!stage) return;
 
   var img = stage.querySelector("img");
+  var stick = stage.querySelector(".cine-stick");
   var total = parseInt(stage.getAttribute("data-cine"), 10) || 0;
   var path = stage.getAttribute("data-cine-path") || "";
   if (!img || total < 2) return;
@@ -142,8 +143,19 @@
 
   function paint() {
     queued = false;
-    var span = stage.offsetHeight - window.innerHeight;
-    var p = span > 0 ? -stage.getBoundingClientRect().top / span : 0;
+    var rect = stage.getBoundingClientRect();
+    // The scrub distance is how far the pane stays PINNED, which is the stage
+    // minus the pane -- not the stage minus the viewport. Those are the same
+    // number only while the pane is 100vh: true on a desktop, false on a phone,
+    // where the pane is just the image. Measuring against the viewport there
+    // ran all 120 frames in 269 px and the reassembly played off screen.
+    //
+    // -rect.top is scrollY - the stage's document top, so this reads "how far
+    // into the pinned stretch are we". Before the pin it is negative and before
+    // release it is over 1; the clamp below turns those into frame 0 while the
+    // aircraft scrolls up and frame 119 while it scrolls away.
+    var pinned = stick ? stage.offsetHeight - stick.offsetHeight : 0;
+    var p = pinned > 0 ? -rect.top / pinned : 0;
     p = p < 0 ? 0 : (p > 1 ? 1 : p);
 
     var want = Math.round(p * last);

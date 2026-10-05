@@ -273,6 +273,34 @@
   .cine[data-cine-static]{height:auto}
   .cine[data-cine-static] .cine-stick{position:static; height:auto}
 
+  /* On any screen narrower than the frame's own aspect, the image physically
+     cannot fill a full-height pane: at 393x852 it is 269 px inside an 852 px
+     box, which is 583 px of black on every frame of the sequence. Below that
+     aspect the hero stops being a sticky full-screen stage and becomes an
+     ordinary image in the flow -- cine-scrub.js scrubs it as it crosses the
+     viewport instead of against a tall container. The stats then sit directly
+     under the aircraft rather than three screens below it. */
+  @media (max-aspect-ratio: 1279/877){
+    /* The pane shrinks to the image, so nothing is letterboxed, and the stage
+       gets one screen of padding below it. A sticky child is confined to its
+       parent's PADDING box, so that padding is the pinned distance: the
+       aircraft holds the top of the screen for 100vh of scroll while the stats
+       rise into the gap under it, then releases assembled. In the flow instead
+       of pinned it only got 419 px of travel, and the reassembly played after
+       it had scrolled away.
+
+       The height is explicit, and it has to be: a sticky child is bounded by
+       its parent's CONTENT box, so padding-bottom here extends the stage
+       without extending the range the pane may travel, and it never pins at
+       all. 100vw * 877/1279 is the image's own height at full bleed; the 100vh
+       after it is the pinned distance. On a narrow desktop window 100vw also
+       counts the scrollbar, which makes the stage a few px tall -- the pin
+       simply lasts a moment longer, holding the assembled frame before it
+       releases, which is the harmless direction to be wrong in. */
+    .cine{height:calc(100vw * 877 / 1279 + 100vh)}
+    .cine-stick{position:sticky; top:0; height:auto}
+  }
+
   /* ---- labels on the 360 ------------------------------------------------
      Real text, not pixels burned into the render: a screen reader reads them,
      they stay crisp at any size, and they do not need re-rendering to change.
@@ -328,8 +356,9 @@
   <section id="how" class="stack">
     <p class="lab">How it works</p>
     <h2>Three boxes and two links</h2>
-    <p class="cap">A command leaves the laptop over 915&nbsp;MHz LoRa. The Jetson
-      relays it to the flight controller over MAVLink and sends the reply back the
+    <p class="cap">A command leaves the laptop over 915&nbsp;MHz LoRa, a long-range,
+      low-power radio that needs no network of any kind. The Jetson
+      relays it to the flight controller over MAVLink, the standard autopilot protocol, and sends the reply back the
       same way. Nothing in the path touches a network.</p>
     <figure>
       <picture>
@@ -382,7 +411,7 @@
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
-            <img src="assets/brand/patrol-light.svg" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
+            <img src="assets/brand/patrol-light.svg" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then returns to launch">
           </picture>
         </figure>
       </div>
