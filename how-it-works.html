@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How Venator works: LoRa command link and onboard autonomy</title>
 <meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
+<link rel="canonical" href="https://sarreola07.github.io/VENATOR/how-it-works.html">
+<!-- Shared links used to render as a bare URL with no preview. Twitter reads the
+     og: tags for everything except the card type, so only that one is doubled.
+     The image is a JPEG rather than the WebP beside it: every crawler handles
+     JPEG, and a card nobody can decode is the same as no card. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Venator">
+<meta property="og:title" content="How Venator works: LoRa command link and onboard autonomy">
+<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
+<meta property="og:url" content="https://sarreola07.github.io/VENATOR/how-it-works.html">
+<meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/brand/favicon.svg">
 <style>
   /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
@@ -198,9 +214,6 @@
     .nums{grid-template-columns:1fr 1fr}
     .nums > div:nth-child(odd){border-left:0}
     .nums > div:nth-child(n+3){border-top:1px solid var(--line)}
-    .pair{grid-template-columns:1fr}
-    .split{grid-template-columns:1fr}
-    .split .fig{order:0}
   }
   @media (max-width:420px){
     .nums{grid-template-columns:1fr}
@@ -219,30 +232,6 @@
   .tile p{margin:0; font-size:14px; color:var(--muted)}
   @media (max-width:620px){ .grid{grid-template-columns:1fr} }
 
-  /* ---- the plates gallery at the foot of the page ----------------------
-     Every render we hold of the whole aircraft, three to a row rather than
-     two: these are views of one object, not captioned parts, so they want to
-     be read as a set. The footnote names the files because the names are the
-     only thing that distinguishes two frames of the same aircraft.
-     A column flow, not a grid: these range from a 2.38:1 wide shot to a square
-     plan view, and in a row grid the short ones leave white gaps under them.
-     Columns let each plate keep its own shape and still tile. */
-  .plates{
-    columns:3; column-gap:clamp(12px,1.8vw,20px);
-    margin-top:clamp(30px,4.5vw,46px);
-  }
-  .plates figure{
-    break-inside:avoid; margin:0 0 clamp(12px,1.8vw,20px);
-  }
-  .plates img{display:block; width:100%; height:auto; background:#0A0A0A}
-  .fnote{
-    margin:clamp(20px,3vw,28px) 0 0; padding-top:16px;
-    border-top:1px solid var(--line);
-    font:12px/1.9 var(--mono); color:var(--muted);
-  }
-  .fnote b{font-weight:400; color:var(--ink)}
-  @media (max-width:860px){ .plates{columns:2} }
-  @media (max-width:480px){ .plates{columns:1} }
   /* ---- the plate viewer -------------------------------------------------
      One box, one render at a time. The four views are different shapes -- the
      plan is square, the elevations are 16:9 -- so the stage carries its aspect
