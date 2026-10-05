@@ -30,15 +30,53 @@
   if (!img || total < 2) return;
 
   var last = total - 1;
+  function name(i) {
+    return "f" + ("00" + i).slice(-3) + ".webp";
+  }
+
+  /* Frame 0 sits in the markup with a srcset listing both encodes, so the
+     browser picks one using the viewport AND the device pixel ratio -- better
+     information than any breakpoint hardcoded here, and it means a phone never
+     fetches the desktop set. Whichever it picked is the directory the other
+     119 frames come from. */
+  var base = path;
+  function dropSources() {
+    var pic = img.parentNode;
+    if (!pic || pic.tagName !== "PICTURE") return;
+    var srcs = pic.getElementsByTagName("source");
+    while (srcs.length) pic.removeChild(srcs[0]);
+  }
+  function resolveBase() {
+    var m = (img.currentSrc || img.src || "").match(/^(.*\/)f\d{3}\.webp/);
+    if (m) base = m[1];
+    // The <picture> has now done its job and it has to go: while a matching
+    // <source> is still there the browser keeps re-selecting from it and any
+    // src assigned here is ignored, which pins the hero on frame 0 forever
+    // while the labels carry on moving. Point src at the frame already decoded
+    // so nothing is refetched, then strip the sources.
+    img.src = base + name(0);
+    dropSources();
+    img.removeAttribute("srcset");
+    img.removeAttribute("sizes");
+  }
   function src(i) {
-    return path + "f" + ("00" + i).slice(-3) + ".webp";
+    return base + name(i);
   }
 
   // The sequence ends on the static hero hold, so the last frame is the right
   // thing to show someone who does not want it to move.
   if (window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    img.src = src(last);
+    // Swap the frame inside the srcset rather than setting src, so the
+    // browser still gets to choose the size it would have chosen.
+    var pic = img.parentNode;
+    if (pic && pic.tagName === "PICTURE") {
+      var srcs = pic.getElementsByTagName("source");
+      for (var k = 0; k < srcs.length; k++) {
+        srcs[k].srcset = srcs[k].srcset.replace(/f000\.webp/g, name(last));
+      }
+    }
+    img.src = img.src.replace(/f000\.webp/, name(last));
     stage.setAttribute("data-cine-static", "");
     return;
   }
@@ -129,6 +167,7 @@
   }
 
   window.addEventListener("load", function () {
+    resolveBase();
     for (var i = 1; i < total; i++) {
       (function (n) {
         var im = new Image();
