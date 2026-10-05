@@ -107,19 +107,25 @@ above. It is not motion filling space.
 
 Two things about it are worth writing down rather than rediscovering.
 
-- **The site carries JavaScript now.** `assets/cine-scrub.js` is the only script
-  in the repository and exists solely to map scroll position to a frame index,
-  which CSS cannot do. It was written by hand rather than pulled from a library:
-  GSAP and ScrollTrigger together are roughly 70 KB to perform one division.
-  The convention this breaks — "no JavaScript" — was never recorded here; it
-  lived in a session note. It was given up knowingly, in exchange for the hero,
-  and this paragraph is the record of that.
-- **Nothing depends on the script.** Frame 0 is an ordinary `<img>` in the
-  markup, so it is the LCP element and paints whether or not the script runs.
-  With JavaScript disabled, or for a reader with
-  `prefers-reduced-motion: reduce`, the hero is a still photograph of the
-  aircraft and the page reads normally. Same principle as the SMIL diagrams
-  above: the static artwork underneath is what makes the motion safe to drop.
+- **The site carries JavaScript now.** There are two scripts, both hand-written
+  and both small: `assets/cine-scrub.js` maps scroll position to a frame index,
+  which CSS cannot do, and `assets/shots-gallery.js` cycles the plate viewer and
+  opens a render at full size. Neither is a library — GSAP and ScrollTrigger
+  together are roughly 70 KB to perform one division. The convention this breaks
+  — "no JavaScript" — was never recorded here; it lived in a session note. It
+  was given up knowingly, in exchange for the hero, and this paragraph is the
+  record of that.
+- **Nothing depends on either script.** Frame 0 of the hero is an ordinary
+  `<img>` in the markup, so it paints whether or not the script runs, and all
+  four plates are in the markup too. With JavaScript disabled, or for a reader
+  with `prefers-reduced-motion: reduce`, the hero is a still photograph and the
+  `<noscript>` rule in the head stacks the four plates and hides the controls,
+  so there is no dead UI and nothing is unreachable. Same principle as the SMIL
+  diagrams above: the static artwork underneath is what makes the motion safe
+  to drop.
+- **The plates open at full size.** `assets/renders/*-full.webp` are 1920 px
+  renders fetched only when a reader opens one. The inline copies are 1400 px.
+  Both come from the same `stills/*.png`, which are not committed.
 
 Two things to know before editing `system-*.svg`:
 

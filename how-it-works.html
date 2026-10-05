@@ -241,6 +241,81 @@
   .fnote b{font-weight:400; color:var(--ink)}
   @media (max-width:860px){ .plates{columns:2} }
   @media (max-width:480px){ .plates{columns:1} }
+  /* ---- the plate viewer -------------------------------------------------
+     One box, one render at a time. The four views are different shapes -- the
+     plan is square, the elevations are 16:9 -- so the stage carries its aspect
+     ratio in a custom property and eases between them. A fixed box would have
+     to letterbox the square one into 56% of its width, which is the empty
+     space this page has spent its life removing.
+
+     The height change happens on a click, and layout shifts within 500 ms of
+     user input are excluded from cumulative-layout-shift, so this costs nothing
+     against a gate that blocks the build. */
+  .shots{margin-top:clamp(30px,4.5vw,46px)}
+  .shots-stage{
+    position:relative; width:100%;
+    aspect-ratio:var(--ar, 1/1);
+    transition:aspect-ratio .45s cubic-bezier(.4,0,.2,1);
+    background:#0A0A0A; border:1px solid var(--line);
+    cursor:zoom-in;
+  }
+  .shot{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:contain; image-rendering:high-quality;
+    opacity:0; transition:opacity .45s ease;
+    will-change:opacity;            /* keeps the crossfade off the main thread */
+  }
+  .shot[data-on]{opacity:1}
+  .shots-bar{
+    display:flex; align-items:center; justify-content:center; gap:18px;
+    margin-top:14px; min-height:34px;
+  }
+  .shots-arrow{
+    width:34px; height:34px; padding:0; cursor:pointer;
+    display:grid; place-items:center;
+    background:none; border:1px solid var(--line); color:var(--ink);
+    font:14px/1 var(--mono);
+    transition:border-color .18s ease, color .18s ease;
+  }
+  .shots-arrow:hover,.shots-arrow:focus-visible{border-color:var(--ink)}
+  .shots-dots{display:flex; gap:2px}
+  /* The dot you see is 8 px; the button you hit is 24, which is the smallest
+     thing a thumb should be asked to find. Drawing the dot as a pseudo-element
+     is what lets those two be different numbers. */
+  .shots-dot{
+    width:24px; height:24px; padding:0; cursor:pointer;
+    display:grid; place-items:center;
+    background:none; border:0;
+  }
+  .shots-dot::before{
+    content:""; width:8px; height:8px; border-radius:50%;
+    border:1px solid var(--muted);
+    transition:background .18s ease, border-color .18s ease;
+  }
+  .shots-dot[aria-current="true"]::before{background:var(--ink); border-color:var(--ink)}
+  .shots-dot:focus-visible::before{border-color:var(--ink)}
+  .shots-name{
+    margin:10px 0 0; text-align:center;
+    font:11px/1.6 var(--mono); letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  /* the full-size view */
+  .shots-full{
+    border:0; padding:0; max-width:100vw; max-height:100vh;
+    width:100%; height:100%; background:#0A0A0A;
+  }
+  .shots-full::backdrop{background:rgba(10,10,10,.92)}
+  .shots-full img{
+    display:block; width:100%; height:100%;
+    object-fit:contain; image-rendering:high-quality;
+  }
+  .shots-close{
+    position:fixed; top:14px; right:14px; z-index:1;
+    width:40px; height:40px; cursor:pointer;
+    display:grid; place-items:center;
+    background:rgba(10,10,10,.7); border:1px solid #2A2A27; color:#F2F1EE;
+    font:16px/1 var(--mono);
+  }
 
   /* ---- the scroll-scrubbed hero ----------------------------------------
      A tall container with a sticky pane inside it: the pane holds still while
