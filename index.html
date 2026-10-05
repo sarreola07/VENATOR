@@ -273,6 +273,34 @@
   .cine[data-cine-static]{height:auto}
   .cine[data-cine-static] .cine-stick{position:static; height:auto}
 
+  /* On any screen narrower than the frame's own aspect, the image physically
+     cannot fill a full-height pane: at 393x852 it is 269 px inside an 852 px
+     box, which is 583 px of black on every frame of the sequence. Below that
+     aspect the hero stops being a sticky full-screen stage and becomes an
+     ordinary image in the flow -- cine-scrub.js scrubs it as it crosses the
+     viewport instead of against a tall container. The stats then sit directly
+     under the aircraft rather than three screens below it. */
+  @media (max-aspect-ratio: 1279/877){
+    /* The pane shrinks to the image, so nothing is letterboxed, and the stage
+       gets one screen of padding below it. A sticky child is confined to its
+       parent's PADDING box, so that padding is the pinned distance: the
+       aircraft holds the top of the screen for 100vh of scroll while the stats
+       rise into the gap under it, then releases assembled. In the flow instead
+       of pinned it only got 419 px of travel, and the reassembly played after
+       it had scrolled away.
+
+       The height is explicit, and it has to be: a sticky child is bounded by
+       its parent's CONTENT box, so padding-bottom here extends the stage
+       without extending the range the pane may travel, and it never pins at
+       all. 100vw * 877/1279 is the image's own height at full bleed; the 100vh
+       after it is the pinned distance. On a narrow desktop window 100vw also
+       counts the scrollbar, which makes the stage a few px tall -- the pin
+       simply lasts a moment longer, holding the assembled frame before it
+       releases, which is the harmless direction to be wrong in. */
+    .cine{height:calc(100vw * 877 / 1279 + 100vh)}
+    .cine-stick{position:sticky; top:0; height:auto}
+  }
+
   /* ---- labels on the 360 ------------------------------------------------
      Real text, not pixels burned into the render: a screen reader reads them,
      they stay crisp at any size, and they do not need re-rendering to change.
@@ -366,13 +394,13 @@
   <div class="nums">
     <div>
       <b>915<i>MHz</i></b>
-      <span>LoRa command link</span>
-      <em>Validated on hardware</em>
+      <span>Long-range radio link</span>
+      <em>LoRa, validated on hardware</em>
     </div>
     <div>
       <b>0</b>
       <span>Networks required</span>
-      <em>No internet, cell or GCS</em>
+      <em>No internet, cell or ground station</em>
     </div>
     <div>
       <b>18<i>min</i></b>
@@ -405,7 +433,7 @@
           <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
         </figure>
         <h3>Pixhawk 6X</h3>
-        <p>Flight controller, FMUv6X, on the top plate.</p>
+        <p>Flight controller on the top plate. FMUv6X is the open autopilot hardware standard it is built to.</p>
       </div>
 
       <div class="tile">
@@ -413,7 +441,7 @@
           <img src="assets/renders/cu-jetson.webp" width="1400" height="1000" loading="lazy" alt="The Jetson Orin Nano developer kit mounted beneath the payload shelf, its heatsink fins, fan and connector bank facing the camera, with the Heltec LoRa stick standing on the shelf edge above it">
         </figure>
         <h3>NVIDIA Jetson Orin Nano &amp; LoRa radio</h3>
-        <p>The companion computer, under the payload shelf, with the 915&nbsp;MHz radio on the shelf edge beside it. It runs the command server and talks MAVLink to the 6X. The radio is a Heltec Wireless Stick V3; the geometry here was exported as the Lite, so the render is missing its small OLED.</p>
+        <p>The companion computer, under the payload shelf, with the 915&nbsp;MHz radio on the shelf edge beside it. It runs the command server and talks MAVLink, the standard autopilot protocol, to the 6X. The radio is a Heltec Wireless Stick V3; the geometry here was exported as the Lite, so the render is missing its small OLED.</p>
       </div>
 
       <div class="tile">
@@ -421,7 +449,7 @@
           <img src="assets/renders/cu-oakd.webp" width="1400" height="1000" loading="lazy" alt="The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose">
         </figure>
         <h3>OAK-D Pro</h3>
-        <p>Stereo depth camera on the nose bracket, with an IR dot projector and flood illumination.</p>
+        <p>Stereo depth camera on the nose bracket, with an infrared dot projector and flood illumination.</p>
       </div>
 
       <div class="tile">
