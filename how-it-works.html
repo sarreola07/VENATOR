@@ -59,6 +59,9 @@
     transition:color .18s ease, border-color .18s ease;
   }
   .mast nav a:hover,.mast nav a:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
+  /* The page you are on holds the bright state, so the nav says where you are
+     rather than only announcing it to a screen reader via aria-current. */
+  .mast nav a[aria-current="page"]{color:#F2F1EE; border-color:#2A2A27}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -86,8 +89,6 @@
   .act a:active{transform:translateY(1px)}
 
   /* the aircraft, full bleed, closing the dark band */
-  .shot{display:block; width:100%; margin:0}
-  .shot img{display:block; width:100%; height:auto}
 
   /* ---- figures ---------------------------------------------------------- */
   figure{margin:0; border:1px solid var(--line); background:var(--panel); overflow:hidden}
@@ -98,73 +99,6 @@
   /* The self-test is dark in both schemes by design, so it carries its own
      frame rather than the paper-coloured one. */
   .selftest{border-color:var(--line); background:#0A0A0A}
-
-  /* ---- the takeoff ------------------------------------------------------
-     Scroll-driven and deliberately scriptless: animation-timeline: view() ties
-     the keyframes to this element's pass through the viewport, so no listener
-     and no framework. Two stills crossfade rather than four sprites spinning --
-     at flight RPM a propeller is a blur disc, not four readable blades, so the
-     crossfade is what spinning up actually looks like.
-
-     BOTH gates below are load-bearing. Without @supports, a browser that
-     ignores animation-timeline falls back to the document timeline: the
-     aircraft would fly off once on load and never return. With it, those
-     browsers get a still photograph, which is the right answer. */
-  .takeoff{
-    position:relative;
-    margin-top:clamp(26px,3.5vw,36px);
-    border:1px solid var(--line); background:var(--panel);
-    /* clip-path, NOT overflow:hidden. overflow:hidden makes this element a
-       scroll container, which would become the nearest scrollport for the
-       aircraft inside it -- and since this box never scrolls, its view()
-       timeline froze at 50% and the animation never ran. clip-path clips the
-       same way without establishing one. */
-    clip-path:inset(0);
-  }
-  .craft{position:relative; display:block}
-  .craft img{display:block; width:100%; height:auto}
-  .craft .spin{position:absolute; top:0; left:0; width:100%; opacity:0}
-  /* the ground station, in the terminal's own voice */
-  .gcs{
-    position:absolute; left:clamp(12px,3vw,26px); bottom:clamp(12px,3vw,26px);
-    margin:0; padding:11px 14px;
-    border:1px solid var(--line); background:var(--paper);
-    font:13px/1.7 var(--mono); color:var(--ink);
-  }
-  .gcs b{font-weight:400; color:var(--muted)}
-  /* Signal reports live state and nothing else, and at 3.43:1 on paper it is
-     not legible enough to be text. So armed is said in ink, and the accent is
-     a lamp beside it -- a graphic, which is what the palette allows. */
-  .gcs .led{
-    display:inline-block; width:7px; height:7px; margin-right:7px;
-    background:var(--signal);
-  }
-
-  @media (prefers-reduced-motion: no-preference){
-    @supports (animation-timeline: view()){
-      .craft{
-        animation:lift linear both;
-        animation-timeline:view(); animation-range:entry 20% cover 62%;
-      }
-      .craft .spin{
-        animation:spinup linear both;
-        animation-timeline:view(); animation-range:entry 10% entry 55%;
-      }
-      .gcs{
-        animation:callout linear both;
-        animation-timeline:view(); animation-range:entry 30% cover 18%;
-      }
-      @keyframes lift{
-        0%,34%{transform:translate3d(0,0,0); opacity:1}
-        100%{transform:translate3d(-7%,-82%,0); opacity:0}
-      }
-      @keyframes spinup{from{opacity:0} to{opacity:1}}
-      @keyframes callout{
-        0%{opacity:0; transform:translateY(9px)}
-        38%,100%{opacity:1; transform:none}
-      }
-    }
-  }
 
   /* ---- numbers band ----------------------------------------------------- */
   .nums{
@@ -274,6 +208,57 @@
   .tile h3{margin:14px 0 4px; font-size:1rem; font-weight:700; letter-spacing:-.012em}
   .tile p{margin:0; font-size:14px; color:var(--muted)}
   @media (max-width:620px){ .grid{grid-template-columns:1fr} }
+
+  /* ---- the scroll-scrubbed hero ----------------------------------------
+     A tall container with a sticky pane inside it: the pane holds still while
+     the page scrolls past, and cine-scrub.js advances the frame against that
+     progress. The height IS the scrub distance -- at 240vh roughly two and a
+     half screens of scroll move through 120 frames, which is about 12 px per
+     frame and reads as continuous motion rather than a flipbook.
+
+     aspect-ratio and the img's width/height attributes both matter:
+     cumulative-layout-shift <= 0.05 is a blocking assertion and a swapping
+     image is the classic way to fail it. */
+  .cine{position:relative; height:240vh}
+  .cine-stick{
+    position:sticky; top:0; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* The labels are placed in the render's own coordinates, so they have to
+     share a box with the image exactly. The sticky pane is 100vh tall and the
+     image is letterboxed inside it, so anchoring labels to the pane pulls them
+     away from their parts on every viewport that is not 16:9. This wrapper IS
+     the image box. */
+  .cine-frame{
+    position:relative; width:100%;
+    max-width:calc(100vh * 16 / 9); aspect-ratio:16/9;
+  }
+  .cine-stick img{display:block; width:100%; height:100%}
+  /* Reduced motion pins the last frame and stops the scrub, so the tall
+     container would be two and a half screens of dead scroll. */
+  .cine[data-cine-static]{height:auto}
+  .cine[data-cine-static] .cine-stick{position:static; height:auto}
+
+  /* ---- labels on the 360 ------------------------------------------------
+     Real text, not pixels burned into the render: a screen reader reads them,
+     they stay crisp at any size, and they do not need re-rendering to change.
+     Blender exported where each part sits in every frame; cine-scrub.js puts
+     these over it.
+
+     The colours are hardcoded rather than tokens because the band behind is
+     near-black in BOTH schemes -- the same reason .mast nav a is hardcoded. */
+  .cine-labels{position:absolute; inset:0; pointer-events:none}
+  .cine-label{
+    position:absolute; transform:translate(-50%,-50%);
+    padding:5px 9px; white-space:nowrap;
+    font:11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:#F2F1EE; background:rgba(10,10,10,.74); border:1px solid #2A2A27;
+  }
+  /* On a phone the frame is barely 200px tall, and four chips at desktop size
+     stack into a ladder that hides the aircraft they are naming. */
+  @media (max-width:680px){
+    .cine-label{font-size:9px; letter-spacing:.06em; padding:2px 5px}
+  }
 </style>
 </head>
 <body>
@@ -287,8 +272,8 @@
          near-white, for dark backgrounds. -->
     <a href="index.html"><img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30"></a>
     <nav aria-label="Primary">
+      <a href="index.html">Product</a>
       <a href="how-it-works.html" aria-current="page">How it works</a>
-      <a href="how-it-works.html#status">Status</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
     </nav>
   </header>
@@ -307,7 +292,7 @@
     <figure>
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
-        <img src="assets/brand/system-light.svg" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
+        <img src="assets/brand/system-light.svg" width="900" height="214" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
       </picture>
     </figure>
 
@@ -320,7 +305,7 @@
         <figure class="selftest">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-            <img src="assets/brand/hero-light.svg" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
+            <img src="assets/brand/hero-light.svg" width="1000" height="384" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
           </picture>
         </figure>
       </div>
@@ -342,7 +327,7 @@
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/conops-dark.svg">
-            <img src="assets/brand/conops-light.svg" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
+            <img src="assets/brand/conops-light.svg" width="1000" height="400" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
           </picture>
         </figure>
       </div>
@@ -355,7 +340,7 @@
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
-            <img src="assets/brand/patrol-light.svg" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
+            <img src="assets/brand/patrol-light.svg" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
           </picture>
         </figure>
       </div>
@@ -368,7 +353,7 @@
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mesh-dark.svg">
-            <img src="assets/brand/mesh-light.svg" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
+            <img src="assets/brand/mesh-light.svg" width="1000" height="400" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
           </picture>
         </figure>
       </div>
@@ -384,7 +369,7 @@
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/avoid-dark.svg">
-            <img src="assets/brand/avoid-light.svg" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
+            <img src="assets/brand/avoid-light.svg" width="1000" height="380" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
           </picture>
         </figure>
       </div>
@@ -400,7 +385,7 @@
       <figure>
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="assets/brand/phases-dark.svg">
-          <img src="assets/brand/phases-light.svg" alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
+          <img src="assets/brand/phases-light.svg" width="1000" height="306" alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
         </picture>
       </figure>
     </div>

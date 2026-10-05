@@ -98,6 +98,29 @@ Motion follows the same rule as Signal: it reports something, or it does not
 happen. A packet moves because a packet moved. Nothing drifts, spins or breathes
 to fill the space.
 
+### The hero is the one exception, and it is deliberate
+
+The hero on `index.html` is a scroll-scrubbed image sequence: 120 frames of the
+aircraft, advanced against scroll position. It reports something — what the
+machine is, what is inside it, how it goes together — so it satisfies the rule
+above. It is not motion filling space.
+
+Two things about it are worth writing down rather than rediscovering.
+
+- **The site carries JavaScript now.** `assets/cine-scrub.js` is the only script
+  in the repository and exists solely to map scroll position to a frame index,
+  which CSS cannot do. It was written by hand rather than pulled from a library:
+  GSAP and ScrollTrigger together are roughly 70 KB to perform one division.
+  The convention this breaks — "no JavaScript" — was never recorded here; it
+  lived in a session note. It was given up knowingly, in exchange for the hero,
+  and this paragraph is the record of that.
+- **Nothing depends on the script.** Frame 0 is an ordinary `<img>` in the
+  markup, so it is the LCP element and paints whether or not the script runs.
+  With JavaScript disabled, or for a reader with
+  `prefers-reduced-motion: reduce`, the hero is a still photograph of the
+  aircraft and the page reads normally. Same principle as the SMIL diagrams
+  above: the static artwork underneath is what makes the motion safe to drop.
+
 Two things to know before editing `system-*.svg`:
 
 - **Everything that moves is inside `#packets` and `#ticker`.** A reader with
@@ -133,7 +156,7 @@ accent stroke for the radio link.
 
 ## Renders, and whose geometry they are
 
-`assets/renders/` and `assets/x500-hero.webp` are Cycles renders of the actual
+`assets/renders/` and `assets/cine/` are Cycles renders of the actual
 aircraft, built in Blender from manufacturer CAD rather than modelled by eye.
 They are our images, but the geometry inside them is not all ours, so it is
 written down here rather than left to memory.
