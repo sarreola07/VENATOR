@@ -98,6 +98,29 @@ Motion follows the same rule as Signal: it reports something, or it does not
 happen. A packet moves because a packet moved. Nothing drifts, spins or breathes
 to fill the space.
 
+### The hero is the one exception, and it is deliberate
+
+The hero on `index.html` is a scroll-scrubbed image sequence: 120 frames of the
+aircraft, advanced against scroll position. It reports something — what the
+machine is, what is inside it, how it goes together — so it satisfies the rule
+above. It is not motion filling space.
+
+Two things about it are worth writing down rather than rediscovering.
+
+- **The site carries JavaScript now.** `assets/cine-scrub.js` is the only script
+  in the repository and exists solely to map scroll position to a frame index,
+  which CSS cannot do. It was written by hand rather than pulled from a library:
+  GSAP and ScrollTrigger together are roughly 70 KB to perform one division.
+  The convention this breaks — "no JavaScript" — was never recorded here; it
+  lived in a session note. It was given up knowingly, in exchange for the hero,
+  and this paragraph is the record of that.
+- **Nothing depends on the script.** Frame 0 is an ordinary `<img>` in the
+  markup, so it is the LCP element and paints whether or not the script runs.
+  With JavaScript disabled, or for a reader with
+  `prefers-reduced-motion: reduce`, the hero is a still photograph of the
+  aircraft and the page reads normally. Same principle as the SMIL diagrams
+  above: the static artwork underneath is what makes the motion safe to drop.
+
 Two things to know before editing `system-*.svg`:
 
 - **Everything that moves is inside `#packets` and `#ticker`.** A reader with
@@ -133,7 +156,7 @@ accent stroke for the radio link.
 
 ## Renders, and whose geometry they are
 
-`assets/renders/` and `assets/x500-hero.webp` are Cycles renders of the actual
+`assets/renders/` and `assets/cine/` are Cycles renders of the actual
 aircraft, built in Blender from manufacturer CAD rather than modelled by eye.
 They are our images, but the geometry inside them is not all ours, so it is
 written down here rather than left to memory.
@@ -143,17 +166,29 @@ written down here rather than left to memory.
 | Holybro `x500v2-frame.step` | the airframe: plates, arms, 2216 motors, GPS mast, PM06, fasteners | published by Holybro on their X500 V2 download page for customers of the kit |
 | NVIDIA `Orin_Nano_Dev_Kit.STEP` | the companion computer under the payload shelf | NVIDIA's own CAD for the Developer Kit |
 | Pixhawk `PIXHAWK 5X-6X.STEP` | the flight controller on the top plate | vendor CAD; exact source to be recorded |
-| `10x4.7.STL` | the four propellers, scaled to a true 254 mm | downloaded from Printables; **author and licence still to be recorded** |
+| Venator `Drone Propeller` | the four propellers, 254 mm span | modelled in Onshape for this project; ours outright |
+| Luxonis `DM9098Pro_enclosure.stp` | the OAK-D Pro on the nose bracket | vendor CAD for the enclosure |
+| Venator `wireless_stick_litev3.3mf` | the LoRa radio on the shelf edge | modelled in Onshape for this project; ours outright |
 
 None of those CAD files are committed here. Only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
 
 - **The manufacturers' marks appear on their parts.** "Holybro" is embossed on
-  the arm clamps in their CAD, so it shows in close-ups. That is the hardware
-  having a name on it, not us putting someone's wordmark into our design, and
-  the rule above still holds: we add nobody's mark to anything we draw.
+  the motor mounts in their CAD, so it would show in any close-up framed on one.
+  None of the shipped renders is, as it happens, but the rule is the same if one
+  ever is: that is the hardware having a name on it, not us putting someone's
+  wordmark into our design, and we add nobody's mark to anything we draw.
 - **Product photographs are a different thing** and are deliberately not in this
   repository. A render we made is ours; a photograph somebody else shot is
   theirs, and this repo is MIT, which would imply a licence we cannot grant.
-- The propeller is the one open item. Before these renders are used anywhere
-  beyond this repository, fill in that author and licence.
+- The propeller used to be the open item here. It is not any more: the one in
+  these renders was modelled for this project, replacing a downloaded STL whose
+  author and licence were never recorded.
+- **The radio render is a Lite, the hardware is a V3.** The geometry was
+  exported as `wireless_stick_litev3.3mf`, and the Lite has no display, so the
+  render is missing the V3's 0.49 inch OLED. The envelope is otherwise the same.
+  The gallery caption says so outright rather than letting the picture imply a
+  board that is not there.
+- The Pixhawk CAD is now the one open item. Its exact source is not written
+  down, and should be before these renders are used anywhere beyond this
+  repository.

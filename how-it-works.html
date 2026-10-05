@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Venator works: LoRa command link and onboard autonomy</title>
+<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
+<link rel="icon" href="assets/brand/favicon.svg">
+<style>
+  /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
+     and nothing else, so it never carries small body text: at #E05316 it
+     measures 3.43:1 on paper, which clears the 3:1 bar for graphics and large
+     display type but not the 4.5:1 bar for body copy. */
+  :root{
+    --ink:#0A0A0A; --panel:#FFFFFF; --line:#DAD8D3; --muted:#6E6B66;
+    --paper:#F2F1EE; --signal:#E05316;
+    --gut:clamp(20px,5vw,64px);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F2F1EE; --panel:#131314; --line:#2A2A27; --muted:#8A8781;
+      --paper:#0A0A0A;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.6 var(--sans);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1240px; margin:0 auto; padding:0 var(--gut)}
+  a{color:inherit}
+  img{max-width:100%; height:auto; display:block}
+
+  /* ---- the dark band ----------------------------------------------------
+     Masthead and hero sit on near-black in BOTH colour schemes, the way
+     hero-*.svg already does. It is one fixed band at the top of the page,
+     not a section that inverts with the theme, so colours here are literal
+     rather than tokens: paper on #0A0A0A measures 17.5:1 and the muted grey
+     5.5:1, both clear of AA. */
+  .band{background:#0A0A0A; color:#F2F1EE}
+  .band .wrap{padding-top:0; padding-bottom:0}
+
+  /* ---- masthead: one line, 64px ---------------------------------------- */
+  .mast{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:24px; height:64px; border-bottom:1px solid #2A2A27;
+  }
+  .mast img{width:clamp(132px,19vw,168px)}
+  .mast nav{display:flex; gap:clamp(14px,3vw,28px)}
+  .mast nav a{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    text-decoration:none; color:#8A8781; white-space:nowrap;
+    padding:6px 0; border-bottom:1px solid transparent;
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .mast nav a:hover,.mast nav a:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
+  /* The page you are on holds the bright state, so the nav says where you are
+     rather than only announcing it to a screen reader via aria-current. */
+  .mast nav a[aria-current="page"]{color:#F2F1EE; border-color:#2A2A27}
+
+  /* ---- hero: asymmetric split ------------------------------------------ */
+  .hero{
+    display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+    gap:clamp(28px,6vw,72px); align-items:end;
+    padding:clamp(40px,7vw,76px) 0 clamp(26px,4vw,40px);
+  }
+  .hero h1{
+    margin:0; font-size:clamp(2.6rem,8.4vw,6rem); line-height:.96;
+    font-weight:700; letter-spacing:-.035em; text-wrap:balance;
+  }
+  .hero p{
+    margin:0; max-width:36ch;
+    font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
+  }
+  .act{display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(20px,2.6vw,26px)}
+  .act a{
+    display:inline-block; padding:12px 22px; text-decoration:none;
+    font-size:12.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+    border:1.5px solid #F2F1EE; color:#F2F1EE; white-space:nowrap;
+    transition:transform .14s ease, background .18s ease, color .18s ease;
+  }
+  .act a.key{background:#F2F1EE; color:#0A0A0A}
+  .act a:hover,.act a:focus-visible{transform:translateY(-1px)}
+  .act a:active{transform:translateY(1px)}
+
+  /* the aircraft, full bleed, closing the dark band */
+
+  /* ---- figures ---------------------------------------------------------- */
+  figure{margin:0; border:1px solid var(--line); background:var(--panel); overflow:hidden}
+  /* width, not just max-width: these SVGs carry intrinsic 900-1000 px sizes,
+     so max-width alone leaves them at natural size with a band of figure
+     background beside them. */
+  figure img{width:100%}
+  /* The self-test is dark in both schemes by design, so it carries its own
+     frame rather than the paper-coloured one. */
+  .selftest{border-color:var(--line); background:#0A0A0A}
+
+  /* ---- numbers band ----------------------------------------------------- */
+  .nums{
+    margin-top:clamp(40px,6vw,72px);
+    border-top:1px solid var(--ink); border-bottom:1px solid var(--line);
+    display:grid; grid-template-columns:repeat(4,1fr);
+  }
+  .nums > div{padding:clamp(22px,3.4vw,34px) clamp(16px,2vw,28px) clamp(24px,3.4vw,36px)}
+  .nums > div + div{border-left:1px solid var(--line)}
+  .nums b{
+    display:block; font-size:clamp(2rem,4.4vw,3.25rem); line-height:1;
+    font-weight:700; letter-spacing:-.03em;
+  }
+  .nums b i{font-style:normal; font-size:.42em; letter-spacing:0; margin-left:.22em; color:var(--muted)}
+  .nums span{
+    display:block; margin-top:12px; font-size:13px; color:var(--ink);
+  }
+  .nums em{
+    display:block; margin-top:7px; font-style:normal;
+    font:10.5px/1.45 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* ---- generic section rhythm ------------------------------------------- */
+  section{padding:clamp(56px,9vw,104px) 0 0}
+  .lab{
+    margin:0 0 14px; font-size:11px; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--muted); font-weight:700;
+  }
+  h2{
+    margin:0; font-size:clamp(1.55rem,3.4vw,2.4rem); line-height:1.1;
+    font-weight:700; letter-spacing:-.022em; max-width:20ch; text-wrap:balance;
+  }
+  .cap{margin:16px 0 0; max-width:62ch; color:var(--muted)}
+
+  /* family: full-bleed media with the text above it */
+  .stack h2 + .cap{margin-bottom:clamp(26px,4vw,38px)}
+
+  /* family: a run of capabilities. Each diagram is drawn 1000 units wide, so
+     it gets the full column: at half width its labels render near 5 px, under
+     the 7 px the site audit warns at. Variety comes from the heading rhythm,
+     not from shrinking the artwork. */
+  .series{margin-top:clamp(30px,4.5vw,46px)}
+  .item + .item{margin-top:clamp(34px,5vw,58px)}
+  .item .hd{
+    display:flex; align-items:baseline; gap:14px; margin-bottom:14px;
+    padding-bottom:12px; border-bottom:1px solid var(--line);
+  }
+  .item h3{margin:0; font-size:1.125rem; font-weight:700; letter-spacing:-.012em; white-space:nowrap}
+  .item .hd p{margin:0; font-size:14px; color:var(--muted)}
+  @media (max-width:680px){
+    .item .hd{display:block}
+    .item h3{white-space:normal; margin-bottom:6px}
+  }
+
+  /* family: status band */
+  .status{margin-top:clamp(28px,4vw,40px); border-top:1px solid var(--ink); padding-top:clamp(24px,3.4vw,34px)}
+  .status .cap{max-width:70ch}
+  .status figure{margin-top:clamp(22px,3vw,30px)}
+
+  .note{
+    margin:clamp(30px,4.5vw,44px) 0 0; padding:16px 20px; max-width:78ch;
+    font-size:14px; color:var(--muted);
+    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--signal);
+  }
+
+  footer{
+    margin-top:clamp(64px,9vw,112px); padding:26px 0 56px;
+    border-top:1px solid var(--line); color:var(--muted); font-size:13px;
+    display:flex; gap:16px; justify-content:space-between; flex-wrap:wrap;
+  }
+  footer a{color:var(--ink)}
+
+  :focus-visible{outline:2px solid var(--signal); outline-offset:3px}
+
+  /* ---- phone ------------------------------------------------------------ */
+  /* Below this the lockup and three nav items no longer fit on one line. They
+     used to overflow the band, which also dragged the nav colour off the dark
+     background and onto paper, where #8A8781 measures 3.17:1 and fails. */
+  @media (max-width:560px){
+    .mast{height:auto; flex-wrap:wrap; justify-content:flex-start; padding:14px 0 0}
+    .mast picture,.mast img{flex:0 0 auto}
+    .mast nav{flex:1 0 100%; margin-top:12px; padding-bottom:10px; gap:18px}
+  }
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr; gap:34px; align-items:start}
+    .nums{grid-template-columns:1fr 1fr}
+    .nums > div:nth-child(odd){border-left:0}
+    .nums > div:nth-child(n+3){border-top:1px solid var(--line)}
+    .pair{grid-template-columns:1fr}
+    .split{grid-template-columns:1fr}
+    .split .fig{order:0}
+  }
+  @media (max-width:420px){
+    .nums{grid-template-columns:1fr}
+    .nums > div + div{border-left:0; border-top:1px solid var(--line)}
+  }
+
+  /* ---- the hardware gallery --------------------------------------------
+     Captions are real HTML, not text burned into the render: a screen reader
+     reads them, they rescale at 390 px where the audit tests, and they swap
+     for dark mode on their own. */
+  .grid{
+    display:grid; grid-template-columns:repeat(2,1fr);
+    gap:clamp(18px,2.6vw,30px); margin-top:clamp(30px,4.5vw,46px);
+  }
+  .tile h3{margin:14px 0 4px; font-size:1rem; font-weight:700; letter-spacing:-.012em}
+  .tile p{margin:0; font-size:14px; color:var(--muted)}
+  @media (max-width:620px){ .grid{grid-template-columns:1fr} }
+
+  /* ---- the scroll-scrubbed hero ----------------------------------------
+     A tall container with a sticky pane inside it: the pane holds still while
+     the page scrolls past, and cine-scrub.js advances the frame against that
+     progress. The height IS the scrub distance -- at 240vh roughly two and a
+     half screens of scroll move through 120 frames, which is about 12 px per
+     frame and reads as continuous motion rather than a flipbook.
+
+     aspect-ratio and the img's width/height attributes both matter:
+     cumulative-layout-shift <= 0.05 is a blocking assertion and a swapping
+     image is the classic way to fail it. */
+  .cine{position:relative; height:240vh}
+  .cine-stick{
+    position:sticky; top:0; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* The labels are placed in the render's own coordinates, so they have to
+     share a box with the image exactly. The sticky pane is 100vh tall and the
+     image is letterboxed inside it, so anchoring labels to the pane pulls them
+     away from their parts on every viewport that is not 16:9. This wrapper IS
+     the image box. */
+  .cine-frame{
+    position:relative; width:100%;
+    max-width:calc(100vh * 16 / 9); aspect-ratio:16/9;
+  }
+  .cine-stick img{display:block; width:100%; height:100%}
+  /* Reduced motion pins the last frame and stops the scrub, so the tall
+     container would be two and a half screens of dead scroll. */
+  .cine[data-cine-static]{height:auto}
+  .cine[data-cine-static] .cine-stick{position:static; height:auto}
+
+  /* ---- labels on the 360 ------------------------------------------------
+     Real text, not pixels burned into the render: a screen reader reads them,
+     they stay crisp at any size, and they do not need re-rendering to change.
+     Blender exported where each part sits in every frame; cine-scrub.js puts
+     these over it.
+
+     The colours are hardcoded rather than tokens because the band behind is
+     near-black in BOTH schemes -- the same reason .mast nav a is hardcoded. */
+  .cine-labels{position:absolute; inset:0; pointer-events:none}
+  .cine-label{
+    position:absolute; transform:translate(-50%,-50%);
+    padding:5px 9px; white-space:nowrap;
+    font:11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:#F2F1EE; background:rgba(10,10,10,.74); border:1px solid #2A2A27;
+  }
+  /* On a phone the frame is barely 200px tall, and four chips at desktop size
+     stack into a ladder that hides the aircraft they are naming. */
+  @media (max-width:680px){
+    .cine-label{font-size:9px; letter-spacing:.06em; padding:2px 5px}
+  }
+</style>
+</head>
+<body>
+
+<div class="band">
+<div class="wrap">
+
+  <header class="mast">
+    <!-- The masthead band is near-black in both colour schemes, so the lockup
+         is always the near-white one. BRAND.md: "dark" means the ink is
+         near-white, for dark backgrounds. -->
+    <a href="index.html"><img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30"></a>
+    <nav aria-label="Primary">
+      <a href="index.html">Product</a>
+      <a href="how-it-works.html" aria-current="page">How it works</a>
+      <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
+    </nav>
+  </header>
+
+  </div><!-- /wrap -->
+</div><!-- /band -->
+
+<div class="wrap">
+
+  <section id="how" class="stack">
+    <p class="lab">How it works</p>
+    <h2>Three boxes and two links</h2>
+    <p class="cap">A command leaves the laptop over 915&nbsp;MHz LoRa. The Jetson
+      relays it to the flight controller over MAVLink and sends the reply back the
+      same way. Nothing in the path touches a network.</p>
+    <figure>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
+        <img src="assets/brand/system-light.svg" width="900" height="214" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
+      </picture>
+    </figure>
+
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>What is actually fitted</h3>
+          <p>Every line is a real part of the repository. The one that is not an OK is the one that has not happened yet.</p>
+        </div>
+        <figure class="selftest">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
+            <img src="assets/brand/hero-light.svg" width="1000" height="384" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
+          </picture>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it is built to do</h2>
+    <p class="cap">Three behaviours, written and bench-tested against a mock flight
+      controller. All of them hold the same rule: if the radio link drops for more than
+      four seconds, the aircraft returns to launch without being told.</p>
+
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>Follow a person</h3>
+          <p>Holds 3&nbsp;m behind until a STOP arrives. Losing the camera makes it hover, not guess.</p>
+        </div>
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/conops-dark.svg">
+            <img src="assets/brand/conops-light.svg" width="1000" height="400" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
+          </picture>
+        </figure>
+      </div>
+
+      <div class="item">
+        <div class="hd">
+          <h3>Patrol a route</h3>
+          <p>Coordinates go up one packet at a time, each acknowledged, and a second confirmation is required before anything spins.</p>
+        </div>
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
+            <img src="assets/brand/patrol-light.svg" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then RTL home">
+          </picture>
+        </figure>
+      </div>
+
+      <div class="item">
+        <div class="hd">
+          <h3>Reach every station at once</h3>
+          <p>LoRa is a broadcast medium, so one transmission arrives everywhere at the same instant.</p>
+        </div>
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mesh-dark.svg">
+            <img src="assets/brand/mesh-light.svg" width="1000" height="400" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
+          </picture>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+    <div class="series">
+      <div class="item">
+        <div class="hd">
+          <h3>Deviate around what it sees</h3>
+          <p>Phase&nbsp;6, and the one behaviour that is not started. The OAK-D&nbsp;Pro's forward depth finds a wall; the aircraft brakes, steps around it, and rejoins the line.</p>
+        </div>
+        <figure>
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="assets/brand/avoid-dark.svg">
+            <img src="assets/brand/avoid-light.svg" width="1000" height="380" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
+          </picture>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="status">
+      <h2>Where it actually is</h2>
+      <p class="cap">Four phases done, two in progress, one not started. The command
+        link works end to end on real radios and the aircraft is built. Flying it
+        outdoors is what is left.</p>
+      <figure>
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="assets/brand/phases-dark.svg">
+          <img src="assets/brand/phases-light.svg" width="1000" height="306" alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
+        </picture>
+      </figure>
+    </div>
+  </section>
+
+  <footer>
+    <span>MIT licensed. Built by Sergio Arreola.</span>
+    <span><a href="https://github.com/sarreola07/VENATOR">github.com/sarreola07/VENATOR</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
