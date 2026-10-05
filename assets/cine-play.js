@@ -147,13 +147,28 @@
     requestAnimationFrame(step);
   }
 
-  window.addEventListener("load", function () {
-    resolveBase();
-
+  var fetched = false;
+  function fetchFrames() {
+    if (fetched) return;
+    fetched = true;
     for (var i = 1; i < total; i++) {
       (function (n) { var im = new Image(); im.src = base + name(n); }(i));
     }
+  }
 
+  function begin() {
+    resolveBase();
+    // Request the sequence and start. Playback deliberately does NOT wait for
+    // every frame: the browser serves them in the order asked for, which is the
+    // order they are needed, and a frame that has not arrived just leaves the
+    // previous one up for a beat. Waiting was worse -- all of this used to hang
+    // off window.load, so a single stalled request meant the animation never
+    // ran at all.
+    fetchFrames();
+    play();
+  }
+
+  (function () {
     fetch(path + "labels.json").then(function (r) {
       return r.ok ? r.json() : null;
     }).then(function (data) {
@@ -184,14 +199,14 @@
       var io = new IntersectionObserver(function (es) {
         if (es.some(function (e) { return e.isIntersecting; })) {
           io.disconnect();
-          play();
+          begin();
         }
       }, { threshold: 0.35 });
       io.observe(frame);
     } else {
-      play();
+      begin();
     }
 
     window.addEventListener("resize", function () { sizes = null; }, { passive: true });
-  });
+  }());
 }());
