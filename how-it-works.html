@@ -67,7 +67,9 @@
   .hero{
     display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
     gap:clamp(28px,6vw,72px); align-items:end;
-    padding:clamp(40px,7vw,76px) 0 clamp(26px,4vw,40px);
+    /* Tighter than it looks like it wants to be, because every pixel here is a
+       pixel of the numbers band pushed below the fold. */
+    padding:clamp(26px,4vw,44px) 0 clamp(18px,2.4vw,28px);
   }
   .hero h1{
     margin:0; font-size:clamp(2.6rem,8.4vw,6rem); line-height:.96;
@@ -317,21 +319,27 @@
     font:16px/1 var(--mono);
   }
 
-  /* ---- the scroll-scrubbed hero ----------------------------------------
-     A tall container with a sticky pane inside it: the pane holds still while
-     the page scrolls past, and cine-scrub.js advances the frame against that
-     progress. The height IS the scrub distance -- at 240vh roughly two and a
-     half screens of scroll move through 120 frames, which is about 12 px per
-     frame and reads as continuous motion rather than a flipbook.
+  /* ---- the hero sequence -------------------------------------------------
+     120 frames played once, on a clock, when the aircraft comes into view.
 
      aspect-ratio and the img's width/height attributes both matter:
      cumulative-layout-shift <= 0.05 is a blocking assertion and a swapping
      image is the classic way to fail it. */
-  .cine{position:relative; height:240vh}
-  .cine-stick{
-    position:sticky; top:0; height:100vh;
-    display:flex; align-items:center; justify-content:center;
+  /* The aircraft stays put and the sequence plays itself once, on a clock.
+     It used to scrub against scroll, and the cost of that was not the scrubbing
+     but the arithmetic: a scroll-driven animation reserves its length as
+     document space, and that space sat between the aircraft and the numbers,
+     pushing them nearly two screens below the fold. On a clock it costs no page
+     height at all, so both are on the first screen.
+
+     --cine-h is the one number to turn. It is the SMALLER of what the width
+     allows and the cap, so a phone is limited by its width and a desktop by the
+     cap, with no media query between them. */
+  .cine{
+    --cine-h:min(100vw * 877 / 1279, 46vh);
+    position:relative;
   }
+  .cine-stick{display:flex; justify-content:center}
   /* The labels are placed in the render's own coordinates, so they have to
      share a box with the image exactly. The sticky pane is 100vh tall and the
      image is letterboxed inside it, so anchoring labels to the pane pulls them
@@ -339,47 +347,16 @@
      the image box. */
   .cine-frame{
     position:relative; width:100%;
-    max-width:calc(100vh * 1279 / 877); aspect-ratio:1279/877;
+    max-width:calc(var(--cine-h) * 1279 / 877); aspect-ratio:1279/877;
   }
   .cine-stick picture{display:block}
   .cine-stick img{display:block; width:100%; height:100%}
-  /* Reduced motion pins the last frame and stops the scrub, so the tall
-     container would be two and a half screens of dead scroll. */
-  .cine[data-cine-static]{height:auto}
-  .cine[data-cine-static] .cine-stick{position:static; height:auto}
 
-  /* On any screen narrower than the frame's own aspect, the image physically
-     cannot fill a full-height pane: at 393x852 it is 269 px inside an 852 px
-     box, which is 583 px of black on every frame of the sequence. Below that
-     aspect the hero stops being a sticky full-screen stage and becomes an
-     ordinary image in the flow -- cine-scrub.js scrubs it as it crosses the
-     viewport instead of against a tall container. The stats then sit directly
-     under the aircraft rather than three screens below it. */
-  @media (max-aspect-ratio: 1279/877){
-    /* The pane shrinks to the image, so nothing is letterboxed, and the stage
-       gets one screen of padding below it. A sticky child is confined to its
-       parent's PADDING box, so that padding is the pinned distance: the
-       aircraft holds the top of the screen for 100vh of scroll while the stats
-       rise into the gap under it, then releases assembled. In the flow instead
-       of pinned it only got 419 px of travel, and the reassembly played after
-       it had scrolled away.
-
-       The height is explicit, and it has to be: a sticky child is bounded by
-       its parent's CONTENT box, so padding-bottom here extends the stage
-       without extending the range the pane may travel, and it never pins at
-       all. 100vw * 877/1279 is the image's own height at full bleed; the 100vh
-       after it is the pinned distance. On a narrow desktop window 100vw also
-       counts the scrollbar, which makes the stage a few px tall -- the pin
-       simply lasts a moment longer, holding the assembled frame before it
-       releases, which is the harmless direction to be wrong in. */
-    .cine{height:calc(100vw * 877 / 1279 + 100vh)}
-    .cine-stick{position:sticky; top:0; height:auto}
-  }
 
   /* ---- labels on the 360 ------------------------------------------------
      Real text, not pixels burned into the render: a screen reader reads them,
      they stay crisp at any size, and they do not need re-rendering to change.
-     Blender exported where each part sits in every frame; cine-scrub.js puts
+     Blender exported where each part sits in every frame; cine-play.js puts
      these over it.
 
      The colours are hardcoded rather than tokens because the band behind is
