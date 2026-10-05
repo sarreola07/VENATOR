@@ -174,9 +174,10 @@ None of those CAD files are committed here. Only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
 
 - **The manufacturers' marks appear on their parts.** "Holybro" is embossed on
-  the arm clamps in their CAD, so it shows in close-ups. That is the hardware
-  having a name on it, not us putting someone's wordmark into our design, and
-  the rule above still holds: we add nobody's mark to anything we draw.
+  the motor mounts in their CAD, so it would show in any close-up framed on one.
+  None of the shipped renders is, as it happens, but the rule is the same if one
+  ever is: that is the hardware having a name on it, not us putting someone's
+  wordmark into our design, and we add nobody's mark to anything we draw.
 - **Product photographs are a different thing** and are deliberately not in this
   repository. A render we made is ours; a photograph somebody else shot is
   theirs, and this repo is MIT, which would imply a licence we cannot grant.
