@@ -108,9 +108,9 @@ above. It is not motion filling space.
 Two things about it are worth writing down rather than rediscovering.
 
 - **The site carries JavaScript now.** There are two scripts, both hand-written
-  and both small: `assets/cine-scrub.js` maps scroll position to a frame index,
-  which CSS cannot do, and `assets/shots-gallery.js` cycles the plate viewer and
-  opens a render at full size. Neither is a library — GSAP and ScrollTrigger
+  and both small: `assets/cine-play.js` plays the hero sequence once when the
+  aircraft comes into view, and `assets/shots-gallery.js` cycles the plate
+  viewer and opens a render at full size. Neither is a library — GSAP and ScrollTrigger
   together are roughly 70 KB to perform one division. The convention this breaks
   — "no JavaScript" — was never recorded here; it lived in a session note. It
   was given up knowingly, in exchange for the hero, and this paragraph is the
