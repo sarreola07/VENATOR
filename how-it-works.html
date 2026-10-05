@@ -87,6 +87,14 @@
   .act a.key{background:#F2F1EE; color:#0A0A0A}
   .act a:hover,.act a:focus-visible{transform:translateY(-1px)}
   .act a:active{transform:translateY(1px)}
+  /* The same button at the foot of the page, where the background is paper
+     rather than the near-black band: the hero's near-white fill would be
+     invisible there, so it inverts. Both tokens flip for dark mode, so this
+     stays the right way round in either scheme. */
+  .act-foot{margin:clamp(34px,5vw,56px) 0 0}
+  .act-foot a.key{
+    background:var(--ink); color:var(--paper); border-color:var(--ink);
+  }
 
   /* the aircraft, full bleed, closing the dark band */
 
@@ -209,6 +217,31 @@
   .tile p{margin:0; font-size:14px; color:var(--muted)}
   @media (max-width:620px){ .grid{grid-template-columns:1fr} }
 
+  /* ---- the plates gallery at the foot of the page ----------------------
+     Every render we hold of the whole aircraft, three to a row rather than
+     two: these are views of one object, not captioned parts, so they want to
+     be read as a set. The footnote names the files because the names are the
+     only thing that distinguishes two frames of the same aircraft.
+     A column flow, not a grid: these range from a 2.38:1 wide shot to a square
+     plan view, and in a row grid the short ones leave white gaps under them.
+     Columns let each plate keep its own shape and still tile. */
+  .plates{
+    columns:3; column-gap:clamp(12px,1.8vw,20px);
+    margin-top:clamp(30px,4.5vw,46px);
+  }
+  .plates figure{
+    break-inside:avoid; margin:0 0 clamp(12px,1.8vw,20px);
+  }
+  .plates img{display:block; width:100%; height:auto; background:#0A0A0A}
+  .fnote{
+    margin:clamp(20px,3vw,28px) 0 0; padding-top:16px;
+    border-top:1px solid var(--line);
+    font:12px/1.9 var(--mono); color:var(--muted);
+  }
+  .fnote b{font-weight:400; color:var(--ink)}
+  @media (max-width:860px){ .plates{columns:2} }
+  @media (max-width:480px){ .plates{columns:1} }
+
   /* ---- the scroll-scrubbed hero ----------------------------------------
      A tall container with a sticky pane inside it: the pane holds still while
      the page scrolls past, and cine-scrub.js advances the frame against that
@@ -231,8 +264,9 @@
      the image box. */
   .cine-frame{
     position:relative; width:100%;
-    max-width:calc(100vh * 16 / 9); aspect-ratio:16/9;
+    max-width:calc(100vh * 1279 / 877); aspect-ratio:1279/877;
   }
+  .cine-stick picture{display:block}
   .cine-stick img{display:block; width:100%; height:100%}
   /* Reduced motion pins the last frame and stops the scrub, so the tall
      container would be two and a half screens of dead scroll. */
@@ -277,6 +311,14 @@
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
     </nav>
   </header>
+
+  <div class="hero">
+    <h1>Laptop to propeller, with no network in between.</h1>
+    <div>
+      <p>What a command actually does on the way to the aircraft, the three
+        behaviours built on top of it, and how far each one has been taken.</p>
+    </div>
+  </div>
 
   </div><!-- /wrap -->
 </div><!-- /band -->
