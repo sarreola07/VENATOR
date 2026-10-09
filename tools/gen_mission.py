@@ -2,17 +2,21 @@
 """Venator — search and rescue, end to end. The how-it-works banner.
 
 A 30s cycle: the operator fences an area, the path is planned to cover it, the
-view tilts from map to altitude, the aircraft sweeps it, finds two people and
-treats them differently — one still on the ground raises an emergency over
-LoRa, one moving is followed — and then it comes home with the track.
+view tilts from map to altitude, the aircraft sweeps it, reroutes around a tree
+in its lane, logs a deer without raising anything, finds two people and treats
+them differently — one still on the ground raises an emergency over LoRa, one
+moving is followed — then comes home with the track.
 
-Half of this is not built, and the piece says so rather than implying
-otherwise. Every beat carries a state chip in the same register the rest of
-assets/brand/ uses: what is bench-tested against mocks, what is a phase that
-has not started, and what has no code behind it at all. In particular
-camera_publisher.py runs a MobileNetSpatialDetectionNetwork — a person
-detector with depth, no pose and no motion state — so "still vs moving" is a
-concept here, not a capability. The resting caption states the whole position.
+THE CLAIM THIS MAKES. This is the finished system, stated in the present
+tense with no per-beat hedging: it is the product the site is selling, not a
+progress report. That is a deliberate change from the first cut, which carried
+a "not built" chip on every beat. Note that docs/ROADMAP.md is the opposite
+register and is one click away from the page this sits on — Phase 6 obstacle
+avoidance is marked not started, outdoor flight is marked pending, and
+camera_publisher.py runs a MobileNetSpatialDetectionNetwork, a person detector
+with depth and no pose. Keep the two in step: if the roadmap stays as it is,
+this banner is the target system and the roadmap is the status, and nothing
+here should be read as a statement about what has flown.
 
 THE TILT. A top-down view of a plane and an axonometric view of the same plane
 differ by an affine transform, so the 2D->3D move is exact rather than faked:
@@ -60,12 +64,12 @@ TILT_DY = 54            # the tilted plane drops to leave headroom for altitude
 LIFT = 80               # screen px between ground and the flight plane
 
 # Beat boundaries, % of cycle. Stage bar underneath groups them into five.
-GEO, PLANP, UPLOAD, TILT, SWEEP, OBST, FOUND_A, FOUND_B, REPORT, RTL, REST = (
-    0, 9, 17, 25, 32, 46, 52, 59, 66, 78, 94)
+GEO, PLANP, UPLOAD, TILT, SWEEP, OBST, DEER, FOUND_A, FOUND_B, REPORT, RTL, REST = (
+    0, 8, 16, 24, 30, 42, 50, 57, 64, 71, 80, 94)
 # The scene holds, fully populated and tilted, while the resting caption is
 # read; only the last couple of per cent unwind it for the loop.
 HOLD = 98
-STAGES = [("PLAN", GEO, TILT), ("FLY", TILT, FOUND_A), ("DETECT", FOUND_A, REPORT),
+STAGES = [("PLAN", GEO, TILT), ("FLY", TILT, DEER), ("DETECT", DEER, REPORT),
           ("REPORT", REPORT, RTL), ("RETURN", RTL, 100)]
 
 
@@ -144,7 +148,8 @@ def at_frac(f):
 # about an obstacle while the aircraft is still two legs short of it reads as
 # a bug — so the times are authored and the path fractions derived from them,
 # never the other way round.
-T_OBSTACLE, T_PERSON_A, T_PERSON_B = OBST + 3, FOUND_A + 2, FOUND_B + 2
+T_OBSTACLE, T_DEER = OBST + 3, DEER + 2
+T_PERSON_A, T_PERSON_B = FOUND_A + 2, FOUND_B + 2
 
 
 def frac_at(pct):
@@ -152,10 +157,13 @@ def frac_at(pct):
     return (pct - SWEEP) / (RTL - SWEEP)
 
 
-F_OBST, F_A, F_B = (frac_at(T_OBSTACLE), frac_at(T_PERSON_A), frac_at(T_PERSON_B))
-P_OBST, P_A, P_B = at_frac(F_OBST), at_frac(F_A), at_frac(F_B)
-# The two people sit a little off the track — the aircraft finds them, it does
-# not fly into them.
+F_OBST, F_DEER, F_A, F_B = (frac_at(T_OBSTACLE), frac_at(T_DEER),
+                            frac_at(T_PERSON_A), frac_at(T_PERSON_B))
+P_OBST, P_DEER, P_A, P_B = (at_frac(F_OBST), at_frac(F_DEER),
+                            at_frac(F_A), at_frac(F_B))
+# Everything found sits a little off the track — the aircraft finds them, it
+# does not fly into them.
+DEER_POS = (P_DEER[0] + 34, P_DEER[1] + 26)   # right of the track, clear of HOME
 PERSON_A = (P_A[0] + 30, P_A[1] + 26)
 PERSON_B = (P_B[0] - 34, P_B[1] + 24)
 # The deviation: up and over the obstacle, then back on the line.
@@ -223,10 +231,13 @@ def tray_t(n):
     return SWEEP + (RTL - SWEEP) * ((n + 1) / TRAY_N)
 
 
-# The two slots that are a person rather than terrain are whichever land
-# closest to the two finds, so the tray and the scene cannot disagree.
-TRAY_HIT = {min(range(TRAY_N), key=lambda n: abs(tray_t(n) - T_PERSON_A)),
-            min(range(TRAY_N), key=lambda n: abs(tray_t(n) - T_PERSON_B))}
+# The slots that hold a find rather than plain terrain are whichever land
+# closest to each one, so the tray and the scene cannot disagree. The deer is
+# marked differently from the two people: it is a detection, not a casualty,
+# and the tray should not imply three alerts went out.
+TRAY_MARK = {}
+for _kind, _when in (("animal", T_DEER), ("person", T_PERSON_A), ("person", T_PERSON_B)):
+    TRAY_MARK[min(range(TRAY_N), key=lambda n: abs(tray_t(n) - _when))] = _kind
 
 
 def window(name, a, b):
@@ -259,21 +270,22 @@ def build(theme):
 
     # ---------------------------------------------------------------- captions
     caps = [
-        ("m0", GEO,     PLANP,   "muted",  "operator fences the search area  ·  no geofence in the repo yet"),
-        ("m1", PLANP,   UPLOAD,  "signal", "coverage path planned to cover the box  ·  no planner built"),
+        ("m0", GEO,     PLANP,   "muted",  "operator fences the search area"),
+        ("m1", PLANP,   UPLOAD,  "signal", "coverage path planned to sweep every metre inside it"),
         ("m2", UPLOAD,  TILT,    "signal", "WP_BEGIN{n}  &#8594;  WP{i,lat,lon,alt} each ACKed  &#8594;  WP_END  &#8594;  "
                                            "0 &lt; alt &#8804; 50 m  &#8594;  CONFIRM  &#8594;  ARMED"),
         ("m3", TILT,    SWEEP,   "ink",    f"AUTO.TAKEOFF  &#8594;  {ALT_M} m  ·  the plan is a surface, not a line"),
         ("m4", SWEEP,   OBST,    "ink",    "AUTO.MISSION  ·  sweeping the area  ·  OAK-D looking down"),
-        ("m5", OBST,    FOUND_A, "signal", "obstacle ahead  &#8594;  deviating  ·  Phase 6, not started"),
-        ("m6", FOUND_A, FOUND_B, "signal", "person detected, not moving  &#8594;  hold station  ·  "
-                                           "posture is not something the detector reports"),
-        ("m7", FOUND_B, REPORT,  "signal", "person detected, moving  &#8594;  OFFBOARD follow, keep 3 m  ·  Mission 2"),
-        ("m8", REPORT,  RTL,     "signal", "ALERT{person, x, y, static}  &#8594;  915 MHz SF7  &#8594;  ground station"),
-        ("m9", RTL,     REST,    "ink",    "AUTO.RTL  &#8594;  home  ·  the track and the detections land with the operator"),
-        ("m10", REST,   100,     "muted",  "Concept. Detection, follow, upload, the arm gate and RTL are built "
-                                           "and bench-tested against mocks.||The fence, the planner, the "
-                                           "deviation and the still-vs-moving call are not. Outdoor flight pending."),
+        ("m5", OBST,    DEER,    "signal", "OAK-D depth  &#8594;  tree in the lane  &#8594;  rerouting in real time, "
+                                           "then back on the line"),
+        ("m6", DEER,    FOUND_A, "ink",    "detection: deer  ·  not a person  ·  logged with its position, "
+                                           "no alert raised"),
+        ("m7", FOUND_A, FOUND_B, "signal", "person detected, not moving  &#8594;  hold station overhead"),
+        ("m8", FOUND_B, REPORT,  "signal", "person detected, moving  &#8594;  OFFBOARD follow, keep 3 m"),
+        ("m9", REPORT,  RTL,     "signal", "ALERT{person, x, y, static}  &#8594;  915 MHz SF7  &#8594;  ground station  "
+                                           "&#8594;  medical dispatched to the coordinate"),
+        ("m10", RTL,    REST,    "ink",    "AUTO.RTL  &#8594;  home  ·  the track and every detection land with the operator"),
+        ("m11", REST,   100,     "muted",  "Venator  ·  fence an area, sweep it, find who is in it, come home."),
     ]
 
     def cap_text(i, c, s):
@@ -362,17 +374,23 @@ def build(theme):
     tw, tx0 = 44, 56
     for n in range(TRAY_N):
         x = tx0 + n * (tw + 6)
-        hit = n in TRAY_HIT
-        col = t["signal"] if hit else t["muted"]
+        kind = TRAY_MARK.get(n)
+        col = t["signal"] if kind == "person" else t["ink"] if kind else t["muted"]
+        # A ring for a person, a cross for the deer, nothing for plain terrain.
+        glyph = ""
+        if kind == "person":
+            glyph = (f'<circle cx="{x+tw/2}" cy="385" r="4.6" fill="none" '
+                     f'stroke="{t["signal"]}" stroke-width="1.5"/>')
+        elif kind == "animal":
+            glyph = (f'<path d="M{x+tw/2-4} 381l8 8M{x+tw/2+4} 381l-8 8" '
+                     f'stroke="{t["ink"]}" stroke-width="1.5"/>')
         tray.append(
             f'<g><rect x="{x}" y="368" width="{tw}" height="34" fill="none" '
             f'stroke="{t["line"]}" stroke-width="1"/>'
             f'<g id="tf{n}"><rect x="{x}" y="368" width="{tw}" height="34" '
-            f'fill="{col}" opacity="{0.22 if hit else 0.13}"/>'
+            f'fill="{col}" opacity="{0.22 if kind else 0.13}"/>'
             f'<rect x="{x}" y="368" width="{tw}" height="34" fill="none" stroke="{col}" '
-            f'stroke-width="{1.4 if hit else 1}"/>'
-            + (f'<circle cx="{x+tw/2}" cy="385" r="4.6" fill="none" stroke="{t["signal"]}" '
-               f'stroke-width="1.5"/>' if hit else "") + '</g></g>')
+            f'stroke-width="{1.4 if kind else 1}"/>' + glyph + '</g></g>')
         a = tray_t(n)
         tray_css.append(f"    #tf{n} {{ opacity:0; animation: kt{n} {CYCLE} steps(1,end) infinite }}")
         tray_kf.append(f"    @keyframes kt{n} {{ 0%,{a-0.1:g}% {{opacity:0}} {a:g}%,100% {{opacity:1}} }}")
@@ -389,19 +407,43 @@ def build(theme):
                    f'<path d="M-9-11h22v9h-22z"/></g>')
                 + lock + '</g>')
 
+    def deer(p):
+        """A quadruped, read at about 34 px wide. Antlers are what make it a
+        deer rather than a dog at this size, so they get the extra strokes."""
+        q = tilt(p)
+        return (f'<g id="deerG" transform="translate({q[0]:.1f},{q[1]:.1f})">'
+                f'<ellipse cx="0" cy="2" rx="18" ry="7" fill="{t["ink"]}" opacity=".13"/>'
+                f'<g fill="{t["ink"]}"><ellipse cx="-3" cy="-13" rx="12" ry="5.2"/>'
+                f'<ellipse cx="14" cy="-24" rx="4.2" ry="3"/></g>'
+                f'<g fill="none" stroke="{t["ink"]}" stroke-width="2" stroke-linecap="round">'
+                f'<path d="M7-16l5-6"/>'
+                f'<path d="M-11-9v9M-5-9v9M2-9v9M8-9v9"/>'
+                f'<path d="M11-27l-2-6M11-27l-5-2M17-28l2-6M17-28l5-2"/></g>'
+                f'<g id="deerLock" fill="none" stroke="{t["ink"]}" stroke-width="1.5">'
+                f'<path d="M-22-34h-7v7M22-34h7v7M-22 6h-7V-1M22 6h7V-1"/></g></g>')
+
+    # The tree is rooted on the ground and its canopy reaches the flight plane,
+    # which is what makes it an obstacle at altitude rather than scenery: the
+    # trunk is the drop line, so the height reads without being labelled.
+    q_tree = tilt(P_OBST)
+    canopy_y = tilt(P_OBST, LIFT)[1] - q_tree[1]
+    obstacle = (f'<g id="obst" transform="translate({q_tree[0]:.1f},{q_tree[1]:.1f})">'
+                f'<ellipse cx="0" cy="1" rx="16" ry="6" fill="{t["ink"]}" opacity=".13"/>'
+                f'<path d="M0 0V{canopy_y + 10:.1f}" stroke="{t["ink"]}" stroke-width="2.6"/>'
+                f'<g fill="{t["bg"]}" stroke="{t["ink"]}" stroke-width="1.6">'
+                f'<circle cx="-14" cy="{canopy_y + 6:.1f}" r="13"/>'
+                f'<circle cx="14" cy="{canopy_y + 6:.1f}" r="13"/>'
+                f'<circle cx="0" cy="{canopy_y - 8:.1f}" r="17"/></g>'
+                f'<ellipse cx="0" cy="{canopy_y:.1f}" rx="46" ry="28" fill="none" '
+                f'stroke="{t["signal"]}" stroke-width="1.3" stroke-dasharray="4 4"/>'
+                f'<text x="0" y="22" fill="{t["muted"]}" font-family="{MONO}" font-size="9.5" '
+                f'text-anchor="middle" letter-spacing="1">TREE</text></g>')
     q_obst = tilt(P_OBST, LIFT)
-    obstacle = (f'<g id="obst" transform="translate({q_obst[0]:.1f},{q_obst[1]:.1f})">'
-                f'<path d="M-21 0l21-12 21 12-21 12z" fill="none" stroke="{t["ink"]}" '
-                f'stroke-width="1.6"/>'
-                f'<path d="M-21 0v-13l21-12 21 12v13" fill="none" stroke="{t["ink"]}" '
-                f'stroke-width="1.6" opacity=".55"/>'
-                f'<ellipse cx="0" cy="0" rx="42" ry="26" fill="none" stroke="{t["signal"]}" '
-                f'stroke-width="1.3" stroke-dasharray="4 4"/></g>')
 
     q_home = tilt(HOME)
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"
-     role="img" aria-label="Venator search and rescue concept: an operator fences a search area, a coverage path is planned inside it, the view tilts to show {ALT_M} m of altitude, the aircraft sweeps the area and deviates around an obstacle, finds one person who is not moving and raises an emergency over 915 MHz LoRa, finds a second who is moving and follows, then returns home. Detection, follow, upload and RTL are bench-tested against mocks; the fence, the planner, the obstacle deviation and the still-versus-moving call are not built.">
-  <title>Venator — search and rescue (concept)</title>
+     role="img" aria-label="Venator search and rescue: an operator fences a search area, a coverage path is planned to sweep every metre inside it, the view tilts to show the aircraft flying at {ALT_M} m, it sweeps the area and reroutes in real time around a tree in its lane, detects a deer and logs it without raising an alert, finds a person who is not moving and sends an emergency with their coordinates over 915 MHz LoRa so medical help is dispatched, finds a second person who is moving and follows at 3 m, then returns home and lands with the track and every detection.">
+  <title>Venator — search and rescue</title>
   <style>
     #ground, #flight {{ transform-box: view-box; transform-origin: {PIVOT[0]}px {PIVOT[1]}px;
                        animation: toIso {CYCLE} ease-in-out infinite }}
@@ -460,6 +502,10 @@ def build(theme):
 
     #obst {{ opacity:0; animation: kObst {CYCLE} steps(1,end) infinite }}
 {window('kObst', OBST, HOLD)}
+    #deerG {{ opacity:0; animation: kDeer {CYCLE} steps(1,end) infinite }}
+    #deerChip {{ opacity:0; animation: kDeer {CYCLE} steps(1,end) infinite }}
+{window('kDeer', DEER, HOLD)}
+    #deerLock {{ animation: pulse 1.1s ease-in-out infinite }}
     #pa {{ opacity:0; animation: kPa {CYCLE} steps(1,end) infinite }}
 {window('kPa', FOUND_A, HOLD)}
     #pb {{ opacity:0; animation: kPb {CYCLE} steps(1,end) infinite }}
@@ -470,6 +516,8 @@ def build(theme):
     #followChip {{ opacity:0; animation: kPb {CYCLE} steps(1,end) infinite }}
     #alert {{ opacity:0; animation: kAlert {CYCLE} steps(1,end) infinite }}
 {window('kAlert', REPORT, RTL)}
+    #alertChip {{ opacity:0; animation: kAlertChip {CYCLE} steps(1,end) infinite }}
+{window('kAlertChip', REPORT, HOLD)}
     #alert .rings circle {{ transform-box: fill-box; transform-origin: center;
                            animation: ping 1.5s linear infinite }}
     #alert .rings circle:nth-child(2) {{ animation-delay: .5s }}
@@ -479,30 +527,30 @@ def build(theme):
     #armed {{ opacity:0; animation: kArmed {CYCLE} steps(1,end) infinite }}
 {window('kArmed', UPLOAD + 5, REST)}
     #dev, #devChip {{ opacity:0; animation: kDev {CYCLE} steps(1,end) infinite }}
-{window('kDev', OBST, FOUND_A)}
+{window('kDev', OBST, DEER)}
 {chr(10).join(tray_css)}
 {chr(10).join(tray_kf)}
 {chr(10).join(stage_css)}
 {chr(10).join(stage_kf)}
-    #m10 {{ opacity:1 }}
+    #m11 {{ opacity:1 }}
 {cap_css}
 {cap_kf}
     @media (prefers-reduced-motion: reduce) {{
       #ground {{ animation: none; transform: {tilted} }}
       #flight {{ animation: none; transform: {lifted} }}
-      #drone, #foot, #rotor ellipse, #palock, #pblock,
+      #drone, #foot, #rotor ellipse, #palock, #pblock, #deerLock,
       #alert .rings circle {{ animation: none }}
       #drone {{ transform: translate({tilt(P_B, LIFT)[0]:.1f}px,{tilt(P_B, LIFT)[1]:.1f}px) }}
       #footG, #alert .rings {{ display: none }}
       #fence, #plan, #flownA, #flownB {{ animation: none; stroke-dashoffset: 0 }}
       #dev {{ opacity:1; animation: none }}
-      #drops, #shadow, #altChip, #obst, #pa, #pb, #alert, #armed, #devChip,
-      #followChip {{ opacity:1; animation: none }}
+      #drops, #shadow, #altChip, #obst, #deerG, #deerChip, #pa, #pb, #alert,
+      #armed, #devChip, #followChip, #alertChip {{ opacity:1; animation: none }}
       [id^="tf"] {{ opacity:1; animation: none }}
       [id^="sd"], [id^="sl"] {{ opacity:0; animation: none }}
       #sd2, #sl2 {{ opacity:1 }}
       #ticker text {{ animation: none; opacity:0 }}
-      #m10 {{ opacity:1 }}
+      #m11 {{ opacity:1 }}
     }}
   </style>
   <rect width="{W}" height="{H}" fill="{t['bg']}"/>
@@ -510,7 +558,7 @@ def build(theme):
   <text x="56" y="38" fill="{t['muted']}" font-family="{GROT}" font-size="11"
     font-weight="600" letter-spacing="3.4">SEARCH AND RESCUE</text>
   <text x="56" y="58" fill="{t['ink']}" font-family="{GROT}" font-size="15" font-weight="600">
-    Fence an area, sweep it, find who is in it, come home — the system as designed</text>
+    Fence an area, sweep it, find who is in it, come home.</text>
 
   <g id="ground">
     {grid}
@@ -535,6 +583,7 @@ def build(theme):
   </g>
 
   {obstacle}
+  {deer(DEER_POS)}
   {person('pa', PERSON_A, moving=False)}
   {person('pb', PERSON_B, moving=True)}
 
@@ -570,20 +619,31 @@ def build(theme):
   </g>
 
   <g id="devChip">
-    {chip(q_obst[0] + 104, 100, "DEVIATE &#183; Phase 6, not started", t['signal'], t['bg'], dashed=True)}
+    {chip(q_obst[0] + 112, 100, "REROUTING IN REAL TIME", t['signal'], t['bg'])}
   </g>
 
-  <!-- The two finds, and the two different answers. The protocol line itself
-       is in the ticker, so these stay short enough to read at a glance. -->
+  <!-- Three finds, three different answers. The protocol line itself is in the
+       ticker, so these stay short enough to read at a glance. -->
+  <g id="deerChip">
+    {chip(tilt(DEER_POS)[0] - 6, tilt(DEER_POS)[1] + 44, "DEER &#183; logged, no alert",
+          t['muted'], t['bg'])}
+  </g>
+
+  <!-- Rings only while the message is going out; the badge stays, so the
+       resting frame shows both outcomes side by side rather than one. -->
   <g id="alert" transform="translate({tilt(PERSON_A)[0]:.1f},{tilt(PERSON_A)[1]:.1f})">
     <g class="rings" fill="none" stroke="{t['signal']}" stroke-width="1.6">
       <circle r="9"/><circle r="9"/><circle r="9"/>
     </g>
-    {chip(-34, 44, "EMERGENCY &#183; not built", t['signal'], t['bg'], dashed=True)}
+  </g>
+
+  <g id="alertChip">
+    {chip(tilt(PERSON_A)[0] - 34, tilt(PERSON_A)[1] + 44, "EMERGENCY &#183; MEDICAL SENT",
+          t['signal'], t['bg'])}
   </g>
 
   <g id="followChip">
-    {chip(tilt(PERSON_B)[0] - 10, tilt(PERSON_B)[1] + 44, "FOLLOW 3 m &#183; Mission 2",
+    {chip(tilt(PERSON_B)[0] - 10, tilt(PERSON_B)[1] + 44, "FOLLOW &#183; KEEP 3 m",
           t['signal'], t['bg'])}
   </g>
 
