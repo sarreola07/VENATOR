@@ -2,6 +2,7 @@
 # Camera 1 — OAK-D-S2 wildlife detection.
 #
 #   ./oak_camera.sh              # detect animals/people, print distance
+#   ./oak_camera.sh gui          # operator GUI for a phone, on :8080
 #   ./oak_camera.sh view         # live view, auto day (colour) / night (mono)
 #   ./oak_camera.sh day|night    # force one mode
 #   ./oak_camera.sh calibrate    # AE readings, to tune the thresholds
@@ -64,6 +65,7 @@ Run:  ${PY%/python}/pip install depthai"
 # error 20 seconds later.
 tracker_pid() { script_pid camera_publisher.py; }
 mine_pid() { script_pid oak_wildlife.py; }
+gui_pid() { script_pid gui_server.py; }
 
 check_free() {
     local t; t="$(tracker_pid)"
@@ -76,6 +78,14 @@ The device allows only one host process. Stop it first:
     if [ -n "$m" ]; then
         die "a wildlife detector is already running (pid $m).
 Stop it with:  kill $m"
+    fi
+    # The GUI owns the device too. Without this it was invisible to the
+    # arbitration and you got a bare X_LINK_DEVICE_ALREADY_IN_USE twenty
+    # seconds in - the exact failure this function exists to prevent.
+    local g; g="$(gui_pid)"
+    if [ -n "$g" ]; then
+        die "the operator GUI owns the OAK (pid $g).
+Stop it with:  kill $g"
     fi
 }
 
@@ -107,6 +117,19 @@ case "${1:-detect}" in
             "${OPTS[@]+"${OPTS[@]}"}" \
             --min-dist "$MIN_DIST" --max-dist "$MAX_DIST" \
             --save-dir "$SAVE_DIR" 2>&1 | tee -a "$LOG"
+        exit "${PIPESTATUS[0]}"
+        ;;
+    gui)
+        # Operator GUI: live MJPEG off the camera's own encoder, detections
+        # over SSE, boxes drawn in the browser. Nothing is decoded here.
+        check_free
+        mkdir -p "$SAVE_DIR"
+        echo "OAK operator GUI — Ctrl+C to stop.  log: $LOG"
+        # No exec: the pipeline into tee needs this shell alive.
+        "$PY" "$HERE/gui_server.py" \
+            "${OPTS[@]+"${OPTS[@]}"}" \
+            --min-dist "$MIN_DIST" --max-dist "$MAX_DIST" \
+            --save-dir "$SAVE_DIR" "${@:2}" 2>&1 | tee -a "$LOG"
         exit "${PIPESTATUS[0]}"
         ;;
     view|daynight)

@@ -31,6 +31,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import ports
+
 try:
     import depthai as dai
 except ImportError:
@@ -48,7 +52,11 @@ RECONNECT_WAIT_S = 5
 # Web stream (--stream). Binds all interfaces so laptops on the hotspot, USB-C
 # link or Tailscale can reach it; set CAMERA_STREAM_HOST=127.0.0.1 to keep it local.
 STREAM_HOST = os.environ.get("CAMERA_STREAM_HOST", "0.0.0.0")
-STREAM_PORT = int(os.environ.get("CAMERA_STREAM_PORT", "8080"))
+# From ports.py, which is also what drone/wildlife/gui_server.py binds. Only one
+# of them can own the OAK at a time, so sharing the port is correct - but it has
+# to be the same number everywhere, since wifi_mode.sh, camera.sh and both
+# READMEs print it.
+STREAM_PORT = ports.GUI_HTTP
 STREAM_FPS = max(1.0, float(os.environ.get("CAMERA_STREAM_FPS", "15")))  # caps Wi-Fi bandwidth
 STREAM_SIZE = 600          # px; the 300x300 NN frame is upscaled so the overlay is readable
 STREAM_JPEG_QUALITY = 75

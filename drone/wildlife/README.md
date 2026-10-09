@@ -19,9 +19,11 @@ person-tracker. That one stays on depthai 2.32 in
 | `imx219_feed.py` | Camera 2. Live window or numpy frames, with day/night switching and the 180° invert. No OpenCV needed. |
 | `ircut.py` | Day/night control of the IR-CUT optical filter over GPIO. |
 | `imx219_camera.sh` | Launcher used by the desktop icon: `720p`, `1080p`, `day`, `night`, `snapshot`. Refuses to open a second capture. |
-| `oak_camera.sh` | Launcher for camera 1: `detect`, `info`, `test`, `images`, `classes`, `status`. Refuses to start if something else owns the OAK. |
+| `oak_camera.sh` | Launcher for camera 1: `detect`, `gui`, `info`, `test`, `images`, `classes`, `status`. Refuses to start if something else owns the OAK. |
 | `oak_wildlife.py` | Camera 1. Spatial animal/person detection with a distance per hit; saves annotated evidence frames. Runs MegaDetector V6. |
 | `classes.py` | What gets reported and the confidence each class needs. One table shared by the live detector, the offline harness and the GUI, so they cannot disagree. |
+| `gui_server.py` | Operator GUI for a phone, on `:8080`. The OAK encodes MJPEG itself and this relays the bytes undecoded — the Jetson has no hardware video encoder. See [../../docs/OPERATOR_GUI.md](../../docs/OPERATOR_GUI.md). |
+| `gui_page.py` | The GUI's single page. Dark, red/amber, boxes drawn client-side on a canvas. |
 | `oak_info.py` | Identifies the OAK, its fitted sensors and whether it has IR illumination. |
 | `oak_test.py` | Proves the OAK streams colour and stereo depth. |
 | `test_detector.py` | Runs the detector over image files, so you can check what it sees before flying it. |
@@ -46,6 +48,7 @@ to use.
 
 # camera 1 — OAK-D
 ./drone/wildlife/oak_camera.sh               # detect, with distance
+./drone/wildlife/oak_camera.sh gui           # operator GUI for a phone, :8080
 ./drone/wildlife/oak_camera.sh view          # live view, auto colour/mono
 ./drone/wildlife/oak_camera.sh day|night     # force one mode
 ./drone/wildlife/oak_camera.sh calibrate     # AE readings, to tune thresholds

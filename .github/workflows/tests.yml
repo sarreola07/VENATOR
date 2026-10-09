@@ -44,6 +44,15 @@ jobs:
       - name: Detection class policy
         run: python3 tests/test_classes.py
 
+      # No camera and no sockets: the hub, the token derivation and the
+      # evidence-name allowlist are all exercised in-process. This pins the
+      # properties that replaced SECURITY.md item 4 - a GUI token must not be
+      # usable as a C2 signing key, path traversal must be refused by shape,
+      # the viewer cap must hold on a box with zero swap, and an alert must
+      # survive 200 intervening detections while the detections coalesce.
+      - name: Operator GUI auth, paths and delivery
+        run: python3 tests/test_gui_auth.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 
