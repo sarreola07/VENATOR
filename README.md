@@ -23,15 +23,22 @@
   <a href="https://sarreola07.github.io/VENATOR/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/brand/cta-dark.svg">
-      <img alt="System overview — an animated walkthrough" src="assets/brand/cta-light.svg" width="320">
+      <img alt="Product page — open the live site" src="assets/brand/cta-light.svg" width="380">
     </picture>
   </a>
 </p>
 
 <p align="center">
   <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/banner-dark.svg">
+    <img alt="Plan view of the Venator aircraft, a Holybro X500 V2 quadcopter, drawn to scale and labelled: Pixhawk 6X, Holybro M10, Jetson Orin Nano, OAK-D Pro, and the Heltec Wireless Stick V3 radio" src="assets/brand/banner-light.svg" width="900">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-    <img alt="System self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS not fitted; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
+    <img alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
   </picture>
 </p>
 

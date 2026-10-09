@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 380" width="1000" height="380"
+     role="img" aria-label="Plan view of the Venator aircraft, a Holybro X500 V2 quadcopter, drawn to scale and labelled: Pixhawk 6X, Holybro M10, Jetson Orin Nano, OAK-D Pro, and the Heltec Wireless Stick V3 radio">
+  <title>Venator — the aircraft, named</title>
+  <style>
+    /* The settled frame is the DEFAULT: the airframe is drawn, the rotors and
+       every label are on. Animation only takes things away and puts them back,
+       so a renderer that ignores CSS -- GitHub's proxy, an SVG-to-PNG step, a
+       reader with reduced motion -- gets the complete labelled drawing rather
+       than an empty box. docs/BRAND.md: the static artwork underneath is what
+       makes the motion safe to drop. */
+    #frame { stroke-dasharray: 2400; stroke-dashoffset: 0;
+             animation: draw 10s cubic-bezier(.4,0,.2,1) infinite }
+    @keyframes draw { 0% {stroke-dashoffset:2400}
+      21%,100% {stroke-dashoffset:0} }
+    #cal0 { animation: c0 10s steps(1,end) infinite }
+    #cal1 { animation: c1 10s steps(1,end) infinite }
+    #cal2 { animation: c2 10s steps(1,end) infinite }
+    #cal3 { animation: c3 10s steps(1,end) infinite }
+    #cal4 { animation: c4 10s steps(1,end) infinite }
+    #rot0 { animation: r0 10s steps(1,end) infinite }
+    #rot1 { animation: r1 10s steps(1,end) infinite }
+    #rot2 { animation: r2 10s steps(1,end) infinite }
+    #rot3 { animation: r3 10s steps(1,end) infinite }
+    @keyframes c0 { 0%,24.99% {opacity:0} 25%,100% {opacity:1} }
+    @keyframes c1 { 0%,30.19% {opacity:0} 30.2%,100% {opacity:1} }
+    @keyframes c2 { 0%,35.39% {opacity:0} 35.4%,100% {opacity:1} }
+    @keyframes c3 { 0%,40.59% {opacity:0} 40.6%,100% {opacity:1} }
+    @keyframes c4 { 0%,45.79% {opacity:0} 45.8%,100% {opacity:1} }
+    @keyframes r0 { 0%,10.99% {opacity:0} 11%,100% {opacity:1} }
+    @keyframes r1 { 0%,12.59% {opacity:0} 12.6%,100% {opacity:1} }
+    @keyframes r2 { 0%,14.19% {opacity:0} 14.2%,100% {opacity:1} }
+    @keyframes r3 { 0%,15.79% {opacity:0} 15.8%,100% {opacity:1} }
+    @media (prefers-reduced-motion: reduce) {
+      #frame { animation: none; stroke-dashoffset: 0 }
+      [id^="cal"], [id^="rot"] { animation: none; opacity: 1 }
+    }
+  </style>
+
+  <rect width="1000" height="380" fill="#131314"/>
+  <text x="44" y="46" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12"
+    letter-spacing="3.2">VENATOR // THE AIRCRAFT</text>
+  <path d="M44 62H956" stroke="#E05316" stroke-width="1.5" opacity=".45"/>
+
+  <g id="frame" fill="none" stroke="#F2F1EE" stroke-width="1.5" opacity=".9">
+    <path d="M511.4 193.6L578.3 126.7"/><path d="M488.6 193.6L421.7 126.7"/><path d="M488.6 216.4L421.7 283.3"/><path d="M511.4 216.4L578.3 283.3"/>
+    <rect x="468.3" y="173.3" width="63.4" height="63.4"/>
+    <path d="M453.8 152.2L546.2 152.2"/><path d="M453.8 257.8L546.2 257.8"/>
+  </g>
+  <g id="rot0"><circle cx="578.3" cy="126.7" r="55.9" fill="none" stroke="#55554F" stroke-width="1.1" stroke-dasharray="3 4"/><g transform="rotate(32 578.3 126.7)"><path d="M522.4 126.7L634.2 126.7" stroke="#F2F1EE" stroke-width="2.6" opacity=".7"/></g><circle cx="578.3" cy="126.7" r="6.2" fill="#131314" stroke="#F2F1EE" stroke-width="1.5"/></g>
+  <g id="rot1"><circle cx="421.7" cy="126.7" r="55.9" fill="none" stroke="#55554F" stroke-width="1.1" stroke-dasharray="3 4"/><g transform="rotate(56 421.7 126.7)"><path d="M365.8 126.7L477.6 126.7" stroke="#F2F1EE" stroke-width="2.6" opacity=".7"/></g><circle cx="421.7" cy="126.7" r="6.2" fill="#131314" stroke="#F2F1EE" stroke-width="1.5"/></g>
+  <g id="rot2"><circle cx="421.7" cy="283.3" r="55.9" fill="none" stroke="#55554F" stroke-width="1.1" stroke-dasharray="3 4"/><g transform="rotate(80 421.7 283.3)"><path d="M365.8 283.3L477.6 283.3" stroke="#F2F1EE" stroke-width="2.6" opacity=".7"/></g><circle cx="421.7" cy="283.3" r="6.2" fill="#131314" stroke="#F2F1EE" stroke-width="1.5"/></g>
+  <g id="rot3"><circle cx="578.3" cy="283.3" r="55.9" fill="none" stroke="#55554F" stroke-width="1.1" stroke-dasharray="3 4"/><g transform="rotate(104 578.3 283.3)"><path d="M522.4 283.3L634.2 283.3" stroke="#F2F1EE" stroke-width="2.6" opacity=".7"/></g><circle cx="578.3" cy="283.3" r="6.2" fill="#131314" stroke="#F2F1EE" stroke-width="1.5"/></g>
+  <g id="cal0">
+    <path d="M660.0 120L648.0 120L511.4 191.8"
+      fill="none" stroke="#3A3A36" stroke-width="1"/>
+    <circle cx="511.4" cy="191.8" r="2.6" fill="#F2F1EE"/>
+    <text x="672" y="124" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="12.5" letter-spacing="1.6" text-anchor="start">PIXHAWK 6X</text>
+  </g>
+  <g id="cal1">
+    <path d="M660.0 236L648.0 236L543.6 205.0"
+      fill="none" stroke="#3A3A36" stroke-width="1"/>
+    <circle cx="543.6" cy="205.0" r="2.6" fill="#F2F1EE"/>
+    <text x="672" y="240" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="12.5" letter-spacing="1.6" text-anchor="start">HOLYBRO M10</text>
+  </g>
+  <g id="cal2">
+    <path d="M340.0 214L352.0 214L489.4 216.4"
+      fill="none" stroke="#3A3A36" stroke-width="1"/>
+    <circle cx="489.4" cy="216.4" r="2.6" fill="#F2F1EE"/>
+    <text x="328" y="218" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="12.5" letter-spacing="1.6" text-anchor="end">JETSON ORIN NANO</text>
+  </g>
+  <g id="cal3">
+    <path d="M340.0 116L352.0 116L474.5 190.0"
+      fill="none" stroke="#3A3A36" stroke-width="1"/>
+    <circle cx="474.5" cy="190.0" r="2.6" fill="#F2F1EE"/>
+    <text x="328" y="120" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="12.5" letter-spacing="1.6" text-anchor="end">OAK-D PRO</text>
+  </g>
+  <g id="cal4">
+    <path d="M340.0 296L352.0 296L491.2 232.3"
+      fill="none" stroke="#3A3A36" stroke-width="1"/>
+    <circle cx="491.2" cy="232.3" r="2.6" fill="#E05316"/>
+    <text x="328" y="300" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+      font-size="12.5" letter-spacing="1.6" text-anchor="end">HELTEC WIRELESS STICK V3</text>
+  </g>
+
+  <text x="44" y="352" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5"
+    letter-spacing="1.5">HOLYBRO X500 V2 &#183; 500 MM WHEELBASE &#183; 915 MHZ LORA COMMAND LINK</text>
+  <text x="956" y="352" fill="#8A8781" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11.5"
+    letter-spacing="1.5" text-anchor="end">DRAWN TO SCALE FROM THE CAD</text>
+</svg>

@@ -95,6 +95,14 @@
     margin:0; max-width:36ch;
     font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
   }
+
+  /* ---- the mission banner ----------------------------------------------
+     Sits inside the dark band, so like the lockup it is one fixed dark asset
+     rather than a <picture> pair: this band does not invert with the theme.
+     width/height on the img give the intrinsic ratio, so the banner reserves
+     its own box before the SVG arrives and costs nothing in CLS. */
+  .mission{margin:0 0 clamp(20px,3vw,34px); border-color:#2A2A27; background:#0A0A0A}
+  .mission img{display:block; width:100%; height:auto}
   .act{display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(20px,2.6vw,26px)}
   .act a{
     display:inline-block; padding:12px 22px; text-decoration:none;

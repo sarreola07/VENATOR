@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 92" width="400" height="92"
-     role="img" aria-label="System overview — an animated walkthrough">
-  <title>System overview</title>
+     role="img" aria-label="Product page — open the live site">
+  <title>Product page</title>
   <style>
     #sweep { transform-box: view-box; transform-origin: 0 0;
              animation: sweep 3.6s cubic-bezier(.35,0,.2,1) infinite }
@@ -56,8 +56,8 @@
   </style>
   <defs>
     <clipPath id="panelClip"><path d="M20 1 H399 V71 L379 91 H1 V21 Z"/></clipPath>
-    <clipPath id="halfTop"><rect x="0" y="0" width="400" height="41"/></clipPath>
-    <clipPath id="halfBot"><rect x="0" y="41" width="400" height="54"/></clipPath>
+    <clipPath id="halfTop"><rect x="0" y="0" width="400" height="39"/></clipPath>
+    <clipPath id="halfBot"><rect x="0" y="39" width="400" height="52"/></clipPath>
     <filter id="neon" x="-25%" y="-60%" width="150%" height="220%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -67,27 +67,27 @@
     </filter>
   </defs>
 
-  <path d="M20 1 H399 V71 L379 91 H1 V21 Z" fill="#0A0A0A"/>
+  <path d="M20 1 H399 V71 L379 91 H1 V21 Z" fill="#E05316"/>
   <g clip-path="url(#panelClip)">
-    <path d="M0 3H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 7H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 11H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 15H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 19H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 23H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 27H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 31H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 35H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 39H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 43H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 47H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 51H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 55H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 59H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 63H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 67H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 71H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 75H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 79H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 83H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 87H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/><path d="M0 91H400" stroke="#F2F1EE" stroke-width="1" opacity=".05"/>
+    <path d="M0 3H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 7H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 11H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 15H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 19H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 23H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 27H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 31H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 35H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 39H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 43H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 47H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 51H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 55H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 59H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 63H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 67H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 71H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 75H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 79H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 83H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 87H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/><path d="M0 91H400" stroke="#0A0A0A" stroke-width="1" opacity=".06"/>
     <g id="sweep">
       <rect x="0" y="0" width="3" height="92" fill="#FF7A3D" filter="url(#soft)" opacity=".9"/>
       <rect x="0" y="0" width="1.4" height="92" fill="#FFFFFF" opacity=".9"/>
     </g>
   </g>
 
-  <path id="edge" d="M20 1 H399 V71 L379 91 H1 V21 Z" fill="none" stroke="#E05316" stroke-width="2" filter="url(#neon)"/>
+  <path id="edge" d="M20 1 H399 V71 L379 91 H1 V21 Z" fill="none" stroke="#B23E0F" stroke-width="2.5"/>
 
-  <circle id="halo" cx="34" cy="42" r="5.5" fill="#E05316"/>
-  <circle id="dot" cx="34" cy="42" r="5.5" fill="#FF7A3D" filter="url(#neon)"/>
+  <circle id="halo" cx="34" cy="40" r="5.5" fill="#0A0A0A"/>
+  <circle id="dot" cx="34" cy="40" r="5.5" fill="#0A0A0A"/>
 
-  <text x="60" y="48" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SYSTEM OVERVIEW</text>
-  <text x="60" y="70" fill="#9A968F" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5"
-    letter-spacing="1.4">animated · 60 seconds</text>
-  <g id="gGhost"><text x="60" y="48" fill="#E05316" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SYSTEM OVERVIEW</text></g>
-  <g id="gTop" clip-path="url(#halfTop)"><text x="60" y="48" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SYSTEM OVERVIEW</text></g>
-  <g id="gBot" clip-path="url(#halfBot)"><text x="60" y="48" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="2.9">SYSTEM OVERVIEW</text></g>
+  <text x="60" y="46" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="2.6">PRODUCT PAGE</text>
+  <text x="60" y="68" fill="#2E1206" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11.5"
+    font-weight="600" letter-spacing="1.4">open the live site &#8594;</text>
+  <g id="gGhost"><text x="60" y="46" fill="#FFFFFF" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="2.6">PRODUCT PAGE</text></g>
+  <g id="gTop" clip-path="url(#halfTop)"><text x="60" y="46" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="2.6">PRODUCT PAGE</text></g>
+  <g id="gBot" clip-path="url(#halfBot)"><text x="60" y="46" fill="#0A0A0A" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="2.6">PRODUCT PAGE</text></g>
 
-  <rect id="cur" x="296" y="33" width="10" height="18" fill="#FF7A3D" filter="url(#neon)"/>
-  <path id="cv0" d="M332 37l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/><path id="cv1" d="M347 37l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/><path id="cv2" d="M362 37l9 9-9 9" fill="none" stroke="#E05316" stroke-width="2.6" stroke-linecap="square"/>
+  <rect id="cur" x="271" y="29" width="10" height="20" fill="#0A0A0A"/>
+  <path id="cv0" d="M332 37l9 9-9 9" fill="none" stroke="#0A0A0A" stroke-width="3" stroke-linecap="square"/><path id="cv1" d="M347 37l9 9-9 9" fill="none" stroke="#0A0A0A" stroke-width="3" stroke-linecap="square"/><path id="cv2" d="M362 37l9 9-9 9" fill="none" stroke="#0A0A0A" stroke-width="3" stroke-linecap="square"/>
 </svg>

@@ -95,6 +95,14 @@
     margin:0; max-width:36ch;
     font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
   }
+
+  /* ---- the mission banner ----------------------------------------------
+     Sits inside the dark band, so like the lockup it is one fixed dark asset
+     rather than a <picture> pair: this band does not invert with the theme.
+     width/height on the img give the intrinsic ratio, so the banner reserves
+     its own box before the SVG arrives and costs nothing in CLS. */
+  .mission{margin:0 0 clamp(20px,3vw,34px); border-color:#2A2A27; background:#0A0A0A}
+  .mission img{display:block; width:100%; height:auto}
   .act{display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(20px,2.6vw,26px)}
   .act a{
     display:inline-block; padding:12px 22px; text-decoration:none;
@@ -388,6 +396,13 @@
         behaviours built on top of it, and how far each one has been taken.</p>
     </div>
   </div>
+
+  <!-- The mission end to end. Always the dark asset: this band is #0A0A0A in
+       both colour schemes, the same reason the lockup above is. -->
+  <figure class="mission">
+    <img src="assets/brand/mission-dark.svg" width="1000" height="500"
+      alt="A search and rescue mission from start to finish. An operator fences a search area; a coverage path is planned to sweep every metre inside it; the view tilts from a map to show the aircraft flying at 40 metres within the fence; it sweeps the area and reroutes in real time around a tree in its lane; it detects a deer and logs it with its position without raising an alert; it finds a person who is not moving, holds station and sends an emergency with their coordinates over 915 MHz LoRa so medical help is dispatched; it finds a second person who is moving and follows at 3 metres; then it returns home and lands with the track and every detection.">
+  </figure>
 
   </div><!-- /wrap -->
 </div><!-- /band -->
