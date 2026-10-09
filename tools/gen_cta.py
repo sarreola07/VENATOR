@@ -8,6 +8,13 @@ lives inside the image. Wrapping it in <a> keeps it clickable.
 This one deliberately breaks BRAND.md's "anything that reads as decoration is
 wrong": the glow, scanlines and glitch are decoration. It is the one surface
 where that is the point, so it is quarantined to this asset and nothing else.
+
+It is FILLED rather than outlined, which is the whole job: as a dark panel with
+a neon edge it read as another status badge sitting under the two real ones,
+and people did not try to click it. A solid block of Signal with near-black
+text on it is the one shape everybody already reads as a button. The label says
+where it goes and the subtitle says what happens, because "System overview" did
+neither. Near-black on Signal measures 5.8:1, so the text clears AA as well.
 """
 from pathlib import Path
 
@@ -17,18 +24,20 @@ GROT = "Helvetica Neue,Helvetica,Arial,sans-serif"
 MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
 SIG = "#E05316"
 HOT = "#FF7A3D"          # a hotter tint of Signal for the neon core
+INK = "#0A0A0A"          # what sits ON the fill
 
-THEMES = {   # the panel stays dark in both schemes; neon needs something to burn against
-    "light": dict(panel="#0A0A0A", text="#F2F1EE", dim="#6E6B66"),
-    "dark":  dict(panel="#131314", text="#F2F1EE", dim="#8A8781"),
+THEMES = {   # the fill is Signal in both schemes: a button should not go quiet
+    "light": dict(panel=SIG, text=INK, edge="#B23E0F"),
+    "dark":  dict(panel=SIG, text=INK, edge="#FF8A4D"),
 }
 
 # Chamfered HUD panel: top-left and bottom-right corners cut.
 CUT = 20
 PANEL = (f"M{CUT} 1 H{W-1} V{H-CUT-1} L{W-CUT-1} {H-1} H1 V{CUT+1} Z")
-TXT_X, TXT_Y = 60, 48
-SUB_Y = 70
-SUB = "#9A968F"
+TXT_X, TXT_Y = 60, 46
+SUB_Y = 68
+LABEL = "PRODUCT PAGE"
+SUB = "#2E1206"          # a dark tint of the fill, not grey, so it stays on-key
 
 
 def build(theme):
@@ -36,17 +45,17 @@ def build(theme):
 
     def label(fill, extra=""):
         return (f'<text x="{TXT_X}" y="{TXT_Y}" fill="{fill}" font-family="{GROT}" '
-                f'font-size="19" font-weight="700" letter-spacing="2.9"{extra}>SYSTEM OVERVIEW</text>')
+                f'font-size="22" font-weight="700" letter-spacing="2.6"{extra}>{LABEL}</text>')
 
-    scan = "".join(f'<path d="M0 {y}H{W}" stroke="{t["text"]}" stroke-width="1" opacity=".05"/>'
+    scan = "".join(f'<path d="M0 {y}H{W}" stroke="{INK}" stroke-width="1" opacity=".06"/>'
                    for y in range(3, H, 4))
     chev = "".join(
-        f'<path id="cv{i}" d="M{332 + i*15} 37l9 9-9 9" fill="none" stroke="{SIG}" '
-        f'stroke-width="2.6" stroke-linecap="square"/>' for i in range(3))
+        f'<path id="cv{i}" d="M{332 + i*15} 37l9 9-9 9" fill="none" stroke="{INK}" '
+        f'stroke-width="3" stroke-linecap="square"/>' for i in range(3))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"
-     role="img" aria-label="System overview — an animated walkthrough">
-  <title>System overview</title>
+     role="img" aria-label="Product page — open the live site">
+  <title>Product page</title>
   <style>
     #sweep {{ transform-box: view-box; transform-origin: 0 0;
              animation: sweep 3.6s cubic-bezier(.35,0,.2,1) infinite }}
@@ -122,19 +131,19 @@ def build(theme):
     </g>
   </g>
 
-  <path id="edge" d="{PANEL}" fill="none" stroke="{SIG}" stroke-width="2" filter="url(#neon)"/>
+  <path id="edge" d="{PANEL}" fill="none" stroke="{t['edge']}" stroke-width="2.5"/>
 
-  <circle id="halo" cx="34" cy="42" r="5.5" fill="{SIG}"/>
-  <circle id="dot" cx="34" cy="42" r="5.5" fill="{HOT}" filter="url(#neon)"/>
+  <circle id="halo" cx="34" cy="40" r="5.5" fill="{INK}"/>
+  <circle id="dot" cx="34" cy="40" r="5.5" fill="{INK}"/>
 
   {label(t['text'])}
   <text x="{TXT_X}" y="{SUB_Y}" fill="{SUB}" font-family="{MONO}" font-size="11.5"
-    letter-spacing="1.4">animated · 60 seconds</text>
-  <g id="gGhost">{label(SIG)}</g>
+    font-weight="600" letter-spacing="1.4">open the live site &#8594;</text>
+  <g id="gGhost">{label("#FFFFFF")}</g>
   <g id="gTop" clip-path="url(#halfTop)">{label(t['text'])}</g>
   <g id="gBot" clip-path="url(#halfBot)">{label(t['text'])}</g>
 
-  <rect id="cur" x="296" y="33" width="10" height="18" fill="{HOT}" filter="url(#neon)"/>
+  <rect id="cur" x="271" y="29" width="10" height="20" fill="{INK}"/>
   {chev}
 </svg>
 """
@@ -142,5 +151,5 @@ def build(theme):
 
 for name in ("light", "dark"):
     p = ROOT / f"cta-{name}.svg"
-    p.write_text(build(name))
+    p.write_text(build(name), encoding="utf-8")
     print(f"{p.name}: {p.stat().st_size} bytes")

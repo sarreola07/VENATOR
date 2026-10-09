@@ -1,0 +1,298 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="1000" height="500"
+     role="img" aria-label="Venator search and rescue concept: an operator fences a search area, a coverage path is planned inside it, the view tilts to show 40 m of altitude, the aircraft sweeps the area and deviates around an obstacle, finds one person who is not moving and raises an emergency over 915 MHz LoRa, finds a second who is moving and follows, then returns home. Detection, follow, upload and RTL are bench-tested against mocks; the fence, the planner, the obstacle deviation and the still-versus-moving call are not built.">
+  <title>Venator — search and rescue (concept)</title>
+  <style>
+    #ground, #flight { transform-box: view-box; transform-origin: 470px 212px;
+                       animation: toIso 30s ease-in-out infinite }
+    #ground { animation-name: isoGround }
+    #flight { animation-name: isoFlight }
+    @keyframes isoGround {
+      0%,25% { transform: translate(0px,0px) skewX(0deg) scaleY(1) }
+      32%,98% { transform: translate(0px,54px) skewX(22.782deg) scaleY(0.58) }
+      100% { transform: translate(0px,0px) skewX(0deg) scaleY(1) }
+    }
+    @keyframes isoFlight {
+      0%,25% { transform: translate(0px,0px) skewX(0deg) scaleY(1) }
+      32%,98% { transform: translate(0px,-26px) skewX(22.782deg) scaleY(0.58) }
+      100% { transform: translate(0px,0px) skewX(0deg) scaleY(1) }
+    }
+
+    #fence { stroke-dasharray: 1482.0; stroke-dashoffset: 1482.0;
+             animation: drawFence 30s linear infinite }
+    @keyframes drawFence { 0% { stroke-dashoffset: 1482.0 }
+                           9%,100% { stroke-dashoffset: 0 } }
+    #plan { stroke-dasharray: 2636.2; stroke-dashoffset: 2636.2;
+            animation: drawPlan 30s linear infinite }
+    @keyframes drawPlan { 0%,9% { stroke-dashoffset: 2636.2 }
+                          17%,100% { stroke-dashoffset: 0 } }
+
+    /* Flown track, in two parts so the deviation can sit between them. */
+    #flownA { stroke-dasharray: 889.4; stroke-dashoffset: 889.4;
+              animation: drawA 30s linear infinite }
+    @keyframes drawA { 0%,32% { stroke-dashoffset: 889.4 }
+                       47.39%,100% { stroke-dashoffset: 0 } }
+    #flownB { stroke-dasharray: 1588.0; stroke-dashoffset: 1588.0;
+              animation: drawB 30s linear infinite }
+    @keyframes drawB { 0%,50.61% { stroke-dashoffset: 1588.0 }
+                       78%,100% { stroke-dashoffset: 0 } }
+
+    #drone { transform-box: view-box; transform-origin: 0 0;
+             animation: fly 30s linear infinite }
+    @keyframes fly {
+      0% { transform: translate(132.0px,326.0px) }
+      17% { transform: translate(132.0px,326.0px) }
+      25% { transform: translate(132.0px,326.0px) }
+      32% { transform: translate(229.3px,132.4px) }
+      38.3677% { transform: translate(594.2px,132.4px) }
+      40.6784% { transform: translate(729.6px,159.1px) }
+      47.39% { transform: translate(363.4px,203.2px) }
+      50.61% { transform: translate(202.6px,213.1px) }
+      51.1169% { transform: translate(194.8px,185.8px) }
+      61.1009% { transform: translate(766.9px,185.8px) }
+      61.9049% { transform: translate(775.5px,212.4px) }
+      71.7414% { transform: translate(211.8px,212.4px) }
+      75.3069% { transform: translate(422.1px,239.1px) }
+      78% { transform: translate(576.4px,239.1px) }
+      86% { transform: translate(159.8px,252.1px) }
+      94% { transform: translate(159.8px,332.1px) }
+      98% { transform: translate(159.8px,332.1px) }
+      100% { transform: translate(132.0px,326.0px) }
+    }
+    #foot { transform-box: view-box; transform-origin: 0 0;
+            animation: foot 30s linear infinite }
+    @keyframes foot {
+      0%,32% { transform: translate(159.8px,332.1px) }
+      32% { transform: translate(229.3px,212.4px) }
+      38.3677% { transform: translate(594.2px,212.4px) }
+      40.6784% { transform: translate(729.6px,239.1px) }
+      50.3078% { transform: translate(177.7px,239.1px) }
+      51.1169% { transform: translate(194.8px,265.8px) }
+      61.1009% { transform: translate(766.9px,265.8px) }
+      61.9049% { transform: translate(775.5px,292.4px) }
+      71.7414% { transform: translate(211.8px,292.4px) }
+      75.3069% { transform: translate(422.1px,319.1px) }
+      78% { transform: translate(576.4px,319.1px) }
+      98%,100% { transform: translate(159.8px,332.1px) }
+    }
+    #rotor ellipse { transform-box: fill-box; transform-origin: center;
+                     animation: spin .34s linear infinite }
+    @keyframes spin { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.28) } }
+
+    #drops, #shadow, #altChip { opacity:0; animation: kDrops 30s steps(1,end) infinite }
+    @keyframes kDrops { 0%,31.9% {opacity:0} 32%,97.9% {opacity:1}
+                        98%,100% {opacity:0} }
+    #footG { opacity:0; animation: kFoot 30s steps(1,end) infinite }
+    @keyframes kFoot { 0%,31.9% {opacity:0} 32%,77.9% {opacity:1}
+                       78%,100% {opacity:0} }
+
+    #obst { opacity:0; animation: kObst 30s steps(1,end) infinite }
+    @keyframes kObst { 0%,45.9% {opacity:0} 46%,97.9% {opacity:1} 98%,100% {opacity:0} }
+    #pa { opacity:0; animation: kPa 30s steps(1,end) infinite }
+    @keyframes kPa { 0%,51.9% {opacity:0} 52%,97.9% {opacity:1} 98%,100% {opacity:0} }
+    #pb { opacity:0; animation: kPb 30s steps(1,end) infinite }
+    @keyframes kPb { 0%,58.9% {opacity:0} 59%,97.9% {opacity:1} 98%,100% {opacity:0} }
+    #palock, #pblock { animation: pulse 1.1s ease-in-out infinite }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+
+    #followChip { opacity:0; animation: kPb 30s steps(1,end) infinite }
+    #alert { opacity:0; animation: kAlert 30s steps(1,end) infinite }
+    @keyframes kAlert { 0%,65.9% {opacity:0} 66%,77.9% {opacity:1} 78%,100% {opacity:0} }
+    #alert .rings circle { transform-box: fill-box; transform-origin: center;
+                           animation: ping 1.5s linear infinite }
+    #alert .rings circle:nth-child(2) { animation-delay: .5s }
+    #alert .rings circle:nth-child(3) { animation-delay: 1s }
+    @keyframes ping { 0% { transform: scale(1); opacity:.85 }
+                      100% { transform: scale(7); opacity:0 } }
+    #armed { opacity:0; animation: kArmed 30s steps(1,end) infinite }
+    @keyframes kArmed { 0%,21.9% {opacity:0} 22%,93.9% {opacity:1} 94%,100% {opacity:0} }
+    #dev, #devChip { opacity:0; animation: kDev 30s steps(1,end) infinite }
+    @keyframes kDev { 0%,45.9% {opacity:0} 46%,51.9% {opacity:1} 52%,100% {opacity:0} }
+    #tf0 { opacity:0; animation: kt0 30s steps(1,end) infinite }
+    #tf1 { opacity:0; animation: kt1 30s steps(1,end) infinite }
+    #tf2 { opacity:0; animation: kt2 30s steps(1,end) infinite }
+    #tf3 { opacity:0; animation: kt3 30s steps(1,end) infinite }
+    #tf4 { opacity:0; animation: kt4 30s steps(1,end) infinite }
+    #tf5 { opacity:0; animation: kt5 30s steps(1,end) infinite }
+    #tf6 { opacity:0; animation: kt6 30s steps(1,end) infinite }
+    #tf7 { opacity:0; animation: kt7 30s steps(1,end) infinite }
+    #tf8 { opacity:0; animation: kt8 30s steps(1,end) infinite }
+    #tf9 { opacity:0; animation: kt9 30s steps(1,end) infinite }
+    #tf10 { opacity:0; animation: kt10 30s steps(1,end) infinite }
+    #tf11 { opacity:0; animation: kt11 30s steps(1,end) infinite }
+    #tf12 { opacity:0; animation: kt12 30s steps(1,end) infinite }
+    #tf13 { opacity:0; animation: kt13 30s steps(1,end) infinite }
+    #tf14 { opacity:0; animation: kt14 30s steps(1,end) infinite }
+    #tf15 { opacity:0; animation: kt15 30s steps(1,end) infinite }
+    @keyframes kt0 { 0%,34.775% {opacity:0} 34.875%,100% {opacity:1} }
+    @keyframes kt1 { 0%,37.65% {opacity:0} 37.75%,100% {opacity:1} }
+    @keyframes kt2 { 0%,40.525% {opacity:0} 40.625%,100% {opacity:1} }
+    @keyframes kt3 { 0%,43.4% {opacity:0} 43.5%,100% {opacity:1} }
+    @keyframes kt4 { 0%,46.275% {opacity:0} 46.375%,100% {opacity:1} }
+    @keyframes kt5 { 0%,49.15% {opacity:0} 49.25%,100% {opacity:1} }
+    @keyframes kt6 { 0%,52.025% {opacity:0} 52.125%,100% {opacity:1} }
+    @keyframes kt7 { 0%,54.9% {opacity:0} 55%,100% {opacity:1} }
+    @keyframes kt8 { 0%,57.775% {opacity:0} 57.875%,100% {opacity:1} }
+    @keyframes kt9 { 0%,60.65% {opacity:0} 60.75%,100% {opacity:1} }
+    @keyframes kt10 { 0%,63.525% {opacity:0} 63.625%,100% {opacity:1} }
+    @keyframes kt11 { 0%,66.4% {opacity:0} 66.5%,100% {opacity:1} }
+    @keyframes kt12 { 0%,69.275% {opacity:0} 69.375%,100% {opacity:1} }
+    @keyframes kt13 { 0%,72.15% {opacity:0} 72.25%,100% {opacity:1} }
+    @keyframes kt14 { 0%,75.025% {opacity:0} 75.125%,100% {opacity:1} }
+    @keyframes kt15 { 0%,77.9% {opacity:0} 78%,100% {opacity:1} }
+    #sd0, #sl0 { opacity:0; animation: ks0 30s steps(1,end) infinite }
+    #sd1, #sl1 { opacity:0; animation: ks1 30s steps(1,end) infinite }
+    #sd2, #sl2 { opacity:0; animation: ks2 30s steps(1,end) infinite }
+    #sd3, #sl3 { opacity:0; animation: ks3 30s steps(1,end) infinite }
+    #sd4, #sl4 { opacity:0; animation: ks4 30s steps(1,end) infinite }
+    @keyframes ks0 { 0%,24.9% {opacity:1} 25%,100% {opacity:0} }
+    @keyframes ks1 { 0%,24.9% {opacity:0} 25%,51.9% {opacity:1} 52%,100% {opacity:0} }
+    @keyframes ks2 { 0%,51.9% {opacity:0} 52%,65.9% {opacity:1} 66%,100% {opacity:0} }
+    @keyframes ks3 { 0%,65.9% {opacity:0} 66%,77.9% {opacity:1} 78%,100% {opacity:0} }
+    @keyframes ks4 { 0%,77.9% {opacity:0} 78%,100% {opacity:1} }
+    #m10 { opacity:1 }
+    #m0 { animation: km0 30s steps(1,end) infinite }
+    #m1 { animation: km1 30s steps(1,end) infinite }
+    #m2 { animation: km2 30s steps(1,end) infinite }
+    #m3 { animation: km3 30s steps(1,end) infinite }
+    #m4 { animation: km4 30s steps(1,end) infinite }
+    #m5 { animation: km5 30s steps(1,end) infinite }
+    #m6 { animation: km6 30s steps(1,end) infinite }
+    #m7 { animation: km7 30s steps(1,end) infinite }
+    #m8 { animation: km8 30s steps(1,end) infinite }
+    #m9 { animation: km9 30s steps(1,end) infinite }
+    #m10 { animation: km10 30s steps(1,end) infinite }
+    @keyframes km0 { 0%,8.9% {opacity:1} 9%,100% {opacity:0} }
+    @keyframes km1 { 0%,8.9% {opacity:0} 9%,16.9% {opacity:1} 17%,100% {opacity:0} }
+    @keyframes km2 { 0%,16.9% {opacity:0} 17%,24.9% {opacity:1} 25%,100% {opacity:0} }
+    @keyframes km3 { 0%,24.9% {opacity:0} 25%,31.9% {opacity:1} 32%,100% {opacity:0} }
+    @keyframes km4 { 0%,31.9% {opacity:0} 32%,45.9% {opacity:1} 46%,100% {opacity:0} }
+    @keyframes km5 { 0%,45.9% {opacity:0} 46%,51.9% {opacity:1} 52%,100% {opacity:0} }
+    @keyframes km6 { 0%,51.9% {opacity:0} 52%,58.9% {opacity:1} 59%,100% {opacity:0} }
+    @keyframes km7 { 0%,58.9% {opacity:0} 59%,65.9% {opacity:1} 66%,100% {opacity:0} }
+    @keyframes km8 { 0%,65.9% {opacity:0} 66%,77.9% {opacity:1} 78%,100% {opacity:0} }
+    @keyframes km9 { 0%,77.9% {opacity:0} 78%,93.9% {opacity:1} 94%,100% {opacity:0} }
+    @keyframes km10 { 0%,93.9% {opacity:0} 94%,100% {opacity:1} }
+    @media (prefers-reduced-motion: reduce) {
+      #ground { animation: none; transform: translate(0px,54px) skewX(22.782deg) scaleY(0.58) }
+      #flight { animation: none; transform: translate(0px,-26px) skewX(22.782deg) scaleY(0.58) }
+      #drone, #foot, #rotor ellipse, #palock, #pblock,
+      #alert .rings circle { animation: none }
+      #drone { transform: translate(761.1px,185.8px) }
+      #footG, #alert .rings { display: none }
+      #fence, #plan, #flownA, #flownB { animation: none; stroke-dashoffset: 0 }
+      #dev { opacity:1; animation: none }
+      #drops, #shadow, #altChip, #obst, #pa, #pb, #alert, #armed, #devChip,
+      #followChip { opacity:1; animation: none }
+      [id^="tf"] { opacity:1; animation: none }
+      [id^="sd"], [id^="sl"] { opacity:0; animation: none }
+      #sd2, #sl2 { opacity:1 }
+      #ticker text { animation: none; opacity:0 }
+      #m10 { opacity:1 }
+    }
+  </style>
+  <rect width="1000" height="500" fill="#0A0A0A"/>
+
+  <text x="56" y="38" fill="#8A8781" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="11"
+    font-weight="600" letter-spacing="3.4">SEARCH AND RESCUE</text>
+  <text x="56" y="58" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="15" font-weight="600">
+    Fence an area, sweep it, find who is in it, come home — the system as designed</text>
+
+  <g id="ground">
+    <path d="M80 70V350" stroke="#151516" stroke-width="1"/><path d="M120 70V350" stroke="#151516" stroke-width="1"/><path d="M160 70V350" stroke="#151516" stroke-width="1"/><path d="M200 70V350" stroke="#151516" stroke-width="1"/><path d="M240 70V350" stroke="#151516" stroke-width="1"/><path d="M280 70V350" stroke="#151516" stroke-width="1"/><path d="M320 70V350" stroke="#151516" stroke-width="1"/><path d="M360 70V350" stroke="#151516" stroke-width="1"/><path d="M400 70V350" stroke="#151516" stroke-width="1"/><path d="M440 70V350" stroke="#151516" stroke-width="1"/><path d="M480 70V350" stroke="#151516" stroke-width="1"/><path d="M520 70V350" stroke="#151516" stroke-width="1"/><path d="M560 70V350" stroke="#151516" stroke-width="1"/><path d="M600 70V350" stroke="#151516" stroke-width="1"/><path d="M640 70V350" stroke="#151516" stroke-width="1"/><path d="M680 70V350" stroke="#151516" stroke-width="1"/><path d="M720 70V350" stroke="#151516" stroke-width="1"/><path d="M760 70V350" stroke="#151516" stroke-width="1"/><path d="M800 70V350" stroke="#151516" stroke-width="1"/><path d="M840 70V350" stroke="#151516" stroke-width="1"/><path d="M880 70V350" stroke="#151516" stroke-width="1"/><path d="M920 70V350" stroke="#151516" stroke-width="1"/><path d="M56 70H944" stroke="#151516" stroke-width="1"/><path d="M56 110H944" stroke="#151516" stroke-width="1"/><path d="M56 150H944" stroke="#151516" stroke-width="1"/><path d="M56 190H944" stroke="#151516" stroke-width="1"/><path d="M56 230H944" stroke="#151516" stroke-width="1"/><path d="M56 270H944" stroke="#151516" stroke-width="1"/><path d="M56 310H944" stroke="#151516" stroke-width="1"/><path d="M56 350H944" stroke="#151516" stroke-width="1"/>
+    <path id="shadow" d="M168.0,126.0 L528.0,92.0 L748.0,150.0 L806.0,252.0 L486.0,322.0 L186.0,268.0 Z" fill="none" stroke="#2A2A27"
+      stroke-width="1.2" stroke-dasharray="5 4"/>
+  </g>
+
+  <g id="drops"><path d="M147.1 136.1L147.1 216.1" stroke="#2A2A27" stroke-width="1"/><path d="M498.8 116.4L498.8 196.4" stroke="#2A2A27" stroke-width="1"/><path d="M732.9 150.0L732.9 230.0" stroke="#2A2A27" stroke-width="1"/><path d="M815.7 209.2L815.7 289.2" stroke="#2A2A27" stroke-width="1"/><path d="M512.8 249.8L512.8 329.8" stroke="#2A2A27" stroke-width="1"/><path d="M199.6 218.5L199.6 298.5" stroke="#2A2A27" stroke-width="1"/></g>
+
+  <!-- Fence and path lift together: the fence is a volume with a ceiling, and
+       the aircraft flies inside it. Flat, the lift is zero and this is a map. -->
+  <g id="flight">
+    <path id="fenceFill" d="M168.0,126.0 L528.0,92.0 L748.0,150.0 L806.0,252.0 L486.0,322.0 L186.0,268.0 Z" fill="#E05316" opacity=".05"/>
+    <path id="fence" d="M168.0,126.0 L528.0,92.0 L748.0,150.0 L806.0,252.0 L486.0,322.0 L186.0,268.0 Z" fill="none" stroke="#E05316" stroke-width="2"/>
+    <circle cx="168" cy="126" r="3.4" fill="#E05316"/><circle cx="528" cy="92" r="3.4" fill="#E05316"/><circle cx="748" cy="150" r="3.4" fill="#E05316"/><circle cx="806" cy="252" r="3.4" fill="#E05316"/><circle cx="486" cy="322" r="3.4" fill="#E05316"/><circle cx="186" cy="268" r="3.4" fill="#E05316"/>
+    <path id="plan" d="M251.8,119.6 L616.7,119.6 L740.9,165.6 L189.0,165.6 L194.9,211.6 L767.0,211.6 L764.4,257.6 L200.7,257.6 L399.8,303.6 L554.1,303.6" fill="none" stroke="#8A8781"
+      stroke-width="1.3" stroke-dasharray="2636.2"/>
+    <path id="flownA" d="M251.8,119.6 L616.7,119.6 L740.9,165.6 L356.2,241.6" fill="none" stroke="#E05316" stroke-width="2.2"/>
+    <path id="dev" d="M356.2,241.6 L191.2,258.8" fill="none" stroke="#E05316"
+      stroke-width="2.2" stroke-dasharray="7 5"/>
+    <path id="flownB" d="M191.2,258.8 L194.9,211.6 L767.0,211.6 L764.4,257.6 L200.7,257.6 L399.8,303.6 L554.1,303.6" fill="none" stroke="#E05316" stroke-width="2.2"/>
+  </g>
+
+  <g id="obst" transform="translate(252.7,159.1)"><path d="M-21 0l21-12 21 12-21 12z" fill="none" stroke="#F2F1EE" stroke-width="1.6"/><path d="M-21 0v-13l21-12 21 12v13" fill="none" stroke="#F2F1EE" stroke-width="1.6" opacity=".55"/><ellipse cx="0" cy="0" rx="42" ry="26" fill="none" stroke="#E05316" stroke-width="1.3" stroke-dasharray="4 4"/></g>
+  <g id="pa" transform="translate(396.3,280.8)"><ellipse cx="0" cy="2" rx="17" ry="7" fill="#E05316" opacity=".13"/><g fill="#F2F1EE"><circle cx="-14" cy="-6" r="6"/><path d="M-9-11h22v9h-22z"/></g><g id="palock" fill="none" stroke="#E05316" stroke-width="1.6"><path d="M-16-40h-8v8M16-40h8v8M-16 6h-8V-2M16 6h8V-2"/></g></g>
+  <g id="pb" transform="translate(733.0,279.7)"><ellipse cx="0" cy="2" rx="17" ry="7" fill="#E05316" opacity=".13"/><g fill="#F2F1EE"><circle cx="0" cy="-30" r="6"/><path d="M-5-23h10l2 14h-5l-1 11h-3l-1-11h-4z"/></g><g id="pblock" fill="none" stroke="#E05316" stroke-width="1.6"><path d="M-16-40h-8v8M16-40h8v8M-16 6h-8V-2M16 6h8V-2"/></g></g>
+
+  <g id="footG"><g id="foot">
+    <ellipse rx="26" ry="12" fill="#E05316" opacity=".12"/>
+    <ellipse rx="26" ry="12" fill="none" stroke="#E05316" stroke-width="1"
+      stroke-dasharray="3 3" opacity=".5"/>
+  </g></g>
+
+  <g transform="translate(159.8,332.1)">
+    <rect x="-12" y="-12" width="24" height="24" fill="none" stroke="#8A8781" stroke-width="1.6"/>
+    <text x="0" y="28" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10"
+      text-anchor="middle" letter-spacing="1">HOME</text>
+  </g>
+
+  <g id="drone">
+    <g id="rotor">
+      <ellipse cx="-19" cy="-9" rx="11" ry="2.4" fill="#8A8781"/>
+      <ellipse cx="19" cy="-9" rx="11" ry="2.4" fill="#8A8781"/>
+      <ellipse cx="-19" cy="9" rx="11" ry="2.4" fill="#8A8781"/>
+      <ellipse cx="19" cy="9" rx="11" ry="2.4" fill="#8A8781"/>
+    </g>
+    <path d="M-19-9L19 9M19-9L-19 9" stroke="#F2F1EE" stroke-width="2"/>
+    <rect x="-7" y="-5" width="14" height="10" rx="2" fill="#F2F1EE"/>
+  </g>
+
+  <!-- The altitude chip rides the leftmost drop line; the deviation chip sits
+       clear above the obstacle. Both are placed off measured tilted points, so
+       moving the fence cannot push them into each other. -->
+  <g id="altChip">
+    <g transform="translate(104.0,176.1)"><rect x="-49.4" y="-15" width="98.7" height="22" rx="2" fill="#0A0A0A" stroke="#E05316" stroke-width="1.2"/><text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" text-anchor="middle" letter-spacing="0.6">ALTITUDE 40 m</text></g>
+  </g>
+
+  <g id="devChip">
+    <g transform="translate(356.7,100.0)"><rect x="-114.2" y="-15" width="228.5" height="22" rx="2" fill="#0A0A0A" stroke="#E05316" stroke-width="1.2" stroke-dasharray="4 3"/><text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" text-anchor="middle" letter-spacing="0.6">DEVIATE &#183; Phase 6, not started</text></g>
+  </g>
+
+  <!-- The two finds, and the two different answers. The protocol line itself
+       is in the ticker, so these stay short enough to read at a glance. -->
+  <g id="alert" transform="translate(396.3,280.8)">
+    <g class="rings" fill="none" stroke="#E05316" stroke-width="1.6">
+      <circle r="9"/><circle r="9"/><circle r="9"/>
+    </g>
+    <g transform="translate(-34.0,44.0)"><rect x="-87.7" y="-15" width="175.4" height="22" rx="2" fill="#0A0A0A" stroke="#E05316" stroke-width="1.2" stroke-dasharray="4 3"/><text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" text-anchor="middle" letter-spacing="0.6">EMERGENCY &#183; not built</text></g>
+  </g>
+
+  <g id="followChip">
+    <g transform="translate(723.0,323.7)"><rect x="-90.7" y="-15" width="181.3" height="22" rx="2" fill="#0A0A0A" stroke="#E05316" stroke-width="1.2"/><text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5" text-anchor="middle" letter-spacing="0.6">FOLLOW 3 m &#183; Mission 2</text></g>
+  </g>
+
+  <g id="armed" transform="translate(856,58)">
+    <circle r="4" cx="0" cy="-4" fill="#E05316"/>
+    <text x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"
+      letter-spacing="1.6">ARMED</text>
+  </g>
+
+  <text x="56" y="360" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5"
+    letter-spacing="1.6">DETECTIONS</text>
+  <g><rect x="56" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf0"><rect x="56" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="56" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="106" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf1"><rect x="106" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="106" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="156" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf2"><rect x="156" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="156" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="206" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf3"><rect x="206" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="206" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="256" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf4"><rect x="256" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="256" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="306" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf5"><rect x="306" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="306" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="356" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf6"><rect x="356" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="356" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="406" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf7"><rect x="406" y="368" width="44" height="34" fill="#E05316" opacity="0.22"/><rect x="406" y="368" width="44" height="34" fill="none" stroke="#E05316" stroke-width="1.4"/><circle cx="428.0" cy="385" r="4.6" fill="none" stroke="#E05316" stroke-width="1.5"/></g></g><g><rect x="456" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf8"><rect x="456" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="456" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="506" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf9"><rect x="506" y="368" width="44" height="34" fill="#E05316" opacity="0.22"/><rect x="506" y="368" width="44" height="34" fill="none" stroke="#E05316" stroke-width="1.4"/><circle cx="528.0" cy="385" r="4.6" fill="none" stroke="#E05316" stroke-width="1.5"/></g></g><g><rect x="556" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf10"><rect x="556" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="556" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="606" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf11"><rect x="606" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="606" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="656" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf12"><rect x="656" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="656" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="706" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf13"><rect x="706" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="706" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="756" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf14"><rect x="756" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="756" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g><g><rect x="806" y="368" width="44" height="34" fill="none" stroke="#2A2A27" stroke-width="1"/><g id="tf15"><rect x="806" y="368" width="44" height="34" fill="#8A8781" opacity="0.13"/><rect x="806" y="368" width="44" height="34" fill="none" stroke="#8A8781" stroke-width="1"/></g></g>
+
+  <g transform="translate(56,424)"><circle cx="0" cy="-4" r="3.2" fill="#2A2A27"/><circle id="sd0" cx="0" cy="-4" r="3.2" fill="#E05316"/><text x="12" y="0" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">PLAN</text><text id="sl0" x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">PLAN</text></g><path d="M110.8 420H196" stroke="#2A2A27" stroke-width="1"/><g transform="translate(216,424)"><circle cx="0" cy="-4" r="3.2" fill="#2A2A27"/><circle id="sd1" cx="0" cy="-4" r="3.2" fill="#E05316"/><text x="12" y="0" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">FLY</text><text id="sl1" x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">FLY</text></g><path d="M263.6 420H356" stroke="#2A2A27" stroke-width="1"/><g transform="translate(376,424)"><circle cx="0" cy="-4" r="3.2" fill="#2A2A27"/><circle id="sd2" cx="0" cy="-4" r="3.2" fill="#E05316"/><text x="12" y="0" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">DETECT</text><text id="sl2" x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">DETECT</text></g><path d="M445.2 420H516" stroke="#2A2A27" stroke-width="1"/><g transform="translate(536,424)"><circle cx="0" cy="-4" r="3.2" fill="#2A2A27"/><circle id="sd3" cx="0" cy="-4" r="3.2" fill="#E05316"/><text x="12" y="0" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">REPORT</text><text id="sl3" x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">REPORT</text></g><path d="M605.2 420H676" stroke="#2A2A27" stroke-width="1"/><g transform="translate(696,424)"><circle cx="0" cy="-4" r="3.2" fill="#2A2A27"/><circle id="sd4" cx="0" cy="-4" r="3.2" fill="#E05316"/><text x="12" y="0" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">RETURN</text><text id="sl4" x="12" y="0" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="10" letter-spacing="1.8">RETURN</text></g>
+
+  <g id="ticker">
+    <text id="m0" x="56" y="470" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">operator fences the search area  ·  no geofence in the repo yet</text>
+    <text id="m1" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">coverage path planned to cover the box  ·  no planner built</text>
+    <text id="m2" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">WP_BEGIN{n}  &#8594;  WP{i,lat,lon,alt} each ACKed  &#8594;  WP_END  &#8594;  0 &lt; alt &#8804; 50 m  &#8594;  CONFIRM  &#8594;  ARMED</text>
+    <text id="m3" x="56" y="470" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">AUTO.TAKEOFF  &#8594;  40 m  ·  the plan is a surface, not a line</text>
+    <text id="m4" x="56" y="470" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">AUTO.MISSION  ·  sweeping the area  ·  OAK-D looking down</text>
+    <text id="m5" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">obstacle ahead  &#8594;  deviating  ·  Phase 6, not started</text>
+    <text id="m6" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">person detected, not moving  &#8594;  hold station  ·  posture is not something the detector reports</text>
+    <text id="m7" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">person detected, moving  &#8594;  OFFBOARD follow, keep 3 m  ·  Mission 2</text>
+    <text id="m8" x="56" y="470" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">ALERT{person, x, y, static}  &#8594;  915 MHz SF7  &#8594;  ground station</text>
+    <text id="m9" x="56" y="470" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">AUTO.RTL  &#8594;  home  ·  the track and the detections land with the operator</text>
+    <text id="m10" x="56" y="458" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" letter-spacing="0.8">Concept. Detection, follow, upload, the arm gate and RTL are built and bench-tested against mocks.<tspan x="56" dy="16">The fence, the planner, the deviation and the still-vs-moving call are not. Outdoor flight pending.</tspan></text>
+  </g>
+</svg>

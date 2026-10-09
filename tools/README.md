@@ -15,9 +15,10 @@ python3 tools/gen_phases.py     # then commit the result
 | `gen_system.py` | `system-{light,dark}.svg` | The three-box architecture diagram. |
 | `gen_conops.py` | `conops-{light,dark}.svg` | Mission 2 end to end. |
 | `gen_patrol.py` | `patrol-{light,dark}.svg` | Waypoint patrol with the obstacle deviation. |
+| `gen_mission.py` | `mission-{light,dark}.svg` | Search and rescue, end to end. The how-it-works banner. |
 | `gen_mesh.py` | `mesh-{light,dark}.svg` | The 915 MHz message net. |
 | `gen_avoid.py` | `avoid-{light,dark}.svg` | Forward obstacle avoidance (Phase 6, not built). |
-| `gen_cta.py` | `cta-{light,dark}.svg` | The *System overview* button. |
+| `gen_cta.py` | `cta-{light,dark}.svg` | The *Product page* button. Filled, not outlined. |
 
 Only `gen_phases.py` reads anything outside itself. The rest are self-contained,
 so their output changes only when the script does.
