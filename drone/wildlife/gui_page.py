@@ -105,6 +105,31 @@ h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted
 .shot.judged img{border-color:var(--ok)}
 .shot.wrong img{border-color:var(--bad)}
 
+/* --- lightbox: one evidence frame, large, with its boxes drawn on --- */
+#lb-wrap{position:fixed;inset:0;z-index:60;display:none;
+  background:rgba(2,3,5,.96);flex-direction:column}
+#lb-wrap.on{display:flex}
+#lb-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center}
+#lb-img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+#lb-ovl{position:absolute;pointer-events:none}
+#lb-head{display:flex;gap:10px;align-items:center;padding:10px 12px;
+  padding-top:calc(10px + env(safe-area-inset-top));border-bottom:1px solid var(--line)}
+#lb-head .nm{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+#lb-head button{margin-left:auto}
+#lb-meta{padding:8px 12px;border-top:1px solid var(--line);max-height:30vh;overflow-y:auto}
+#lb-meta .row{display:flex;gap:10px;align-items:baseline;padding:4px 0;
+  font-variant-numeric:tabular-nums;font-size:13px}
+#lb-meta .row .cls{font-weight:600;min-width:62px}
+#lb-meta .row .cls.animal{color:var(--amber)} #lb-meta .row .cls.person{color:var(--magenta)}
+#lb-meta .row .cls.vehicle{color:var(--cyan)}
+#lb-meta .row .d{color:var(--muted)}
+#lb-foot{display:flex;gap:8px;padding:9px 12px calc(9px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--line)}
+#lb-foot button{flex:1}
+#lb-foot button.keep.on{border-color:var(--ok);color:var(--ok)}
+#lb-foot button.drop.on{border-color:var(--bad);color:var(--bad)}
+.shot img{cursor:zoom-in}
+
 /* --- controls --- */
 button,select{background:var(--panel);color:var(--fg);border:1px solid var(--line);
   border-radius:8px;padding:9px 13px;font:inherit;font-size:13px;min-height:38px}
@@ -140,6 +165,22 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 
 <h2>Evidence <span id="filmn" style="color:var(--muted)"></span></h2>
 <div id="film"></div>
+
+<div id="lb-wrap">
+  <div id="lb-head">
+    <span class="nm" id="lb-name"></span>
+    <button id="lb-prev" title="older">&lsaquo;</button>
+    <button id="lb-next" title="newer">&rsaquo;</button>
+    <button id="lb-boxes" class="on">boxes</button>
+    <button id="lb-close">close</button>
+  </div>
+  <div id="lb-stage"><img id="lb-img" alt=""><canvas id="lb-ovl"></canvas></div>
+  <div id="lb-meta"></div>
+  <div id="lb-foot">
+    <button class="keep" id="lb-ok">&check; correct</button>
+    <button class="drop" id="lb-no">&cross; wrong</button>
+  </div>
+</div>
 
 <div id="bar">
   <select id="q" title="video quality"></select>
@@ -211,7 +252,8 @@ function draw(){
     ctx.strokeStyle = c; ctx.strokeRect(x, y, bw, bh);
     if (!showLab) continue;
     const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
-    const txt = `${d.c} ${Math.round(d.p*100)}% ${z}`;
+    const idtag = d.id !== undefined ? `#${d.id} ` : '';
+    const txt = `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
     const tw = ctx.measureText(txt).width + 8;
     const ty = y > 16 ? y - 16 : y + bh;
     ctx.fillStyle = 'rgba(5,7,10,.78)'; ctx.fillRect(x, ty, tw, 16);
@@ -225,14 +267,20 @@ q('#lb').onclick = e => { showLab = !showLab; e.target.classList.toggle('on', sh
 function renderTracks(){
   const el = q('#tracks');
   if (!dets.length){ el.innerHTML = '<div class="empty">nothing detected</div>'; return; }
-  el.innerHTML = dets.slice().sort((a,b) => (a.xyz?.[2]||0) - (b.xyz?.[2]||0))
+  // Longest-standing first: dwell is the interesting axis once there is
+  // tracking, because it separates something passing through from something
+  // that has settled - which is the whole basis of the SAR gate.
+  el.innerHTML = dets.slice().sort((a,b) => (b.dwell||0) - (a.dwell||0))
     .map(d => {
       const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '--';
-      const len = d.len_m ? d.len_m.toFixed(1) + ' m long' : '';
+      const len = d.len_m ? d.len_m.toFixed(1) + ' m' : '';
       const raw = d.raw ? ` <span class="d">(${d.raw})</span>` : '';
-      return `<div class="trk"><span class="cls ${d.c}">${d.c}</span>${raw}
+      const id = d.id !== undefined ? `<span class="d">#${d.id}</span>` : '';
+      const dw = d.dwell ? `<span class="d">${d.dwell.toFixed(0)} s</span>` : '';
+      const gone = d.st && d.st !== 'TRACKED' ? ' gone' : '';
+      return `<div class="trk${gone}">${id}<span class="cls ${d.c}">${d.c}</span>${raw}
         <span class="d">${Math.round(d.p*100)}%</span>
-        <span class="d">${len}</span><span class="r">${z}</span></div>`;
+        ${dw}<span class="d">${len}</span><span class="r">${z}</span></div>`;
     }).join('');
 }
 
@@ -242,8 +290,20 @@ function chip(label, value, cls){
 }
 function renderChips(s){
   const t = s.temp, w = s.watts, usb = s.usb, rssi = s.link && s.link.rssi;
+  // The camera can be absent while the page is perfectly healthy - the OAK
+  // has been seen to drop off the USB bus. Say so plainly instead of showing
+  // 0 fps and letting the operator guess which half is broken.
+  if (s.camera === 'offline'){
+    q('#nolink').innerHTML = '<div><b>camera offline</b><br>'
+      + '<span style="color:var(--muted)">' + (s.error || '')
+      + '<br>Retrying. Evidence review below still works.</span></div>';
+    q('#nolink').classList.add('on');
+    stage.classList.add('stale');
+  }
   const out = [
-    chip('fps', (s.fps ?? 0).toFixed(1), s.fps >= 8 ? 'ok' : 'warn'),
+    s.camera === 'offline'
+      ? chip('camera', 'offline', 'bad')
+      : chip('fps', (s.fps ?? 0).toFixed(1), s.fps >= 8 ? 'ok' : 'warn'),
     chip('model', s.model || '--'),
     chip('mode', s.pm || '--', (s.pm||'').startsWith('7W') ? 'ok' : 'warn'),
     w != null ? chip('draw', w.toFixed(2) + ' W') : '',
@@ -252,7 +312,10 @@ function renderChips(s){
                usb >= 5000 ? 'ok' : 'warn') : '',
     rssi != null ? chip('rssi', rssi + ' dBm', rssi > -70 ? 'ok' : 'warn') : '',
     chip('gps', (s.gps && s.gps.fix) || '--', 'warn'),
-    chip('seen', s.hits + '/' + s.frames),
+    s.active !== undefined ? chip('tracking', s.active) : '',
+    s.saved !== undefined ? chip('saved', s.saved) : '',
+    // Distinct objects over the sortie, by tracker id - "3 animals" means
+    // three creatures, not three frames that happened to contain one.
     s.counts ? Object.entries(s.counts).map(([k,v]) => chip(k, v, 'ok')).join('') : '',
   ];
   q('#chips').innerHTML = out.join('');
@@ -306,17 +369,124 @@ function renderFilm(){
   }).join('');
 }
 q('#film').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const shot = e.target.closest('.shot'); const name = shot.dataset.n;
+  const shot = e.target.closest('.shot'); if (!shot) return;
+  const name = shot.dataset.n;
+  const b = e.target.closest('button');
+  if (!b) { openShot(shots.findIndex(x => x.name === name)); return; }
   const ok = b.dataset.ok === '1';
+  judge(name, ok);
+};
+
+/* ---------- lightbox: one frame, large, with its boxes drawn on ---------- */
+// The saved JPEG deliberately has no boxes burned into it - the camera's
+// encoder writes the frame untouched - so the sidecar's normalised
+// coordinates are replayed here. They are the same 16:9 crop the network saw,
+// so they map onto the full-size image with no transform, exactly as on the
+// live canvas.
+let lbIdx = -1, lbName = null, lbBoxes = true;
+const lbImg = q('#lb-img'), lbOvl = q('#lb-ovl'), lbCtx = lbOvl.getContext('2d');
+
+// New frames are unshifted onto `shots`, so an index taken a moment ago points
+// at a different picture once one arrives. The open frame is therefore tracked
+// by name and the index re-derived - otherwise the image silently changes under
+// whoever is reviewing it.
+function syncLb(){
+  if (lbName === null) return;
+  const i = shots.findIndex(x => x.name === lbName);
+  if (i < 0) { closeShot(); return; }
+  lbIdx = i;
+}
+
+function openShot(i){
+  if (i < 0 || i >= shots.length) return;
+  lbIdx = i;
+  const s = shots[i];
+  lbName = s.name;
+  q('#lb-name').textContent = s.name;
+  lbImg.src = auth('/api/evidence/' + s.name);
+  q('#lb-wrap').classList.add('on');
+  const dets = s.detections || [];
+  q('#lb-meta').innerHTML = dets.length ? dets.map(d => {
+      const z = d.xyz ? d.xyz[2].toFixed(2) + ' m away' : '';
+      const len = d.len_m ? d.len_m.toFixed(2) + ' m long' : '';
+      const raw = d.raw ? ` <span class="d">(model said ${d.raw})</span>` : '';
+      return `<div class="row"><span class="cls ${d.c}">${d.c}</span>${raw}
+        <span class="d">${Math.round(d.p*100)}%</span>
+        <span class="d">${z}</span><span class="d">${len}</span></div>`;
+    }).join('')
+    : '<div class="row"><span class="d">no detection record — this frame '
+      + 'predates the sidecar files</span></div>';
+  const v = s.verdict;
+  q('#lb-ok').classList.toggle('on', !!(v && v.ok));
+  q('#lb-no').classList.toggle('on', !!(v && !v.ok));
+  drawShot();
+}
+function drawShot(){
+  // Match the canvas to where the image actually sits: object-fit:contain
+  // means the rendered box is not the element box.
+  const ir = lbImg.getBoundingClientRect(), sr = q('#lb-stage').getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  lbOvl.style.left = (ir.left - sr.left) + 'px';
+  lbOvl.style.top = (ir.top - sr.top) + 'px';
+  lbOvl.style.width = ir.width + 'px'; lbOvl.style.height = ir.height + 'px';
+  lbOvl.width = Math.round(ir.width * dpr); lbOvl.height = Math.round(ir.height * dpr);
+  lbCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  lbCtx.clearRect(0, 0, ir.width, ir.height);
+  if (!lbBoxes || lbIdx < 0) return;
+  for (const d of (shots[lbIdx].detections || [])){
+    const c = COLOUR[d.c] || '#fff';
+    const x = d.b[0]*ir.width, y = d.b[1]*ir.height;
+    const bw = (d.b[2]-d.b[0])*ir.width, bh = (d.b[3]-d.b[1])*ir.height;
+    lbCtx.lineWidth = 3; lbCtx.strokeStyle = c; lbCtx.strokeRect(x, y, bw, bh);
+    const txt = `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
+    lbCtx.font = '600 15px ui-sans-serif,system-ui,sans-serif';
+    const tw = lbCtx.measureText(txt).width + 10, ty = y > 20 ? y - 20 : y + bh;
+    lbCtx.fillStyle = 'rgba(2,3,5,.82)'; lbCtx.fillRect(x, ty, tw, 20);
+    lbCtx.fillStyle = c; lbCtx.fillText(txt, x + 5, ty + 15);
+  }
+}
+lbImg.onload = drawShot;
+addEventListener('resize', () => { if (lbIdx >= 0) drawShot(); });
+
+function judge(name, ok){
   api('/api/verdict', {name, ok});
   const s = shots.find(x => x.name === name); if (s) s.verdict = {ok};
-  shot.classList.toggle('judged', ok); shot.classList.toggle('wrong', !ok);
-};
+  const el = document.querySelector(`.shot[data-n="${name}"]`);
+  if (el){ el.classList.toggle('judged', ok); el.classList.toggle('wrong', !ok); }
+  if (lbIdx >= 0 && shots[lbIdx] && shots[lbIdx].name === name){
+    q('#lb-ok').classList.toggle('on', ok);
+    q('#lb-no').classList.toggle('on', !ok);
+  }
+}
+function closeShot(){
+  q('#lb-wrap').classList.remove('on'); lbIdx = -1; lbName = null;
+}
+q('#lb-close').onclick = closeShot;
+// Newer frames sit at the start of the array, so "next" walks toward index 0.
+q('#lb-prev').onclick = () => openShot(lbIdx + 1);
+q('#lb-next').onclick = () => openShot(lbIdx - 1);
+q('#lb-boxes').onclick = e => { lbBoxes = !lbBoxes;
+  e.target.classList.toggle('on', lbBoxes); drawShot(); };
+q('#lb-ok').onclick = () => judge(shots[lbIdx].name, true);
+q('#lb-no').onclick = () => judge(shots[lbIdx].name, false);
+q('#lb-stage').onclick = e => { if (e.target.id === 'lb-stage') closeShot(); };
+addEventListener('keydown', e => {
+  if (lbIdx < 0) return;
+  if (e.key === 'Escape') closeShot();
+  else if (e.key === 'ArrowLeft') openShot(lbIdx + 1);
+  else if (e.key === 'ArrowRight') openShot(lbIdx - 1);
+});
+// Swipe, since this is mostly used one-handed on a phone.
+let tx = 0;
+q('#lb-stage').addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true});
+q('#lb-stage').addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  if (Math.abs(dx) > 60) openShot(lbIdx + (dx > 0 ? 1 : -1));
+}, {passive:true});
 q('#snap').onclick = () => api('/api/config', {save:true}).then(loadFilm);
 function loadFilm(){
   fetch(auth('/api/evidence?n=40')).then(r => r.json())
-    .then(j => { shots = j; renderFilm(); }).catch(()=>{});
+    .then(j => { shots = j; renderFilm(); syncLb(); }).catch(()=>{});
 }
 
 /* ---------- night vision helpers ---------- */
@@ -345,7 +515,7 @@ function connect(){
   es.addEventListener('evidence', e => {
     const s = JSON.parse(e.data);
     if (!shots.some(x => x.name === s.name)) shots.unshift(s);
-    renderFilm();
+    renderFilm(); syncLb();
   });
   es.onerror = () => { es.close(); setTimeout(connect, 2000); };
 }

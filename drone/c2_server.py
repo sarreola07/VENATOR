@@ -650,16 +650,30 @@ class C2Server:
         hover_start = None
         people_seen = 0
         person_present = False
+        last_person_at = None
         flight = MonitoredFlight(self, link, send, "mission1", "MISSION1",
                                  on_close=lambda: cam.close() if cam else None)
         for now, st in flight.ticks():
             person = self._read_person(cam)
             if person is not None:
-                if not person_present:
+                # Count a new person only after a real gap. This used to
+                # increment on every rising edge, so one person the detector
+                # dropped for a single frame - which it does routinely at
+                # 10 fps - was counted again on the next hit, and a count of
+                # "4 people" could be one person standing still.
+                #
+                # CAMERA_LOSS_S has been declared since this mission was
+                # written and never referenced; this is the grace period it
+                # was for.
+                if last_person_at is None or now - last_person_at > CAMERA_LOSS_S:
                     people_seen += 1
+                last_person_at = now
                 person_present = True
             else:
-                person_present = False
+                # Hold `present` across a brief dropout too, so the telemetry
+                # and the hover logic do not flap in step with the detector.
+                person_present = (last_person_at is not None
+                                  and now - last_person_at <= CAMERA_LOSS_S)
 
             if flight.flying:
                 if flight.phase == "takeoff" and st["alt"] >= HOVER_ALT_M * 0.9:

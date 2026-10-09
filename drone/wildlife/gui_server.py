@@ -65,6 +65,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import classes
 import gui_page
 import ports
+import tracking
 from radio import auth
 
 MODEL = "luxonis/wildlife-megadetector:mdv6-yolov10-c"
@@ -79,8 +80,30 @@ QUALITIES = {
 }
 
 #: One thread per connection, held for the life of the stream. A phone that
-#: locks and unlocks leaks one each time, and this box has zero swap.
-MAX_VIEWERS = 8
+#: locks and unlocks leaks one each time, and this box has zero swap, so this
+#: is a resource limit rather than a nicety.
+#:
+#: 8 suits one or two operators. A demo audience will blow straight through it
+#: and the ninth person gets a 503, so GUI_MAX_VIEWERS raises it. Budget the
+#: bandwidth before going far above ~16: a 20 MHz 5 GHz channel carries
+#: 70-100 Mbps in practice, and the "hi" rung is 2.24 Mbps per viewer against
+#: the "lo" rung's 0.50. Sixteen on "hi" is 36 Mbps and workable; the same
+#: sixteen on "lo" is 8 Mbps and comfortable. Point an audience at ?q=lo.
+def _env_int(name, default, lo, hi):
+    try:
+        return max(lo, min(hi, int(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
+def _env_float(name, default, lo, hi):
+    try:
+        return max(lo, min(hi, float(os.environ.get(name, default))))
+    except ValueError:
+        return default
+
+
+MAX_VIEWERS = _env_int("GUI_MAX_VIEWERS", 8, 1, 64)
 #: The failure that actually happens in the field: the operator walks out of
 #: range, TCP goes quiet, and a write blocks forever. A timeout turns that into
 #: an OSError the handler already catches.
@@ -91,6 +114,27 @@ SSE_PING_S = 15.0
 RELIABLE_BACKLOG = 32
 
 EVIDENCE_NAME = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9]{4}\.jpg$")
+
+#: Seconds between attempts to reopen a camera that is not there. Matches
+#: camera_publisher.py's RECONNECT_WAIT_S, which solves the same problem.
+RECONNECT_WAIT_S = 5
+
+#: Minimum seconds between saved evidence frames.
+#:
+#: Without this, every detection frame became a file: a subject in view at
+#: 10 fps wrote ten JPEGs a second, about 18 MB a minute, and the filmstrip
+#: showed forty copies of the same second rather than forty sightings. It also
+#: wasted the point of the archive - forty near-identical frames are one
+#: training example, not forty.
+#:
+#: 2 s is the interim rule. Once a track is genuinely new the floor is bypassed
+#: (see save_evidence), so a creature walking into frame is never missed while
+#: one standing still cannot flood the disk.
+SAVE_MIN_INTERVAL_S = _env_float("GUI_SAVE_INTERVAL", 2.0, 0.0, 600.0)
+
+#: Set by the signal handlers. Module level because the camera is reopened in a
+#: loop, so the flag has to outlive any one pipeline.
+STOP = {"flag": False}
 
 
 def log(msg):
@@ -658,6 +702,7 @@ def run(args, hub, cfg):
     desc = dai.NNModelDescription(args.model)
     desc.platform = "RVC2"
     archive = dai.NNArchive(dai.getModelFromZoo(desc))
+    nn_w, nn_h = archive.getInputSize()
 
     with dai.Pipeline() as pipeline:
         colour = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
@@ -705,11 +750,33 @@ def run(args, hub, cfg):
                 profile=dai.VideoEncoderProperties.Profile.MJPEG, quality=quality)
             queues[name] = enc.out.createOutputQueue(maxSize=2, blocking=False)
 
-        dq = nn.out.createOutputQueue(maxSize=4, blocking=False)
+        # Tracking, which the detector had none of. ZERO_TERM_IMAGELESS uses no
+        # image features, so it costs no SHAVE cores and no CMX - it is pure box
+        # arithmetic on the device.
+        tracker = pipeline.create(dai.node.ObjectTracker)
+        tracker.setTrackerType(dai.TrackerType.ZERO_TERM_IMAGELESS)
+        # UNIQUE_ID, not SMALLEST_ID: ids must never be recycled, or a count of
+        # distinct animals over a sortie is meaningless and a SAR alert could
+        # name a track that is now a different subject.
+        tracker.setTrackerIdAssignmentPolicy(dai.TrackerIdAssignmentPolicy.UNIQUE_ID)
+        # The one setting that matters on a moving platform: associate on the
+        # stereo Z as well as image overlap. Image-plane IOU alone is unreliable
+        # when the camera translates between frames, which it always does here.
+        tracker.setSpatialAssociation(True)
+        tracker.setTrackletMaxLifespan(int(args.fps))     # ~1 s of prediction
+        tracker.setMaxObjectsToTrack(20)
+        tracker.setTrackingPerClass(False)
+        # Only track what the policy would report, so the tracker's 20 slots are
+        # not spent on classes classes.py suppresses anyway.
+        keep = [i for i, name in enumerate(labels) if name in classes.CLASS_POLICY]
+        if keep:
+            tracker.setDetectionLabelsToTrack(keep)
 
-        stopping = {"flag": False}
-        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            signal.signal(sig, lambda *_: stopping.__setitem__("flag", True))
+        nn.out.link(tracker.inputDetections)
+        nn.passthrough.link(tracker.inputDetectionFrame)
+        nn.passthrough.link(tracker.inputTrackerFrame)
+        tq = tracker.out.createOutputQueue(maxSize=4, blocking=False)
+        book = tracking.TrackBook()
 
         if cfg["save"]:
             os.makedirs(args.save_dir, exist_ok=True)
@@ -721,26 +788,33 @@ def run(args, hub, cfg):
         seq = 0
         frames = 0
         hits = 0
+        hits_saved = 0
+        last_save = 0.0
         fps_window = collections.deque(maxlen=40)
         last_status = 0.0
         counts = {}
 
-        while not stopping["flag"] and pipeline.isRunning():
+        while not STOP["flag"] and pipeline.isRunning():
             size = QUALITIES[cfg["quality"]][0]
             for name, q in queues.items():
                 enc = q.tryGet()
                 if enc is not None:
                     hub.publish_frame(name, bytes(enc.getData()))
 
-            msg = dq.tryGet()
+            # Read tracklets rather than raw detections: same boxes, plus a
+            # stable id, an age and a status. Everything downstream - dwell
+            # timers, distinct-object counts, the SAR gate - needs the identity.
+            msg = tq.tryGet()
             if msg is not None:
                 frames += 1
                 seq += 1
                 now = time.monotonic()
                 fps_window.append(now)
-                dets = []
-                for d in msg.detections:
-                    raw = labels[d.label] if d.label < len(labels) else str(d.label)
+                dets, raw_tracklets = [], []
+                for t in msg.tracklets:
+                    src = t.srcImgDetection
+                    raw = labels[t.label] if t.label < len(labels) else str(t.label)
+                    conf = float(getattr(src, "confidence", 0.0) or 0.0)
                     if cfg["conf"] is not None:
                         # A live override from /api/config. It can only tighten:
                         # the device filter was programmed at build time to the
@@ -749,44 +823,74 @@ def run(args, hub, cfg):
                         # can bring it back. status reports the effective floor
                         # so the operator can see where the real limit is.
                         entry = classes.CLASS_POLICY.get(raw)
-                        if entry is None or d.confidence < cfg["conf"]:
+                        if entry is None or conf < cfg["conf"]:
                             continue
                         verdict = (entry[0], raw)
                     else:
-                        verdict = classes.classify(raw, d.confidence)
+                        verdict = classes.classify(raw, conf)
                     if verdict is None:
                         continue
                     reported, raw = verdict
                     if cfg["classes"] and reported not in cfg["classes"]:
                         continue
-                    c = d.spatialCoordinates
+
+                    status = t.status.name
+                    c = t.spatialCoordinates
                     z_m = c.z / 1000.0
+                    xyz = [round(c.x / 1000.0, 2), round(c.y / 1000.0, 2), round(z_m, 2)]
+                    raw_tracklets.append({"id": t.id, "cls": reported, "conf": conf,
+                                          "status": status,
+                                          "xyz": xyz if z_m > 0 else None})
+                    # roi is normalised to the tracker frame, which is the
+                    # network passthrough - the same 16:9 crop the video rungs
+                    # use, so these land on the displayed frame untransformed.
+                    #
+                    # Checked rather than assumed: dai.Rect can hold either
+                    # normalised or pixel coordinates, and a denormalised roi
+                    # would put every box off-screen with no other symptom.
+                    r = t.roi
+                    if not r.isNormalized():
+                        r = r.normalize(nn_w, nn_h)
                     dets.append({
+                        "id": t.id,
                         "c": reported,
                         "raw": raw if raw != reported else None,
-                        "p": round(float(d.confidence), 3),
-                        # Normalised xyxy, already in the displayed frame's
-                        # coordinate space - see the CROP note above.
-                        "b": [round(d.xmin, 4), round(d.ymin, 4),
-                              round(d.xmax, 4), round(d.ymax, 4)],
-                        "xyz": [round(c.x / 1000.0, 2), round(c.y / 1000.0, 2),
-                                round(z_m, 2)],
+                        "p": round(conf, 3),
+                        "st": status,
+                        "b": [round(r.x, 4), round(r.y, 4),
+                              round(r.x + r.width, 4), round(r.y + r.height, 4)],
+                        "xyz": xyz,
                         # Metric long-axis extent from stereo Z. The SAR
                         # prone-detection gate needs this, and it is also what
                         # separates a person from a wild turkey, which both
                         # models score as "person" at about 71%.
-                        "len_m": round(max(d.xmax - d.xmin, d.ymax - d.ymin)
-                                       * 1.374 * z_m, 2) if z_m > 0 else None,
+                        "len_m": round(max(r.width, r.height) * 1.374 * z_m, 2)
+                                 if z_m > 0 else None,
                     })
-                counts = {}
+
+                touched = book.update(raw_tracklets, now=now)
+                dwell = {t.id: round(t.dwell, 1) for t in touched}
                 for d in dets:
-                    counts[d["c"]] = counts.get(d["c"], 0) + 1
+                    d["dwell"] = dwell.get(d["id"], 0.0)
+                # Distinct objects seen this sortie, not detections counted.
+                counts = book.counts()
                 if dets:
                     hits += 1
                 hub.publish("det", {"seq": seq, "t": round(time.time(), 2),
-                                    "w": size[0], "h": size[1], "d": dets})
+                                    "w": size[0], "h": size[1], "d": dets,
+                                    "tracks": len(book)})
+
                 if dets and cfg["save"]:
-                    save_evidence(hub, args.save_dir, queues, hits, dets)
+                    # A genuinely new object always earns a frame; otherwise the
+                    # interval floor applies. So a creature walking in is never
+                    # missed, and one standing still cannot flood the disk.
+                    fresh = book.new_tracks(touched)
+                    due = (now - last_save) >= SAVE_MIN_INTERVAL_S
+                    if fresh or due:
+                        hits_saved += 1
+                        if save_evidence(hub, args.save_dir, hits_saved, dets):
+                            last_save = now
+                            book.mark_reported(fresh)
 
             now = time.monotonic()
             if now - last_status >= 1.0:
@@ -799,7 +903,13 @@ def run(args, hub, cfg):
                     "fps": round(fps, 1),
                     "frames": frames,
                     "hits": hits,
+                    # Distinct objects seen this sortie, from tracker ids - not
+                    # a count of detection events, which double-counted anything
+                    # that flickered.
                     "counts": counts,
+                    "tracks": len(book),
+                    "active": len(book.active()),
+                    "saved": hits_saved,
                     "temp": soc_temp_c(),
                     "watts": board_watts(),
                     "pm": cfg["pm"],
@@ -826,17 +936,20 @@ def run(args, hub, cfg):
     return 0
 
 
-def save_evidence(hub, save_dir, queues, hits, dets):
+def save_evidence(hub, save_dir, hits, dets):
     """Write the encoder's JPEG straight to disk, plus a sidecar.
 
     No decode, no PIL, no re-encode: the bytes are already a JPEG. The old
     path pulled a raw BGR888p passthrough frame for this, which cost about
     35 Mbps of USB bandwidth purely so boxes could be burned in. Boxes now
     live in the browser, so the frame goes to disk untouched.
+
+    Returns True when a frame was written, so the caller can hold off the
+    interval timer on a failure rather than silently skipping ahead.
     """
     jpeg = hub.latest_jpeg()
     if not jpeg:
-        return
+        return False
     stamp = time.strftime("%Y%m%d-%H%M%S")
     name = f"{stamp}-{hits:04d}.jpg"
     try:
@@ -848,10 +961,11 @@ def save_evidence(hub, save_dir, queues, hits, dets):
         }, indent=1))
     except OSError as e:
         log(f"could not save evidence: {e}")
-        return
+        return False
     hub.publish("evidence", {"name": name, "t": int(time.time()),
                              "classes": sorted({d["c"] for d in dets}),
                              "bytes": len(jpeg)}, reliable=True)
+    return True
 
 
 def main():
@@ -897,10 +1011,43 @@ def main():
         log("NO KEY FILE - the GUI is bound to 127.0.0.1 only.")
         log("Create one so a phone can reach it:  python3 radio/auth.py --init")
 
-    try:
-        return run(args, hub, cfg)
-    except KeyboardInterrupt:
-        return 0
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, lambda *_: STOP.__setitem__("flag", True))
+
+    # Keep serving even with no camera. The OAK renegotiates its USB link and
+    # has been seen to drop off the bus entirely, and a dropout used to take
+    # the whole page down with it - including the evidence already on disk,
+    # which is the part that needs no camera at all. Now the page stays up,
+    # reports the camera as offline, and reopens it when it returns.
+    attempts = 0
+    while not STOP["flag"]:
+        try:
+            run(args, hub, cfg)
+            break                      # clean exit: Ctrl+C or pipeline stopped
+        except KeyboardInterrupt:
+            break
+        except Exception as exc:       # noqa: BLE001 - any device fault
+            attempts += 1
+            hub.publish("status", {
+                "t": round(time.time(), 2),
+                "camera": "offline",
+                "error": str(exc)[:200],
+                "attempts": attempts,
+                "fps": 0.0,
+                "pm": cfg["pm"],
+                "usb": usb_speed_mbps(),
+                "link": wifi_link(),
+                "gps": {"fix": "not fitted"},
+                "fc": "not connected",
+            })
+            if attempts == 1 or attempts % 12 == 0:
+                log(f"camera unavailable ({exc}); evidence review still works. "
+                    f"Retrying every {RECONNECT_WAIT_S}s")
+            for _ in range(RECONNECT_WAIT_S * 10):
+                if STOP["flag"]:
+                    break
+                time.sleep(0.1)
+    return 0
 
 
 if __name__ == "__main__":

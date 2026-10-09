@@ -183,6 +183,39 @@ usability fault rather than a preference.
 
 ---
 
+## Tracking
+
+The loop reads **tracklets**, not raw detections — same boxes, plus a stable
+id, an age and a status. `dai.node.ObjectTracker` runs on the camera with
+`ZERO_TERM_IMAGELESS`, which uses no image features, so it costs no SHAVE cores
+and no CMX. Measured: **still 10.0 fps** with the tracker, both encoders,
+stereo and the network all running.
+
+Two settings carry the weight:
+
+- `setSpatialAssociation(True)` — associate on the stereo Z as well as image
+  overlap. Image-plane IOU alone is unreliable when the camera translates
+  between frames, which on a drone it always does.
+- `UNIQUE_ID` rather than `SMALLEST_ID` — ids must never be recycled, or a
+  count of distinct animals over a sortie is meaningless and a SAR alert could
+  name a track that has since become a different subject.
+
+`drone/wildlife/tracking.py` keeps the host-side history: dwell, a **voted**
+class (summed confidence across sightings, so a track seen at several scales
+settles on one answer instead of flickering), and metric displacement from
+stereo X/Z. Displacement is never computed from pixels — the aircraft moves, so
+pixel motion describes the drone as much as the subject. That is the input the
+SAR prone-detection gate needs.
+
+`counts` in the status stream is now **distinct objects by tracker id**, so
+"3 animals" means three creatures rather than three frames that each contained
+one.
+
+`LOST` counts as active. It means the tracker did not detect the object this
+frame but is predicting its position — precisely the grace a dwell window
+needs, since otherwise one missed frame would reset an 8-second SAR timer. The
+camera promotes `LOST` to `REMOVED` once it gives up.
+
 ## Evidence
 
 Frames are written straight from the encoder — the bytes are already a JPEG, so
@@ -191,8 +224,31 @@ there is no decode, no PIL and no re-encode. The previous path pulled a raw
 about **35 Mbps of USB bandwidth**. Boxes live in the browser now, so the frame
 goes to disk untouched.
 
+**Saving is throttled.** Every detection frame used to become a file: a subject
+in view at 10 fps wrote ten JPEGs a second, roughly 18 MB a minute, and the
+filmstrip showed forty copies of one second rather than forty sightings. It
+also wasted the archive's purpose — forty near-identical frames are one
+training example, not forty.
+
+The rule now: **a genuinely new track always earns a frame; otherwise a
+`GUI_SAVE_INTERVAL` floor applies (default 2 s).** So a creature walking into
+frame is never missed, and one standing still cannot flood the disk.
+
 Each frame gets a `.json` sidecar with its detections and, once an operator
 taps ✓/✗, their verdict.
+
+### Reviewing a frame
+
+Tap any thumbnail to open it full-screen with **its boxes drawn on** — replayed
+from the sidecar's normalised coordinates, which are the same 16:9 crop the
+network saw, so they land untransformed exactly as on the live canvas. The
+saved JPEG itself stays clean.
+
+Arrow keys, swipe or the ‹ › buttons move between frames; Escape or a tap
+outside closes. The ✓/✗ verdict buttons are there too, which is easier to judge
+on a large image than a 104-pixel thumbnail. The open frame is tracked **by
+filename, not index** — new detections unshift onto the list, so an index would
+silently slide the picture out from under whoever is reviewing it.
 
 > **Imagery of people.** The `person` class means this can accumulate
 > photographs of people. Keep SAR evidence on its own retention and separate

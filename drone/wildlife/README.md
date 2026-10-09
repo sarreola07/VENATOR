@@ -21,6 +21,7 @@ person-tracker. That one stays on depthai 2.32 in
 | `imx219_camera.sh` | Launcher used by the desktop icon: `720p`, `1080p`, `day`, `night`, `snapshot`. Refuses to open a second capture. |
 | `oak_camera.sh` | Launcher for camera 1: `detect`, `gui`, `info`, `test`, `images`, `classes`, `status`. Refuses to start if something else owns the OAK. |
 | `oak_wildlife.py` | Camera 1. Spatial animal/person detection with a distance per hit; saves annotated evidence frames. Runs MegaDetector V6. |
+| `tracking.py` | Per-object history from tracker ids: dwell, voted class, metric displacement. The detector had no memory before this. |
 | `classes.py` | What gets reported and the confidence each class needs. One table shared by the live detector, the offline harness and the GUI, so they cannot disagree. |
 | `gui_server.py` | Operator GUI for a phone, on `:8080`. The OAK encodes MJPEG itself and this relays the bytes undecoded — the Jetson has no hardware video encoder. See [../../docs/OPERATOR_GUI.md](../../docs/OPERATOR_GUI.md). |
 | `gui_page.py` | The GUI's single page. Dark, red/amber, boxes drawn client-side on a canvas. |
