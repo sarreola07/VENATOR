@@ -46,6 +46,17 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
 | 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
 
+> **The site shows the finished system; this table is the status.** The search
+> and rescue banner on [how-it-works][site] runs the mission end to end — fence,
+> coverage path, a real-time reroute around a tree, a deer logged, a casualty
+> found and an emergency sent — with no caveats on it, the same way
+> `conops-*.svg` shows Mission 2 as designed rather than as built. That is the
+> target. Where the two disagree, **this table is the one that is true**: the
+> reroute is Phase 6 and has not started, outdoor flight is still pending, and
+> `camera_publisher.py` detects people with depth, not posture.
+
+[site]: https://sarreola07.github.io/VENATOR/how-it-works.html
+
 ## Phase details
 
 - **1 — Protocol** *(done):* versioned, newline-JSON messages; handshake, menu,
