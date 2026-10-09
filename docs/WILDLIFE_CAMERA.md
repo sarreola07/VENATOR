@@ -30,8 +30,22 @@ That is why camera 2 exists.
 Measured: colour 640×480 at **20.5 fps**, depth 640×400 valid **0.31–56 m**,
 detection at a steady **10 fps**.
 
-It negotiated `UsbSpeed.HIGH` — **USB 2.0, 480 Mbps**. Move it to a USB 3.0 port;
-that cap was limiting throughput before a network was even added.
+**USB link: 5000 Mbps SuperSpeed while a pipeline is running.** It reads
+480 Mbps when idle, and that is normal rather than a fault — booting the
+Myriad X resets and re-enumerates the device, so it appears under two
+identities:
+
+| State | ID | Bus | Speed |
+|---|---|---|---|
+| Idle, ROM bootloader | `03e7:2485` | 1 | 480 Mbps |
+| Firmware loaded, running | `03e7:f63b` | 2 | **5000 Mbps** |
+
+So `lsusb` or `oak_camera.sh status` run between pipelines will report USB 2.0
+speeds from the ROM-mode device. **Check the speed with a pipeline up.** An
+earlier reading of this as a flapping link sent us looking for a cable fault
+that did not exist; the bandwidth budgets below are kept against 480 Mbps
+anyway, because that is the pessimistic case and a genuine USB 2.0 port would
+produce it.
 
 ### Camera 2 — IMX219-160 IR-CUT
 

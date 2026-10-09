@@ -34,7 +34,13 @@ badge:       jakku_front_RBP194
 == camera 1 (OAK) ==
 model:       OAK-D-S2-FF  MxID 194430107164191300  platform RVC2
 depthai:     3.10.0 in /home/jetson/oak-venv  (flight tracker uses 2.32 elsewhere)
-usb:         480 Mbps (USB 2.0) - move to the USB 3.0 hub
+usb:         5000 Mbps (SuperSpeed) while a pipeline is running.
+             Reads 480 Mbps when idle and that is NORMAL, not a fault: booting
+             the Myriad X resets and re-enumerates it, so it appears twice.
+               idle / ROM bootloader : 03e7:2485  bus 1  480 Mbps
+               firmware loaded       : 03e7:f63b  bus 2  5000 Mbps
+             Check the speed with a pipeline up, or you will chase a cable
+             problem that is not there.
 
 == open items ==
 - IR-CUT GPIO wire not fitted (40-pin BOARD pin 7); day mode still IR-tinted
