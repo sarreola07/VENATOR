@@ -36,6 +36,14 @@ jobs:
       - name: Command link authentication
         run: python3 tests/test_auth.py
 
+      # No camera: the class policy is a pure table, so the thresholds that
+      # decide what the drone reports are pinned here. The invariant that
+      # matters is that the device-side filter can never sit above a per-class
+      # threshold — anything the hardware drops is gone before the policy
+      # gets a vote on it.
+      - name: Detection class policy
+        run: python3 tests/test_classes.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 

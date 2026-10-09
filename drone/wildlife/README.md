@@ -20,7 +20,8 @@ person-tracker. That one stays on depthai 2.32 in
 | `ircut.py` | Day/night control of the IR-CUT optical filter over GPIO. |
 | `imx219_camera.sh` | Launcher used by the desktop icon: `720p`, `1080p`, `day`, `night`, `snapshot`. Refuses to open a second capture. |
 | `oak_camera.sh` | Launcher for camera 1: `detect`, `info`, `test`, `images`, `classes`, `status`. Refuses to start if something else owns the OAK. |
-| `oak_wildlife.py` | Camera 1. Spatial animal/person detection with a distance per hit; saves annotated evidence frames. |
+| `oak_wildlife.py` | Camera 1. Spatial animal/person detection with a distance per hit; saves annotated evidence frames. Runs MegaDetector V6. |
+| `classes.py` | What gets reported and the confidence each class needs. One table shared by the live detector, the offline harness and the GUI, so they cannot disagree. |
 | `oak_info.py` | Identifies the OAK, its fitted sensors and whether it has IR illumination. |
 | `oak_test.py` | Proves the OAK streams colour and stereo depth. |
 | `test_detector.py` | Runs the detector over image files, so you can check what it sees before flying it. |

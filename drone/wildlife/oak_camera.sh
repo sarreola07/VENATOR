@@ -11,7 +11,12 @@
 #   ./oak_camera.sh status       # who currently owns the OAK
 #
 # Environment overrides:
-#   CONF=0.5           confidence threshold
+#   CONF               force ONE confidence threshold for every class. Unset by
+#                      default, which is what you want: classes.py holds a
+#                      per-class threshold table, and setting CONF throws it
+#                      away. Only useful for sweeps.
+#   MODEL              HubAI model id (default: MegaDetector V6, see classes.py)
+#   SHAVES             recompile the network for N SHAVE cores (default: archive)
 #   MIN_DIST/MAX_DIST  range gate in metres
 #   SAVE_DIR           where annotated detections are written
 #
@@ -28,10 +33,21 @@ PY="${OAK_PY:-/home/jetson/oak-venv/bin/python}"
 LOG="${XDG_STATE_HOME:-$HOME/.local/state}/wildlife/oak.log"
 mkdir -p "$(dirname "$LOG")"
 
-CONF="${CONF:-0.5}"
+# Deliberately NOT defaulted: an unset CONF leaves the per-class thresholds in
+# classes.py in charge. Defaulting it to 0.5 (as this did) silently collapsed
+# the whole table back to one global number.
+CONF="${CONF:-}"
+MODEL="${MODEL:-}"
+SHAVES="${SHAVES:-}"
 MIN_DIST="${MIN_DIST:-0.3}"
 MAX_DIST="${MAX_DIST:-35}"
 SAVE_DIR="${SAVE_DIR:-$HOME/Pictures/wildlife}"
+
+# Build the optional flags once, so every call site stays readable.
+OPTS=()
+[ -n "$CONF" ]   && OPTS+=(--conf "$CONF")
+[ -n "$MODEL" ]  && OPTS+=(--model "$MODEL")
+[ -n "$SHAVES" ] && OPTS+=(--shaves "$SHAVES")
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -88,7 +104,8 @@ case "${1:-detect}" in
         echo "OAK wildlife detection — Ctrl+C to stop.  log: $LOG"
         # No exec here: the pipeline into tee needs this shell to stay alive.
         "$PY" "$HERE/oak_wildlife.py" \
-            --conf "$CONF" --min-dist "$MIN_DIST" --max-dist "$MAX_DIST" \
+            "${OPTS[@]+"${OPTS[@]}"}" \
+            --min-dist "$MIN_DIST" --max-dist "$MAX_DIST" \
             --save-dir "$SAVE_DIR" 2>&1 | tee -a "$LOG"
         exit "${PIPESTATUS[0]}"
         ;;
@@ -121,11 +138,11 @@ case "${1:-detect}" in
         shift
         [ $# -ge 1 ] || die "usage: $0 images <directory-or-image> [extra args]"
         check_free
-        run "$PY" "$HERE/test_detector.py" "$@"
+        run "$PY" "$HERE/test_detector.py" "${OPTS[@]+"${OPTS[@]}"}" "$@"
         ;;
     classes)
         check_free
-        run "$PY" "$HERE/oak_wildlife.py" --list-classes
+        run "$PY" "$HERE/oak_wildlife.py" "${OPTS[@]+"${OPTS[@]}"}" --list-classes
         ;;
     status)
         t="$(tracker_pid)"; m="$(mine_pid)"

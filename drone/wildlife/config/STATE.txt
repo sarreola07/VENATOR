@@ -39,4 +39,10 @@ usb:         480 Mbps (USB 2.0) - move to the USB 3.0 hub
 == open items ==
 - IR-CUT GPIO wire not fitted (40-pin BOARD pin 7); day mode still IR-tinted
 - IR illuminator boards not connected; no usable night image
-- detection model is COCO yolov6-nano: no deer/hog/coyote/armadillo classes
+- animal recall from the air is unmeasured. The detector is now MegaDetector V6
+  (wildlife-megadetector:mdv6-yolov10-c), which beat the old COCO yolov6-nano on
+  every species in ~/Pictures/testset/ - but that is all ground-level imagery
+  and this is a downward-looking drone. Needs field frames at 15/25/35 m AGL
+  before any recall claim.
+- wild turkey reads as "person" at 71%; depends on the metric-extent gate
+  (1.2-2.2 m by stereo Z) which is not written yet

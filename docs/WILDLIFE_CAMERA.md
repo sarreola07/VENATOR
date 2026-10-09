@@ -116,25 +116,77 @@ controllable (see the module README), and they reach roughly 5–10 m.
 
 ## Detection model
 
-Currently **`luxonis/yolov6-nano:r2-coco-512x288`** — pre-compiled for RVC2, so
-zero conversion risk. It exists to prove the pipeline, **not** as the final model.
+**`luxonis/wildlife-megadetector:mdv6-yolov10-c`** —
+[MegaDetector](https://microsoft.github.io/MegaDetector/) V6 compact, Microsoft
+AI for Good, 2.3 M parameters, trained on millions of camera-trap images.
+Classes are **animal, person, vehicle**, and `animal` is species-agnostic.
 
-COCO's entire animal vocabulary is `bird, cat, dog, horse, sheep, cow, elephant,
-bear, zebra, giraffe`. **No deer, fox, raccoon, boar, wolf, coyote, bobcat or
-moose.** For real wildlife it is structurally blind to most subjects, and it
-calls warehouse ceiling lights "traffic light" at ~20% confidence.
+**The conversion risk this document used to warn about is gone.** Luxonis
+publishes the model precompiled for RVC2, so `getModelFromZoo` fetches it on the
+Jetson with no ONNX export, no OpenVINO, no x86 host and no `pip`. The YOLOv10
+NMS-free head that was the stated risk is parsed natively (`subtype=yolov10`).
 
-**Target: [MegaDetector](https://microsoft.github.io/MegaDetector/) V6 compact
-(`MDV6-yolov10-c`)** — MIT licensed, Microsoft AI for Good, used in 80+
-conservation programs. 2.3 M parameters (~2% of v5's 139.9 M) at comparable
-accuracy, explicitly aimed at edge and solar field units. Classes are **animal,
-person, vehicle**, and `animal` is species-agnostic. It is trained on real
-camera-trap imagery, so it survives night/IR, motion blur, occlusion and
-distance, where COCO models fall apart.
+**Licence.** VENATOR's own code is MIT. This model variant is reported by the
+Luxonis zoo as **AGPL-3.0** (the YOLOv10/Ultralytics lineage), though
+Microsoft's model card text says MIT. It is **not vendored in this repo** — it is
+fetched at runtime into `~/oak-venv/zoo-cache/`, so nothing AGPL is
+redistributed here and the MIT licence on this code stands. If a permissive
+default matters for how this gets published, the MDV6 family also ships YOLOv9
+and RT-DETR variants under MIT/Apache-2.0, and `--model` switches to one in a
+single flag — but note the Luxonis zoo currently publishes only this one variant
+(`versions: 1`), so another would mean going back to the conversion path.
 
-Conversion (ONNX → OpenVINO IR → `.blob`) is the open risk: RVC2 runs an older
-OpenVINO than YOLOv10 targets. Fallback order: `MDV6-yolov10-c` →
-`MDV6-yolov9-c` → MegaDetector v5 (YOLOv5-based, the best-trodden path to blob).
+Measured on this OAK, same pipeline as `oak_wildlife.py`, FAST_ACCURACY:
+
+| | yolov6-nano (previous) | **MegaDetector V6** |
+|---|---|---|
+| Classes | 80 COCO | animal / person / vehicle |
+| Input | `[1,3,288,512]` NCHW | identical, same preprocessing |
+| Inference | 33.3 ms | 65.0 ms |
+| Ceiling | ≥30 fps | **15.4 fps** (holds 10 fps, 53% headroom) |
+
+Because the input shape and preprocessing are identical, `--model` switches
+between them with no other change.
+
+### Why it replaced COCO, measured on `~/Pictures/testset/`
+
+COCO's animal vocabulary is `bird, cat, dog, horse, sheep, cow, elephant, bear,
+zebra, giraffe` — no deer, hog, coyote, bobcat, javelina or armadillo. The
+failure is not merely absence, it is **confident error**:
+
+| Image | yolov6-nano (COCO) | MegaDetector V6 |
+|---|---|---|
+| `deer.jpg` | **nothing detected** | animal 76% |
+| `hog.jpg` | **`bird` ×6 up to 86%**, `bear` 76%, `sheep` 40% | animal 87% (one box) |
+| `javelina.jpg` | `sheep` 70%, `bear` 31% | animal 88% |
+| `coyote.jpg` | `dog` 83% | animal 94% |
+| `bobcat.jpg` | `cat` 67% | animal 91% |
+| `armadillo.jpg` | `dog` 47% | animal 82%, 67% |
+| `cattle.jpg` | `cow` ×4 | animal ×8 (whole herd) |
+| `turkey.jpg` | `person` 77% | `person` 71% |
+| **Totals** | **7/8 images, 1 miss** | **8/8 images** |
+
+A feral hog read as `bird` six times at up to 86% confidence is the clearest
+case: no confidence threshold can fix that, only a different model. Note also
+that COCO found half the herd MegaDetector did, which matters for counting.
+
+On the 89 bench frames in `~/Pictures/wildlife` at the old global 0.5 threshold,
+yolov6-nano produced 26 detections of which **25 were `traffic light` at 61%
+mean confidence** — warehouse ceiling lights. With MegaDetector plus the
+per-class policy in `drone/wildlife/classes.py`, the same set yields **2**.
+
+**Known false positive, both models:** a wild turkey reads as `person` at
+71–77%. Deliberately not fixed by raising the `person` threshold, which would
+cost real person recall; it is filtered downstream by the metric-extent gate
+(a person is 1.2–2.2 m by stereo Z, a turkey ~0.6 m). See `classes.py`.
+
+**Still unproven: recall from the air.** Everything above is ground-level
+imagery. MegaDetector is trained on camera-trap photos and this is a
+downward-looking drone, so these numbers say it runs and discriminates, not
+that it sees from altitude. That needs field imagery at 15/25/35 m AGL. At
+512×288 a javelina spans ~22 px at 15 m and ~11 px at 30 m against a YOLO
+stride-8 head wanting 16–20 px, so **fly wildlife at 15–25 m** and save
+altitude for person-sized targets.
 
 ## Troubleshooting
 
@@ -185,17 +237,63 @@ the pipeline to `NULL`, which is what gives Argus a clean stream-off.
 
 ### OAK gotchas
 
-**SHAVE budget.** The MyriadX has 16 SHAVE cores; the zoo `yolov6-nano` blob is
-compiled for 8. Stereo depth, ImageManip and the spatial calculator claim the
-rest, so richer stereo presets leave only 7 free and the pipeline refuses to
-start:
+**SHAVE budget — a knob, not a wall.** The MyriadX has 16 SHAVE cores. Stereo
+depth, ImageManip and the spatial calculator claim some, and richer stereo
+presets leave only 7 free, so a network compiled for 8 refuses to start:
 
 ```
 Blob compiled for 8 shaves, but only 7 are available
 ```
 
-Measured on this device: `DEFAULT` and `ROBOTICS` **fail**; `FAST_ACCURACY` and
-`FAST_DENSITY` **work**. `FAST_ACCURACY` is the default.
+**But that is a tunable, which this document previously got wrong.** The zoo
+ships a **superblob**, not a blob — it recompiles host-side for any shave count.
+Measured on this device at 7 W, fps at 30 fps requested, `SHAVE` = refused to
+start:
+
+| preset | default | 4 | 5 | 6 | 8 |
+|---|---|---|---|---|---|
+| `FAST_ACCURACY` | 15.3 | 19.7 | **22.1** | 13.4 | 15.4 |
+| `FAST_DENSITY` | 15.4 | 19.6 | **22.2** | 13.4 | 15.4 |
+| `DEFAULT` | `SHAVE` | 11.5 | 14.1 | 12.9 | `SHAVE` |
+| `ROBOTICS` | `SHAVE` | 11.5 | 14.2 | 12.9 | `SHAVE` |
+
+Four conclusions, all of which overturn something this document used to say:
+
+1. **`--shaves 5` is the default now** (`DEFAULT_SHAVES` in `oak_wildlife.py`).
+   22.3 fps against 15.3 for the archive default, confirmed over 18 s windows —
+   **45% more throughput, 65.2 ms → 44.9 ms per inference, for one flag.**
+2. **It is not monotonic.** 6 shaves is worse than 4. Stage count does not
+   predict it either — 6 compiles to *fewer* stages than 5 and still runs
+   slower — so this is SHAVE/CMX tiling behaviour that must be measured per
+   model, not reasoned about. Re-run the sweep when the model changes.
+3. **`DEFAULT` and `ROBOTICS` do work**, at 4–6 shaves. The old claim that they
+   fail outright was true only at the archive's default count. They cost ~36% of
+   the frame rate (14.1 vs 22.1 at 5 shaves) and still clear a 10 fps target.
+4. **`FAST_ACCURACY` and `FAST_DENSITY` are identical in throughput**, so choose
+   between them on depth quality alone. `FAST_ACCURACY` stays the default
+   because ranging one distinct animal rewards depth accuracy over density.
+
+The 45% headroom this buys is what makes a second network — a species
+classifier on cropped tracks — plausible later.
+
+### Power, measured
+
+VDD_IN on the INA3221, 1 s samples, in 7 W mode (`nvpmodel -m 1`, 4 cores
+online, clamped to 960 MHz):
+
+| | mean | peak |
+|---|---|---|
+| Baseline, desktop session running | 6.32 W | 6.72 W |
+| Detector at 10 fps on top of that | 7.11 W | 7.44 W |
+| **Detector's marginal cost** | **+0.79 W** | |
+
+**+0.79 W is the number that transfers.** The 6.32 W baseline is *not* a drone
+baseline — it was measured with Xorg, GNOME Shell and a desktop app consuming
+most of the CPU, so a headless airframe starts far lower. Note also that 7 W
+nvpmodel mode is an SoC/clock budget, not a VDD_IN ceiling: VDD_IN includes the
+OAK drawing bus power, which is why the board reads above 7 W while the mode is
+honoured. Detector throughput is identical at 7 W and 15 W (15.38 vs 15.37 fps,
+65.0 ms both) because inference never touches the Jetson.
 
 **The passthrough frame is `BGR888p` — planar.** `getFrame()` returns a 2-D
 `(h*3, w)` array of three stacked B/G/R planes, not `(h, w, 3)`. Indexing it as
