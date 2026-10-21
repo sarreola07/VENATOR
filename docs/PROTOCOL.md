@@ -1,7 +1,8 @@
 # Venator C2 protocol (v1)
 
 The command-and-control protocol between the **laptop client** (`ground/gcs_client.py`)
-and the **Jetson server** (Phase 4). Defined once in [`radio/protocol.py`](../radio/protocol.py)
+or the **handheld remote** (`radio/firmware/Venator_Remote`) and the **Jetson server**
+(`drone/c2_server.py`). Defined once in [`radio/protocol.py`](../radio/protocol.py)
 and imported by both, so they can never drift.
 
 ## Wire format
@@ -32,7 +33,7 @@ Example:
 | `WP` | client → jetson | `i,lat,lon,alt` | one waypoint |
 | `WP_END` | client → jetson | — | end of upload |
 | `PING`/`PONG` | either | — | liveness |
-| `ABORT` | client → jetson | — | stop current mission |
+| `ABORT` | client → jetson | — | in flight: the mission's failsafe now (RTL; the hover lands). Before `CONFIRM`: cancel the prepared flight |
 | `LOG` | jetson → client | `text` | line to display |
 | `STATUS` | jetson → client | `armed,gps,batt` | lite status |
 
@@ -48,6 +49,12 @@ single message would exceed the ~255 B LoRa / 240 B firmware limit.
 **Run a mission:** `RUN{id}` → `ACK{accepted}`; if accepted, a later `DONE`.
 Flight missions are rejected (`accepted:false, reason`) until PX4's own checks
 pass (e.g. a GPS fix).
+
+**Launch a flight:** flights (`RUN 4`, `5`, `8`, and `FLY_REQ`) answer
+`ACK{accepted:true, confirm_required:true}` and arm nothing. A second message,
+`CONFIRM`, launches it. `ABORT` instead cancels it, and a flight not
+confirmed within 60 s lapses by itself, so a stray `CONFIRM` later launches
+nothing.
 
 **Waypoint upload:** `WP_BEGIN{count}` → `WP{i,lat,lon,alt}` × N (each ACKed) →
 `WP_END` → `ACK{uploaded,rejected}`. The Jetson validates coordinates, builds a

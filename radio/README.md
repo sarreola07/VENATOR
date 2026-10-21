@@ -11,6 +11,7 @@ of every link in this repo speak what is defined here.
 | `phone_relay.py` | A chat page in a browser; each message crosses the radio and is confirmed by the far end. |
 | `listener.py` | Minimal serial listener, used by the mission menu to receive LoRa commands. |
 | `firmware/` | The sketch on the Heltec sticks — see [firmware/README.md](firmware/README.md). |
+| `firmware/Venator_Remote/` | The handheld remote (WiFi LoRa 32 V3 + rotary encoder): motor tests and a 3 ft hover with no laptop — see [its README](firmware/Venator_Remote/README.md). |
 
 ## The hardware
 

@@ -36,8 +36,8 @@ from radio import protocol as p
 from radio.serial_link import SerialLink
 
 MAX_ALT_M = 50.0        # reject uploaded waypoints above this relative altitude
-LINK_LOSS_S = 4.0       # in flight, no client ping for this long -> RTL failsafe
-FLIGHT_MAX_S = 600.0    # hard cap on a monitored flight -> RTL
+LINK_LOSS_S = 4.0       # in flight, no client ping for this long -> failsafe (RTL; hover: LAND)
+FLIGHT_MAX_S = 600.0    # hard cap on a monitored flight -> same failsafe
 STATUS_INTERVAL_S = 1.0 # how often to push in-flight status to the client
 
 # --- Mission 1: hover & detect ---
@@ -55,6 +55,22 @@ FOLLOW_FWD_MPS = 0.5    # forward/back speed
 FOLLOW_YAW_RPS = 0.35   # yaw rate (rad/s, ~20 deg/s)
 CAMERA_LOSS_S = 1.0     # no person for this long -> hover in place (don't drift)
 
+# --- Hover 3 ft (the LoRa remote's flight) ---
+# Takeoff to 3 ft, hold, land in place. Every failsafe LANDs instead of RTL:
+# hovering over the launch point, PX4's RTL would first climb to RTL_DESCEND_ALT
+# / RTL_RETURN_ALT (10 m / 30 m on this vehicle) -- the opposite of what a 3 ft
+# test wants. Height is baro-based until the downward lidar is fitted, so expect
+# tens of centimetres of drift at this altitude; fly it with the RC kill switch
+# in hand.
+HOVER3_ALT_M = 0.91     # 3 ft
+HOVER3_TIME_S = 10.0    # hold this long, then land
+HOVER3_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
+
+# A flight that was prepared (ACK confirm_required) but not CONFIRMed within
+# this long lapses, so a confirm screen walked away from -- or a cancel lost on
+# the air -- can never be launched later by a stray CONFIRM.
+PENDING_CONFIRM_S = 60.0
+
 
 def find_fc_device(default="/dev/ttyACM0"):
     """Locate the Pixhawk robustly, so a USB replug (ttyACM0->ttyACM1) can't
@@ -66,7 +82,18 @@ def find_fc_device(default="/dev/ttyACM0"):
         if matches:
             return matches[0]
     acms = sorted(glob.glob("/dev/ttyACM*"))
-    return acms[0] if acms else default
+    if acms:
+        return acms[0]
+    # macOS / Windows (a laptop standing in for the Jetson): no by-id, no
+    # ttyACM. The 6X enumerates as "PX4 FMU v6X.x" (/dev/cu.usbmodem01 on a Mac).
+    try:
+        from serial.tools import list_ports
+        for pi in list_ports.comports():
+            if any(k in (pi.description or "") for k in ("PX4", "FMU", "Pixhawk")):
+                return pi.device
+    except ImportError:
+        pass
+    return default
 
 
 CP210X_VID = 0x10C4     # Heltec V3 onboard USB-serial (Silicon Labs CP2102)
@@ -135,7 +162,7 @@ class MockFC:
     def has_gps_fix(self):
         return self._gps
 
-    def run_mission(self, mid, motors=6):
+    def run_mission(self, mid, motors=4):
         time.sleep(0.1)
         return True, "ok (mock)"
 
@@ -339,11 +366,13 @@ class RealFC:
                 "alt": getattr(self, "_alt", 0.0),
                 "mode": getattr(self, "_mode", "?")}
 
-    def run_mission(self, mid, motors=6):
-        if mid == 1:
-            missions.mission_1(self.master, motors)
-        elif mid == 2:
-            missions.mission_2(self.master, motors)
+    def run_mission(self, mid, motors=4):
+        # Pass a PX4 refusal on, so the operator never sees "done" while nothing
+        # spun. The FC's own reason is printed in the server log.
+        if mid in (1, 2):
+            test = missions.mission_1 if mid == 1 else missions.mission_2
+            if not test(self.master, motors):
+                return False, "PX4 refused the motor test (safety? battery? armed?)"
         elif mid == 3:
             missions.mission_3(self.master, require_confirm=False)
         else:
@@ -451,14 +480,16 @@ class RealFC:
 # The C2 server: protocol handling + mission dispatch.
 # --------------------------------------------------------------------------
 class C2Server:
-    def __init__(self, fc, props_off=False, motors=6, log=print):
+    def __init__(self, fc, props_off=False, motors=4, log=print):
         self.fc = fc
         self.props_off = props_off
         self.motors = motors
         self.log = log
         self._wp = []
-        # A validated flight waiting for CONFIRM: None / "waypoints" / "mission1" / "mission2"
+        # A validated flight waiting for CONFIRM: None / "waypoints" / "mission1" /
+        # "mission2" / "hover", and when it was prepared (it lapses, see confirm()).
         self._pending = None
+        self._pending_at = 0.0
 
     def menu(self):
         return [
@@ -477,6 +508,9 @@ class C2Server:
             # operator checks GPS/battery/sensor readiness from the laptop.
             {"id": 7, "name": "Drone status (GPS / battery / sensors)",
              "action": "diagnostics"},
+            # The LoRa remote's flight (radio/firmware/Venator_Remote).
+            {"id": 8, "name": "Hover 3 ft, then land", "needs": "props_on",
+             "gps": True, "fly": "hover"},
         ]
 
     def _validate(self, mid):
@@ -524,9 +558,36 @@ class C2Server:
             return [p.message(p.ACK, seq, uploaded=up, rejected=rej, note=note)]
         if t == p.FLY_REQ:
             ok, reason = self._validate_fly()
-            self._pending = "waypoints" if ok else None
+            self._prepare("waypoints" if ok else None)
             return [p.message(p.ACK, seq, accepted=ok, confirm_required=ok, reason=reason)]
+        if t == p.ABORT:
+            # In flight, ABORT is MonitoredFlight's. Here it is a cancelled
+            # confirm screen: drop the prepared flight so nothing can launch it.
+            if self._pending is None:
+                return []
+            self.log(f"{self._pending} cancelled before CONFIRM")
+            self._prepare(None)
+            return [p.message(p.ACK, seq, accepted=True, reason="cancelled — nothing will launch")]
         return []
+
+    def _prepare(self, kind):
+        """Arm the CONFIRM step for `kind` (or clear it with None)."""
+        self._pending = kind
+        self._pending_at = time.time()
+
+    def confirm(self, link, send):
+        """CONFIRM received: launch the prepared flight, unless it has lapsed."""
+        if self._pending and time.time() - self._pending_at > PENDING_CONFIRM_S:
+            self.log(f"{self._pending} lapsed — CONFIRM came {PENDING_CONFIRM_S:g}+ s late")
+            self._pending = None
+        if self._pending == "mission1":
+            self.run_mission1(link, send)
+        elif self._pending == "mission2":
+            self.run_mission2(link, send)
+        elif self._pending == "hover":
+            self.run_hover(link, send)
+        else:
+            self.run_flight(link, send)     # declines unless "waypoints" is pending
 
     def _validate_fly(self):
         """Safety gate for arming and flying the uploaded mission."""
@@ -573,11 +634,14 @@ class C2Server:
             return
         item = next((i for i in self.menu() if i["id"] == mid), {})
         fly = item.get("fly")
-        if fly in ("mission1", "mission2"):
-            self._pending = fly
+        if fly in ("mission1", "mission2", "hover"):
+            self._prepare(fly)
             if fly == "mission1":
                 reason = ("Mission 1: takeoff to {:g} m, hover {:d} s + detect people, "
                           "land in place. Confirm to launch.".format(HOVER_ALT_M, int(HOVER_TIME_S)))
+            elif fly == "hover":
+                reason = ("Hover: takeoff to {:g} m (3 ft), hold {:d} s, land in place. "
+                          "Confirm to launch.".format(HOVER3_ALT_M, int(HOVER3_TIME_S)))
             else:
                 reason = ("Mission 2: takeoff to {:g} m, then FOLLOW the person "
                           "(keep {:g} m). Send STOP to land. Confirm to launch.".format(
@@ -621,6 +685,28 @@ class C2Server:
                 pass
         return latest
 
+    def _arm_and_takeoff(self, send, mission_id, title, alt_m):
+        """Arm and start AUTO.TAKEOFF to alt_m. On a refusal, report it (DONE)
+        and return False -- with PX4's own words, since in the field nobody can
+        see the drone's console."""
+        send(p.message(p.LOG, 0, text=f"{title}: arming"))
+        self.log(f"{mission_id.upper()}: arming")
+        try:
+            if not self.fc.arm():
+                why = getattr(self.fc, "arm_detail", "") or "no reason reported"
+                send(p.message(p.LOG, 0, text="PX4 refused to arm: " + why))
+                send(p.message(p.DONE, 0, id=mission_id, result="FAILED: arm rejected — " + why))
+                return False
+            send(p.message(p.LOG, 0, text="armed — takeoff to {:g} m".format(alt_m)))
+            # AUTO.TAKEOFF climbs to MIS_TAKEOFF_ALT, so set it or PX4 uses its
+            # own default height instead of the one this mission intends.
+            self.fc.set_takeoff_alt(alt_m)
+            self.fc.set_flight_mode("TAKEOFF")
+        except Exception as exc:
+            send(p.message(p.DONE, 0, id=mission_id, result=f"FAILED: {exc}"))
+            return False
+        return True
+
     def run_mission1(self, link, send):
         """Mission 1: arm -> takeoff -> hover HOVER_TIME_S while reporting detected
         people -> land in place. Same link-loss RTL / abort failsafes as run_flight."""
@@ -630,21 +716,9 @@ class C2Server:
         self._pending = None
         cam = self._open_camera()
 
-        send(p.message(p.LOG, 0, text="Mission 1: arming"))
-        self.log("MISSION1: arming")
-        try:
-            if not self.fc.arm():
-                why = getattr(self.fc, "arm_detail", "") or "no reason reported"
-                send(p.message(p.LOG, 0, text="PX4 refused to arm: " + why))
-                send(p.message(p.DONE, 0, id="mission1", result="FAILED: arm rejected — " + why))
-                return
-            send(p.message(p.LOG, 0, text="armed — takeoff to {:g} m".format(HOVER_ALT_M)))
-            # AUTO.TAKEOFF climbs to MIS_TAKEOFF_ALT, so set it or PX4 uses its
-            # own default height instead of the one this mission intends.
-            self.fc.set_takeoff_alt(HOVER_ALT_M)
-            self.fc.set_flight_mode("TAKEOFF")
-        except Exception as exc:
-            send(p.message(p.DONE, 0, id="mission1", result=f"FAILED: {exc}"))
+        if not self._arm_and_takeoff(send, "mission1", "Mission 1", HOVER_ALT_M):
+            if cam:
+                cam.close()
             return
 
         hover_start = None
@@ -710,21 +784,9 @@ class C2Server:
         self._pending = None
         cam = self._open_camera()
 
-        send(p.message(p.LOG, 0, text="Mission 2: arming"))
-        self.log("MISSION2: arming")
-        try:
-            if not self.fc.arm():
-                why = getattr(self.fc, "arm_detail", "") or "no reason reported"
-                send(p.message(p.LOG, 0, text="PX4 refused to arm: " + why))
-                send(p.message(p.DONE, 0, id="mission2", result="FAILED: arm rejected — " + why))
-                return
-            send(p.message(p.LOG, 0, text="armed — takeoff to {:g} m".format(HOVER_ALT_M)))
-            # AUTO.TAKEOFF climbs to MIS_TAKEOFF_ALT, so set it or PX4 uses its
-            # own default height instead of the one this mission intends.
-            self.fc.set_takeoff_alt(HOVER_ALT_M)
-            self.fc.set_flight_mode("TAKEOFF")
-        except Exception as exc:
-            send(p.message(p.DONE, 0, id="mission2", result=f"FAILED: {exc}"))
+        if not self._arm_and_takeoff(send, "mission2", "Mission 2", HOVER_ALT_M):
+            if cam:
+                cam.close()
             return
 
         offboard = False
@@ -762,6 +824,48 @@ class C2Server:
                "LINKLOSS": "landed (link-loss RTL)"}.get(flight.ending, "landed & disarmed")
         send(p.message(p.DONE, 0, id="mission2", result=how))
         self.log("MISSION2: landed & disarmed")
+
+    def run_hover(self, link, send):
+        """Hover 3 ft: arm -> takeoff to HOVER3_ALT_M -> hold HOVER3_TIME_S ->
+        land in place. STOP lands early. Link loss, ABORT and the time cap all
+        LAND rather than RTL -- see HOVER3_ALT_M."""
+        if self._pending != "hover":
+            send(p.message(p.ACK, 0, accepted=False, reason="no confirmed flight pending"))
+            return
+        self._pending = None
+        if not self._arm_and_takeoff(send, "hover", "Hover", HOVER3_ALT_M):
+            return
+
+        climb_start = time.time()
+        hold_start = None
+        flight = MonitoredFlight(self, link, send, "hover", "HOVER",
+                                 allow_stop=True, failsafe="LAND")
+        for now, st in flight.ticks():
+            if not flight.flying:
+                continue
+            if flight.phase == "takeoff":
+                if st["alt"] >= HOVER3_ALT_M * 0.9:
+                    flight.phase = "hover"
+                    hold_start = now
+                    send(p.message(p.LOG, 0, text="at {:g} m — holding {:d} s".format(
+                        HOVER3_ALT_M, int(HOVER3_TIME_S))))
+                elif now - climb_start > HOVER3_CLIMB_S:
+                    flight.phase = "land"
+                    self.fc.set_flight_mode("LAND")
+                    send(p.message(p.LOG, 0, text="never reached {:g} m — landing".format(
+                        HOVER3_ALT_M)))
+            elif flight.phase == "hover" and now - hold_start > HOVER3_TIME_S:
+                flight.phase = "land"
+                self.fc.set_flight_mode("LAND")
+                send(p.message(p.LOG, 0, text="hold complete — landing in place"))
+
+        if flight.timed_out:
+            send(p.message(p.DONE, 0, id="hover", result="time cap -> LAND"))
+            return
+        how = {"STOP": "landed (stopped early)", "ABORT": "landed (aborted)",
+               "LINKLOSS": "landed (link lost)"}.get(flight.ending, "landed & disarmed")
+        send(p.message(p.DONE, 0, id="hover", result=how))
+        self.log("HOVER: " + how)
 
     def run_flight(self, link, send):
         """CONFIRM received: arm + AUTO.MISSION, then monitor with a link-loss
@@ -802,10 +906,11 @@ class C2Server:
 class MonitoredFlight:
     """Everything that must be true on every tick of a flight, in one place.
 
-    The three missions differ in what they ask the aircraft to do. They do not
-    differ in how a flight is watched: answer PINGs, honour ABORT, come home if
-    the link goes quiet, push a status heartbeat, stop when it disarms, and give
-    up at the time cap. That was written out three times, which is how failsafes
+    The missions differ in what they ask the aircraft to do. They do not differ
+    in how a flight is watched: answer PINGs, honour ABORT, fail safe if the
+    link goes quiet (RTL, or LAND where RTL would climb), push a status
+    heartbeat, stop when it disarms, and give up at the time cap. That was
+    written out three times, which is how failsafes
     drift apart. This repo has already paid for the same mistake once -- the
     serial transport was copied three times and grew three different bugs.
 
@@ -822,11 +927,15 @@ class MonitoredFlight:
     run time, not captured, because the tests set them.
     """
 
+    # What each failsafe mode does, as the operator reads it on the link.
+    _FAILSAFE_TEXT = {"RTL": "returning home", "LAND": "landing in place"}
+
     def __init__(self, server, link, send, mission_id, log_tag, *,
-                 allow_stop=False, tick=0.15, on_close=None):
+                 allow_stop=False, tick=0.15, on_close=None, failsafe="RTL"):
         self.server, self.link, self.send = server, link, send
         self.mission_id, self.log_tag = mission_id, log_tag
         self.allow_stop, self.tick, self.on_close = allow_stop, tick, on_close
+        self.failsafe = failsafe    # flight mode for ABORT, link loss and the time cap
         self.rtl = False
         self.ending = None          # None -> flying; "STOP"/"ABORT"/"LINKLOSS"
         self.phase = "takeoff"
@@ -845,11 +954,11 @@ class MonitoredFlight:
         if self.on_close:
             self.on_close()
 
-    def _go_home(self, why, text):
-        self.server.log(f"{self.log_tag}: {why}")
-        self.send(p.message(p.LOG, 0, text=text))
-        self.server.fc.set_flight_mode("RTL")
-        self.rtl = True
+    def _go_home(self, why):
+        self.server.log(f"{self.log_tag}: {why} -> {self.failsafe}")
+        self.send(p.message(p.LOG, 0, text=f"{why} — {self._FAILSAFE_TEXT[self.failsafe]}"))
+        self.server.fc.set_flight_mode(self.failsafe)
+        self.rtl = self.failsafe == "RTL"
 
     def ticks(self):
         while time.time() < self._deadline:
@@ -867,10 +976,10 @@ class MonitoredFlight:
                     self.server.fc.set_flight_mode("LAND")
                 elif mt == p.ABORT and self.ending is None:
                     self.ending = "ABORT"
-                    self._go_home("ABORT -> RTL", "ABORT — returning home")
+                    self._go_home("ABORT")
             if self.ending is None and now - self._last_ping > LINK_LOSS_S:
                 self.ending = "LINKLOSS"
-                self._go_home("LINK LOST -> RTL", "LINK LOST — returning home")
+                self._go_home("LINK LOST")
 
             st = self.server.fc.flight_state()
             yield now, st                      # the mission does its own work here
@@ -888,8 +997,8 @@ class MonitoredFlight:
 
         self.timed_out = True
         self._close()
-        self.server.log(f"{self.log_tag}: time cap reached -> RTL")
-        self.server.fc.set_flight_mode("RTL")
+        self.server.log(f"{self.log_tag}: time cap reached -> {self.failsafe}")
+        self.server.fc.set_flight_mode(self.failsafe)
 
 
 # --------------------------------------------------------------------------
@@ -925,12 +1034,7 @@ def serve(server, link, log=print):
         if t == p.RUN:
             server.run_and_report(msg, link.send)
         elif t == p.CONFIRM:
-            if server._pending == "mission1":
-                server.run_mission1(link, link.send)
-            elif server._pending == "mission2":
-                server.run_mission2(link, link.send)
-            else:
-                server.run_flight(link, link.send)
+            server.confirm(link, link.send)
         else:
             for reply in server.handle(msg):
                 link.send(reply)
@@ -982,7 +1086,8 @@ def main():
     ap.add_argument("--fc-device", default="auto",
                     help="Pixhawk serial port, or 'auto' to detect by stable ID")
     ap.add_argument("--fc-baud", type=int, default=115200)
-    ap.add_argument("--motors", type=int, default=6)
+    ap.add_argument("--motors", type=int, default=4,
+                    help="motor count (Holybro X500 V2 quad = 4)")
     ap.add_argument("--real", action="store_true",
                     help="connect the real Pixhawk (default is a safe mock FC)")
     # Props are ON by default: once the aircraft is in flight testing they stay

@@ -13,7 +13,7 @@ Missions:
 
 Usage:
     ./venv/bin/python missions.py
-    ./venv/bin/python missions.py --device /dev/ttyACM0 --motors 6
+    ./venv/bin/python missions.py --device /dev/ttyACM0 --motors 4
 """
 
 import argparse
@@ -126,18 +126,21 @@ def motor_test(master, motor, seconds, throttle):
 
 
 def mission_1(master, motors):
+    """True if every motor test was accepted by the FC."""
     print(f"\n{INFO} Mission 1: each motor for {MOTOR_TEST_SECONDS}s at "
           f"{MOTOR_TEST_THROTTLE}% throttle, one after another.")
     for m in range(1, motors + 1):
         print(f"{INFO} Motor {m}/{motors} ...")
         if not motor_test(master, m, MOTOR_TEST_SECONDS, MOTOR_TEST_THROTTLE):
             print(f"{WARN} Stopping. (Is the safety switch pressed? Battery connected?)")
-            return
+            return False
         time.sleep(MOTOR_TEST_SECONDS + 1)
     print(f"{PASS} Mission 1 complete — all {motors} motors tested.")
+    return True
 
 
 def mission_2(master, motors):
+    """True if every motor test was accepted by the FC."""
     print(f"\n{INFO} Mission 2: all {motors} motors together for "
           f"{MOTOR_TEST_SECONDS}s at {MOTOR_TEST_THROTTLE}% throttle.")
     ok = True
@@ -145,9 +148,10 @@ def mission_2(master, motors):
         ok &= motor_test(master, m, MOTOR_TEST_SECONDS, MOTOR_TEST_THROTTLE)
     if not ok:
         print(f"{WARN} Some motors were rejected. (Safety switch? Battery?)")
-        return
+        return False
     time.sleep(MOTOR_TEST_SECONDS + 1)
     print(f"{PASS} Mission 2 complete.")
+    return True
 
 
 def wait_altitude(master, target_m, timeout=30):
@@ -435,7 +439,7 @@ def main():
     parser = argparse.ArgumentParser(description="Pixhawk bench-test missions")
     parser.add_argument("--device", default="/dev/ttyACM0")
     parser.add_argument("--baud", type=int, default=115200)
-    parser.add_argument("--motors", type=int, default=6, help="motor count (hexarotor = 6)")
+    parser.add_argument("--motors", type=int, default=4, help="motor count (X500 V2 quad = 4)")
     args = parser.parse_args()
 
     print("=" * 52)

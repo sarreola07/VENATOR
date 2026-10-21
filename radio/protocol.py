@@ -25,7 +25,8 @@ WP        = "WP"         # client -> jetson : one waypoint {i,lat,lon,alt}
 WP_END    = "WP_END"     # client -> jetson : end of waypoint upload
 PING      = "PING"       # either way : liveness check
 PONG      = "PONG"       # either way : liveness reply
-ABORT     = "ABORT"      # client -> jetson : emergency — return home (RTL) now
+ABORT     = "ABORT"      # client -> jetson : in flight: failsafe now (RTL; hover: LAND)
+                         #                    before CONFIRM: cancel the prepared flight
 LOG       = "LOG"        # jetson -> client : a text line to show
 STATUS    = "STATUS"     # jetson -> client : lite status (armed, alt, mode)
 FLY_REQ   = "FLY_REQ"    # client -> jetson : request to arm + fly uploaded mission

@@ -1,5 +1,9 @@
 # LoRa firmware (Heltec Wireless Stick V3)
 
+> The handheld remote (a WiFi LoRa 32 V3 with a rotary encoder) has its own
+> sketch and notes: [Venator_Remote/README.md](Venator_Remote/README.md). It talks
+> to a stick running this transceiver; the two must keep the same radio settings.
+
 ## What this is
 
 `LoRa_Transceiver/LoRa_Transceiver.ino` is a **half-duplex transparent bridge**:

@@ -10,6 +10,7 @@ Covers the paths that must not break before a field test:
   * Mission 1: takeoff -> hover + person detection -> land
   * Mission 2: takeoff -> OFFBOARD follow -> STOP -> land
   * link-loss -> RTL failsafe on both missions
+  * Hover 3 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
   * client tolerates corrupted menu packets instead of crashing
 """
 import json
@@ -270,6 +271,125 @@ def test_mission2():
           str(getattr(s.fc, "_last_vel", None)))
 
 
+# ---------------------------------------------------------------- hover 3 ft
+class ModeLogFC(srv.MockFC):
+    """MockFC that remembers every flight mode it was put in, and can be told
+    never to climb (a takeoff that stalls)."""
+
+    def __init__(self, gps=True, climbs=True):
+        super().__init__(gps=gps)
+        self.modes, self.climbs = [], climbs
+
+    def set_flight_mode(self, mode):
+        self.modes.append(mode)
+        return super().set_flight_mode(mode)
+
+    def flight_state(self):
+        st = super().flight_state()
+        if not self.climbs and st["armed"] and self._t_land is None:
+            st["alt"] = 0.1
+        return st
+
+
+def run_hover(ping_for=100.0, stop_at=None, climbs=True):
+    fc = ModeLogFC(climbs=climbs)
+    s = srv.C2Server(fc, props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+    link = FakeLink(ping_for=ping_for, stop_at=stop_at)
+    s.confirm(link, link.send)
+    return fc, out[-1], link
+
+
+def test_hover():
+    print("\n[Hover 3 ft: the LoRa remote's flight]")
+    srv.STATUS_INTERVAL_S = 0.25
+    hold_was, loss_was, climb_was = srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S
+    try:
+        srv.HOVER3_TIME_S = 1.0
+
+        # Gates: a remote with a knob must not be able to launch past these.
+        for gps, props_off, why in ((True, True, "props OFF"), (False, False, "no GPS")):
+            s = srv.C2Server(srv.MockFC(gps=gps), props_off=props_off)
+            out = []
+            s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+            check(f"hover refused: {why}", out[-1].get("accepted") is False,
+                  out[-1].get("reason", ""))
+            check(f"  and nothing is left pending ({why})", s._pending is None)
+
+        fc, ack, link = run_hover()
+        check("hover accepted only with a second confirmation",
+              ack.get("accepted") is True and ack.get("confirm_required") is True,
+              ack.get("reason", "")[:50])
+        check("PX4 told 3 ft (0.91 m)", getattr(fc, "_takeoff_alt", None) == 0.91,
+              f"MIS_TAKEOFF_ALT={getattr(fc, '_takeoff_alt', None)}")
+        check("phases takeoff -> hover -> land",
+              link.phases() == ["takeoff", "hover", "land"], str(link.phases()))
+        check("ends landed & disarmed", link.done() == "landed & disarmed", link.done())
+        check("never RTL (it would climb to RTL_DESCEND_ALT)", "RTL" not in fc.modes,
+              str(fc.modes))
+
+        srv.LINK_LOSS_S = 1.0
+        fc, _, link = run_hover(ping_for=0.5)
+        check("link loss lands in place, not RTL",
+              fc.modes[-1] == "LAND" and "RTL" not in fc.modes, str(fc.modes))
+        check("  and says so", any(t.startswith("LINK LOST — landing") for t in link.texts()),
+              str(link.texts()[-2:]))
+        check("  DONE names the cause", link.done() == "landed (link lost)", link.done())
+        srv.LINK_LOSS_S = loss_was
+
+        srv.HOVER3_TIME_S = 30.0
+        fc, _, link = run_hover(stop_at=1.0)
+        check("STOP from the remote lands early", link.done() == "landed (stopped early)",
+              link.done())
+
+        srv.HOVER3_CLIMB_S = 1.0
+        fc, _, link = run_hover(climbs=False)
+        check("a takeoff that never reaches 3 ft lands instead of waiting",
+              any("never reached" in t for t in link.texts()) and "LAND" in fc.modes,
+              str(link.texts()[-2:]))
+    finally:
+        srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S = hold_was, loss_was, climb_was
+
+    print("\n[confirm step: cancel and expiry]")
+    s = srv.C2Server(ModeLogFC(), props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+    r = s.handle(c2.message(c2.ABORT, 2))
+    check("ABORT before CONFIRM cancels the prepared flight",
+          s._pending is None and r and r[0].get("accepted") is True, str(r))
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("  so a later CONFIRM launches nothing",
+          not s.fc._armed and link.sent and link.sent[0].get("accepted") is False,
+          str(link.sent[:1]))
+
+    s.run_and_report(c2.message(c2.RUN, 3, id=8), out.append)
+    s._pending_at -= srv.PENDING_CONFIRM_S + 1
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("a CONFIRM after the window lapses launches nothing",
+          not s.fc._armed and s._pending is None, str(link.sent[:1]))
+    check("ABORT with nothing pending is ignored", s.handle(c2.message(c2.ABORT, 4)) == [])
+
+
+# ---------------------------------------------------------------- motor tests on the real FC
+def test_motor_refusal():
+    print("\n[motor test refusal reaches the operator]")
+    import types
+    real = srv.missions          # None here: tests import drone.c2_server as a package
+    try:
+        fc = srv.RealFC.__new__(srv.RealFC)     # no Pixhawk: skip connecting
+        fc.master = None
+        srv.missions = types.SimpleNamespace(mission_1=lambda m, n: False,
+                                             mission_2=lambda m, n: True)
+        ok, why = fc.run_mission(1, 4)
+        check("PX4 refusal -> not reported as done", ok is False and "refused" in why, why)
+        check("accepted test -> done", fc.run_mission(2, 4) == (True, "done"))
+    finally:
+        srv.missions = real
+
+
 # ---------------------------------------------------------------- client robustness
 def test_client_robustness():
     print("\n[client survives corrupted LoRa packets]")
@@ -311,6 +431,8 @@ if __name__ == "__main__":
     test_fly_gates()
     test_mission1()
     test_mission2()
+    test_hover()
+    test_motor_refusal()
     test_client_robustness()
     print("\n" + "=" * 52)
     if FAILURES:
