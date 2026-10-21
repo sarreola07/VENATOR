@@ -1,0 +1,33 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Field Mode (toggle)
+GenericName=Drone hotspot and camera GUI
+Comment=Turn the drone's own Wi-Fi and camera feed on or off. A phone joining VenatorDrone opens the camera automatically.
+Exec=gnome-terminal --title=Field Mode -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh toggle --pause
+Icon=__REPO__/assets/ai-camera.png
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;field;hotspot;wifi;camera;portal;drone;
+Actions=Status;On;Off;Url;Install;
+
+[Desktop Action Status]
+Name=What is running right now?
+Exec=gnome-terminal --title=Field Mode Status -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh status --pause
+
+[Desktop Action On]
+Name=Turn field mode ON (hotspot + camera)
+Exec=gnome-terminal --title=Field Mode ON -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh on --pause
+
+[Desktop Action Off]
+Name=Turn field mode OFF (rejoin normal Wi-Fi)
+Exec=gnome-terminal --title=Field Mode OFF -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh off --pause
+
+[Desktop Action Url]
+Name=Show the address to open on a phone
+Exec=gnome-terminal --title=Phone URL -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh url --pause
+
+[Desktop Action Install]
+Name=Install the boot services (start automatically)
+Exec=gnome-terminal --title=Install Field Mode -- env OAK_HOLD=1 __REPO__/deploy/field_mode.sh install --pause

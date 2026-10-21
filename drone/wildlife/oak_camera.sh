@@ -3,6 +3,8 @@
 #
 #   ./oak_camera.sh              # detect animals/people, print distance
 #   ./oak_camera.sh gui          # operator GUI for a phone, on :8080
+#   ./oak_camera.sh stop         # release the OAK (handles the boot service too)
+#   ./oak_camera.sh restart      # stop, then start the GUI
 #   ./oak_camera.sh view         # live view, auto day (colour) / night (mono)
 #   ./oak_camera.sh day|night    # force one mode
 #   ./oak_camera.sh calibrate    # AE readings, to tune the thresholds
@@ -84,8 +86,17 @@ Stop it with:  kill $m"
     # seconds in - the exact failure this function exists to prevent.
     local g; g="$(gui_pid)"
     if [ -n "$g" ]; then
+        # Once the GUI runs as a boot service, telling someone to kill the pid
+        # is wrong advice: systemd restarts it five seconds later and the
+        # device is busy again. Name the unit instead.
+        if systemctl is-active --quiet venator-gui.service 2>/dev/null; then
+            die "the operator GUI owns the OAK and runs as a boot service (pid $g).
+Stop it with:  sudo systemctl stop venator-gui
+It will come back on the next boot; 'sudo systemctl disable venator-gui'
+stops that too."
+        fi
         die "the operator GUI owns the OAK (pid $g).
-Stop it with:  kill $g"
+Stop it with:  $HERE/oak_camera.sh stop"
     fi
 }
 
@@ -168,10 +179,21 @@ case "${1:-detect}" in
         run "$PY" "$HERE/oak_wildlife.py" "${OPTS[@]+"${OPTS[@]}"}" --list-classes
         ;;
     status)
-        t="$(tracker_pid)"; m="$(mine_pid)"
+        # gui_pid was missing here, so this reported "OAK: free" while the
+        # operator GUI held the device - the one place where being wrong is
+        # actively misleading, because status is what you check before
+        # wondering why detect refuses to start.
+        t="$(tracker_pid)"; m="$(mine_pid)"; g="$(gui_pid)"
         [ -n "$t" ] && echo "OAK: owned by the flight person-tracker (pid $t)"
         [ -n "$m" ] && echo "OAK: owned by the wildlife detector (pid $m)"
-        [ -z "$t$m" ] && echo "OAK: free"
+        if [ -n "$g" ]; then
+            if systemctl is-active --quiet venator-gui.service 2>/dev/null; then
+                echo "OAK: owned by the operator GUI (pid $g, boot service venator-gui)"
+            else
+                echo "OAK: owned by the operator GUI (pid $g)"
+            fi
+        fi
+        [ -z "$t$m$g" ] && echo "OAK: free"
         usb=$(for d in /sys/bus/usb/devices/*/idVendor; do
                   [ "$(cat "$d" 2>/dev/null)" = "03e7" ] || continue
                   printf '%s Mbps' "$(cat "$(dirname "$d")/speed" 2>/dev/null)"
@@ -181,7 +203,36 @@ case "${1:-detect}" in
         # perfectly successful status report exit 1.
         if [ -n "${OAK_HOLD:-}" ]; then echo; read -r -p "Press Enter to close... " _ || true; fi
         ;;
+    stop)
+        # The unit first: killing the pid while systemd supervises it just
+        # invites a restart five seconds later.
+        if systemctl is-active --quiet venator-gui.service 2>/dev/null; then
+            echo "The GUI is a boot service; stopping the unit (asks for sudo)..."
+            sudo systemctl stop venator-gui.service \
+                && { echo "GUI stopped. It returns on the next boot."; exit 0; } \
+                || die "could not stop venator-gui.service"
+        fi
+        stopped=0
+        for p in "$(gui_pid)" "$(mine_pid)"; do
+            [ -n "$p" ] || continue
+            kill "$p" 2>/dev/null || true
+            # Give it a chance to unwind the pipeline cleanly before forcing.
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                kill -0 "$p" 2>/dev/null || break
+                sleep 0.3
+            done
+            kill -0 "$p" 2>/dev/null && kill -9 "$p" 2>/dev/null || true
+            echo "stopped pid $p"
+            stopped=1
+        done
+        [ "$stopped" = 0 ] && echo "Nothing to stop — the OAK is free."
+        ;;
+    restart)
+        "$0" stop
+        sleep 1
+        exec "$0" gui "${@:2}"
+        ;;
     *)
-        die "unknown command '$1' (expected detect, view, day, night, calibrate, info, test, images, classes or status)"
+        die "unknown command '$1' (expected detect, gui, stop, restart, view, day, night, calibrate, info, test, images, classes or status)"
         ;;
 esac

@@ -61,6 +61,16 @@ jobs:
       - name: Object tracking and dwell
         run: python3 tests/test_tracking.py
 
+      # No camera and no sockets: the request handler is driven in-process.
+      # Every captive-portal route sits ahead of the token check, because a
+      # phone probing for a login page has never seen the token — so the exact
+      # boundary is load-bearing. This pins that the portal exposes only a
+      # redirect, a JSON blob and a landing page, that everything else stays
+      # behind the gate, and that Apple's probe never receives the "Success"
+      # body that would stop the popup from appearing.
+      - name: Captive portal routes and boundary
+        run: python3 tests/test_captive.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 

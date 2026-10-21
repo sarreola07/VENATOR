@@ -59,8 +59,14 @@ fi
 # would fail the moment it is clicked.
 if [[ -x "${OAK_PY:-/home/jetson/oak-venv/bin/python}" ]]; then
     install_launcher "wildlife-oak.desktop"
+    # Field mode drives the same camera, so it shares the depthai requirement.
+    # This icon is the manual escape hatch from the boot services: the drone
+    # hosts its own Wi-Fi whenever no known network is in range, and this is
+    # how an operator gets back to the lab network without a terminal.
+    install_launcher "venator-field-mode.desktop"
 else
     echo "    skipped wildlife-oak.desktop (no depthai venv at /home/jetson/oak-venv)"
+    echo "    skipped venator-field-mode.desktop (same reason)"
 fi
 
 # A launcher from before drone/wildlife/ existed; its Exec paths are all dead.

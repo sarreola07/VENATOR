@@ -526,16 +526,37 @@ fetch(auth('/api/status')).then(r => r.json()).then(renderChips).catch(()=>{});
 """
 
 
+def js_literal(value):
+    """JSON, safe to paste between <script> tags.
+
+    json.dumps alone is NOT enough, which is easy to miss: it escapes quotes
+    and backslashes but leaves `<` and `>` alone, so a value containing
+    "</script>" still closes the script block. An HTML parser ends a script at
+    the first such sequence anywhere in the text, including inside what the
+    JavaScript grammar considers a string literal - so the markup after it is
+    parsed as markup.
+
+    `\\u003c` is a valid JavaScript string escape and decodes to the same
+    character, so the script sees the original value and the HTML parser never
+    sees a closing tag. `&` is escaped too, for the same reason in attribute
+    and HTML-entity contexts.
+    """
+    import json
+    return (json.dumps(value)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026"))
+
+
 def render(token, cfg, qualities):
     """The page, with the token and quality rungs baked in.
 
-    json.dumps for both: a token is hex and the rungs are numbers, but
-    interpolating anything into a <script> without encoding it is the kind of
-    shortcut that stops being safe the moment someone makes the token
-    configurable.
+    Both go through js_literal rather than bare interpolation: the token is hex
+    today and the rungs are numbers, but putting anything unencoded inside a
+    <script> is the kind of shortcut that stops being safe the moment the
+    format changes.
     """
-    import json
     return (PAGE
-            .replace("__TOKEN__", json.dumps(token))
-            .replace("__QUALITIES__", json.dumps(
+            .replace("__TOKEN__", js_literal(token))
+            .replace("__QUALITIES__", js_literal(
                 {k: [list(v[0]), v[1], v[2]] for k, v in qualities.items()})))

@@ -45,6 +45,7 @@ import argparse
 import collections
 import glob
 import hmac
+import ipaddress
 import json
 import os
 import re
@@ -64,6 +65,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import classes
 import gui_page
+import portal_page
 import ports
 import tracking
 from radio import auth
@@ -114,6 +116,56 @@ SSE_PING_S = 15.0
 RELIABLE_BACKLOG = 32
 
 EVIDENCE_NAME = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9]{4}\.jpg$")
+
+#: The name a phone reaches the drone by. Served over plain HTTP, which is not
+#: a shortcut: captive-portal probes are HTTP by design, no certificate
+#: authority will issue for an unregistered domain, and a self-signed cert
+#: would replace the automatic popup with a warning the captive sheet has no
+#: button to dismiss. See docs/FIELD_MODE.md.
+PORTAL_HOST = "venatordrone.com"
+
+#: Paths each operating system fetches to decide whether a network has
+#: internet. Answering any of them with something other than the expected
+#: success response is what makes the device say "this network has a login
+#: page" and open it. Ten of them because the set differs by OS and version,
+#: and a probe that goes unanswered produces a bare warning triangle rather
+#: than a portal.
+PROBE_PATHS = frozenset({
+    "/hotspot-detect.html",        # iOS, macOS
+    "/library/test/success.html",  # iOS, macOS - older
+    "/generate_204",               # Android, Chrome
+    "/gen_204",                    # Chrome - alternate
+    "/connecttest.txt",            # Windows NCSI
+    "/ncsi.txt",                   # Windows NCSI - older
+    "/redirect",                   # Windows NCSI redirect probe
+    "/success.txt",                # Firefox
+    "/canonical.html",             # Ubuntu, GNOME
+    "/nm-check.txt",               # NetworkManager connectivity check
+})
+
+#: Host header *names* that mean the request was aimed at us deliberately.
+#: Any other name arrived because the drone's DNS answered for something it
+#: does not own, so it gets redirected to the portal. IP addresses are handled
+#: separately by _is_ip() - they are never redirected, because nobody reaches
+#: an IP by accident.
+LOCAL_HOSTS = frozenset({
+    PORTAL_HOST, "localhost", "venator.drone",
+    socket.gethostname(), f"{socket.gethostname()}.local",
+})
+
+
+def _is_ip(host):
+    """True when the Host header is a bare address rather than a name.
+
+    An address was typed, bookmarked, or copied from the reachable-URL list
+    this server prints at startup - it cannot be the product of DNS
+    redirection, so it is always served directly.
+    """
+    try:
+        ipaddress.ip_address(host.strip("[]"))   # strip() for IPv6 literals
+        return True
+    except ValueError:
+        return False
 
 #: Seconds between attempts to reopen a camera that is not there. Matches
 #: camera_publisher.py's RECONNECT_WAIT_S, which solves the same problem.
@@ -447,6 +499,37 @@ def make_handler(hub, token, save_dir, cfg):
                     return v
             return ""
 
+        # --- captive portal helpers --------------------------------------
+
+        def _portal_url(self, path="/portal"):
+            """Where a probe gets sent.
+
+            The token rides in the URL because that is the only thing that
+            survives the handoff out of a captive sheet - iOS cookies set
+            inside it never reach Safari. The consequence is deliberate and
+            documented: once the portal hands the token to whoever joins the
+            network, the Wi-Fi password is the access control. See
+            docs/SECURITY.md.
+            """
+            q = f"?k={token}" if token else ""
+            return f"http://{PORTAL_HOST}{path}{q}"
+
+        def _redirect(self, location, code=302):
+            """A redirect that also works for clients that ignore Location.
+
+            Some captive WebViews render the body instead of following the
+            header, so the body carries a meta refresh and a plain link too.
+            """
+            esc = location.replace("&", "&amp;").replace('"', "&quot;")
+            body = (
+                "<!doctype html><html><head><meta charset=utf-8>"
+                f'<meta http-equiv="refresh" content="0;url={esc}">'
+                "<title>Venator Drone</title></head><body>"
+                f'<p><a href="{esc}">Open the Venator Drone camera</a></p>'
+                "</body></html>\n").encode()
+            return self._body(code, "text/html; charset=utf-8", body,
+                              [("Location", location)])
+
         def do_GET(self):
             url = urlparse(self.path)
             path = url.path
@@ -455,6 +538,71 @@ def make_handler(hub, token, save_dir, cfg):
                 # Unauthenticated on purpose: deploy/net_fallback.sh polls it to
                 # decide whether the aircraft is reachable, and it leaks nothing.
                 return self._body(200, "text/plain; charset=utf-8", b"ok\n")
+
+            # --- captive portal, all of it ahead of the auth gate -----------
+            #
+            # These have to be unauthenticated and there is no way around it: a
+            # phone probing for a login page has never seen our token and
+            # cannot be given one first. What they expose is a redirect, a
+            # JSON blob naming the portal, and a landing page - no camera
+            # frames, no evidence, no configuration. The GUI itself stays
+            # behind the gate below.
+            #
+            # They also sit above the gate for a second reason: _authorised()
+            # sleeps up to 5 s on a failed attempt (:437-440), and a phone
+            # firing five probes would otherwise be throttled into deciding
+            # the network is dead.
+            if path in PROBE_PATHS:
+                return self._redirect(self._portal_url())
+
+            if path == "/captive-portal-api":
+                # RFC 8908. iOS 14+ and Android 11+ are handed this URL in DHCP
+                # option 114, fetch it, and open user-portal-url themselves -
+                # no intercepted request, no certificate warning, and nothing
+                # for the operator to type. This is the route that actually
+                # delivers the automatic popup; the probe redirects above are
+                # the fallback for everything older.
+                return self._body(
+                    200, "application/captive+json",
+                    json.dumps({
+                        "captive": True,
+                        "user-portal-url": self._portal_url(),
+                        "venue-info-url": self._portal_url(),
+                        "can-extend-session": False,
+                    }, separators=(",", ":")).encode())
+
+            if path == "/portal":
+                page = portal_page.render(token, hub.snapshot()).encode()
+                extra = []
+                if token:
+                    # Same mechanism as "/" below. Of limited use inside the
+                    # iOS captive sheet, whose cookies never reach Safari, but
+                    # it helps every other browser.
+                    extra.append(("Set-Cookie",
+                                  f"vt={token}; Path=/; HttpOnly; "
+                                  f"SameSite=Strict; Max-Age=86400"))
+                return self._body(200, "text/html; charset=utf-8", page, extra)
+
+            if path == "/favicon.ico":
+                # 204, not a redirect: some captive WebViews follow a 302 here
+                # and loop.
+                return self._body(204, "image/x-icon", b"",
+                                  [("Cache-Control", "public, max-age=86400")])
+
+            # Anything arriving under a hostname we do not own got here because
+            # the drone's DNS answered for a name it has no business answering
+            # for. Send it to the portal.
+            #
+            # But a bare IP address is never hijacked - it was typed, or came
+            # from the list of reachable URLs this server prints at startup. An
+            # earlier version redirected those too, which meant every LAN
+            # address the server advertised bounced the browser to
+            # venatordrone.com, a name that only resolves on the drone's own
+            # hotspot. Serving IPs unconditionally also keeps the USB-C link and
+            # any future interface working without maintaining a list.
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].lower()
+            if host and not _is_ip(host) and host not in LOCAL_HOSTS:
+                return self._redirect(self._portal_url())
 
             if not self._authorised(url):
                 return self._body(403, "text/plain; charset=utf-8",
@@ -480,6 +628,18 @@ def make_handler(hub, token, save_dir, cfg):
             if path == "/live.mjpg":
                 q = parse_qs(url.query).get("q", ["hi"])[0]
                 return self._mjpeg(q if q in QUALITIES else "hi")
+            if path == "/snapshot.jpg":
+                # One frame, not a stream. The portal page polls this instead
+                # of opening an MJPEG connection, because a captive WebView
+                # that gets killed mid-stream holds a viewer slot until the
+                # socket timeout expires - and a restricted WebView may not
+                # render multipart/x-mixed-replace at all.
+                jpeg = hub.latest_jpeg()
+                if jpeg is None:
+                    return self._body(503, "text/plain; charset=utf-8",
+                                      b"no frame yet\n")
+                return self._body(200, "image/jpeg", jpeg,
+                                  [("Cache-Control", "no-store")])
             if path == "/events":
                 return self._sse()
             return self._body(404, "text/plain; charset=utf-8", b"not found\n")
