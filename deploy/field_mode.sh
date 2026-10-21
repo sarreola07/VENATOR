@@ -226,8 +226,22 @@ field_on() {
     [[ -f "/etc/systemd/system/${GUI_UNIT}" ]] \
         || die "not installed yet — run:  ${SELF} install"
     require_key
+    # wifi_mode.sh on, NOT `systemctl start venator-net-fallback`.
+    #
+    # The fallback unit implements the BOOT decision: prefer a known network,
+    # host one only if none is in range. Starting it here did nothing whenever
+    # the lab Wi-Fi was reachable - it reported "staying a client" and the
+    # operator was left looking at an icon that appeared to do nothing.
+    #
+    # `on` is the manual override and has to mean it. wifi_mode.sh on also
+    # records the departing network so `off` knows where to go back to, which
+    # the boot path deliberately does not do.
     say "bringing up the access point..."
-    run sudo systemctl start "${NET_UNIT}"
+    if (( DRY )); then
+        echo "  [dry-run] ${HERE}/wifi_mode.sh on"
+    else
+        bash "${HERE}/wifi_mode.sh" on || die "could not bring up the access point"
+    fi
     say "starting the camera GUI..."
     run sudo systemctl start "${GUI_UNIT}"
     (( DRY )) || sleep 3
