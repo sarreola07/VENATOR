@@ -113,15 +113,31 @@ def is_armed(master):
 
 
 def motor_test(master, motor, seconds, throttle):
-    """Spin one motor (1-based index) via MAV_CMD_DO_MOTOR_TEST."""
+    """Spin one motor (1-based index) via MAV_CMD_ACTUATOR_TEST.
+
+    Not MAV_CMD_DO_MOTOR_TEST: that is an ArduPilot command which PX4 does not
+    implement at all, so a 6X on PX4 1.17 answers it MAV_RESULT_UNSUPPORTED and
+    nothing ever spins. The mock FC accepts every mission unconditionally, so
+    the bench tests passed over a command the real firmware has never had.
+
+    Commander::handleCommandActuatorTest() reads param5 in the *MAVLink*
+    actuator numbering (ACTUATOR_OUTPUT_FUNCTION_MOTOR1 == 1) and remaps it onto
+    its own FUNCTION_MOTOR1 (101) internally, so the 1-based motor index goes
+    straight through. param1 is a normalised 0..1 output where 0 is already
+    minimum *spinning* thrust, and param2 is a timeout in seconds which PX4
+    converts to ms -- a timeout is mandatory, and it is what restores the output
+    afterwards, so no explicit stop is needed.
+
+    PX4 refuses with MAV_RESULT_DENIED while the vehicle is armed or the safety
+    switch is still engaged. That is the gate to check if this stops working.
+    """
     return send_command(
-        master, mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
-        motor,                                            # param1: motor instance (1-based)
-        mavutil.mavlink.MOTOR_TEST_THROTTLE_PERCENT,      # param2: throttle type
-        throttle,                                         # param3: throttle value
-        seconds,                                          # param4: timeout
-        0,                                                # param5: motor count (0 = just this one)
-        mavutil.mavlink.MOTOR_TEST_ORDER_BOARD,           # param6: test order
+        master, mavutil.mavlink.MAV_CMD_ACTUATOR_TEST,
+        throttle / 100.0,                                 # param1: 0..1 normalised output
+        seconds,                                          # param2: timeout (s; PX4 -> ms)
+        0,                                                # param3: reserved
+        0,                                                # param4: reserved
+        motor,                                            # param5: output function (MOTOR1 == 1)
         name=f"motor {motor}")
 
 
@@ -132,7 +148,12 @@ def mission_1(master, motors):
     for m in range(1, motors + 1):
         print(f"{INFO} Motor {m}/{motors} ...")
         if not motor_test(master, m, MOTOR_TEST_SECONDS, MOTOR_TEST_THROTTLE):
-            print(f"{WARN} Stopping. (Is the safety switch pressed? Battery connected?)")
+            # A *refusal* is PX4's arm/safety gate (MAV_RESULT_DENIED) or a
+            # command it does not implement (UNSUPPORTED). A missing battery is
+            # not a refusal -- it accepts and nothing turns, so it belongs in
+            # the no-movement case below, not here.
+            print(f"{WARN} Stopping. Is the vehicle armed, or the safety switch "
+                  f"still engaged? See the 'FC says' / result above.")
             return False
         time.sleep(MOTOR_TEST_SECONDS + 1)
     print(f"{PASS} Mission 1 complete — all {motors} motors tested.")
@@ -170,10 +191,13 @@ def mission_2(master, motors):
                 break
     if rejected:
         which = ", ".join(str(m) for m in rejected)
-        print(f"{WARN} Motor(s) {which} rejected. (Safety switch? Battery?)")
+        print(f"{WARN} Motor(s) {which} rejected. Is the vehicle armed, or the "
+              f"safety switch still engaged?")
         return False
     time.sleep(MOTOR_TEST_SECONDS + 1)
-    print(f"{PASS} Mission 2 complete.")
+    print(f"{PASS} Mission 2 complete — all {motors} accepted. If nothing "
+          f"actually turned, the commands were accepted and the fault is "
+          f"downstream: battery, ESC power or motor wiring.")
     return True
 
 
