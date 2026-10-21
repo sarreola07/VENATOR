@@ -372,6 +372,37 @@ def test_hover():
           not s.fc._armed and s._pending is None, str(link.sent[:1]))
     check("ABORT with nothing pending is ignored", s.handle(c2.message(c2.ABORT, 4)) == [])
 
+    # The gates are checked when a flight is prepared, but CONFIRM can arrive up
+    # to PENDING_CONFIRM_S later. Props toggle immediately (menu id 6, no confirm
+    # of its own) and a GPS fix can drop, so both have to be re-read at CONFIRM
+    # or the interlock is only advisory.
+    print("\n[confirm re-checks the gates it checked at prepare time]")
+    s = srv.C2Server(ModeLogFC(), props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+    check("hover prepared while props are ON", s._pending == "hover")
+    s.run_and_report(c2.message(c2.RUN, 2, id=6), out.append)   # toggle props OFF
+    check("  props toggled OFF inside the confirm window", s.props_off is True)
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("  CONFIRM is refused, and nothing arms",
+          not s.fc._armed and s._pending is None
+          and link.sent and link.sent[0].get("accepted") is False,
+          str(link.sent[:1]))
+    check("  the operator is told why", "props are OFF" in
+          (link.sent[0].get("reason", "") if link.sent else ""),
+          str(link.sent[:1]))
+
+    s = srv.C2Server(ModeLogFC(gps=True), props_off=False)
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), [].append)
+    s.fc._gps = False                                    # fix drops before CONFIRM
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("a GPS fix lost inside the confirm window also blocks the launch",
+          not s.fc._armed and s._pending is None
+          and link.sent and link.sent[0].get("accepted") is False,
+          str(link.sent[:1]))
+
 
 # ---------------------------------------------------------------- motor tests on the real FC
 def test_motor_refusal():

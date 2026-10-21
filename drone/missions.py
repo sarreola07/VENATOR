@@ -140,14 +140,37 @@ def mission_1(master, motors):
 
 
 def mission_2(master, motors):
-    """True if every motor test was accepted by the FC."""
+    """True if every motor test was accepted by the FC.
+
+    All motors *together*. MAV_CMD_DO_MOTOR_TEST has no "all motors" form, so
+    this fires one per-motor command per motor with no sleep between them: PX4
+    holds an independent timed test per actuator function, so all `motors` tests
+    stay live concurrently for MOTOR_TEST_SECONDS. The missing sleep is the
+    mechanism, not an oversight — add one and this becomes mission_1.
+
+    That overlap only holds while the whole command/ACK round trip for `motors`
+    commands stays well under MOTOR_TEST_SECONDS. Over USB each ACK is a few ms,
+    so there is plenty of margin at 4 motors; over a slow link there would not
+    be. If PX4 ever starts treating a new motor test as cancelling the previous
+    one, the symptom is a brief tick from each of motors 1..n-1 and only the last
+    one spinning for the full 3 s.
+    """
     print(f"\n{INFO} Mission 2: all {motors} motors together for "
           f"{MOTOR_TEST_SECONDS}s at {MOTOR_TEST_THROTTLE}% throttle.")
-    ok = True
+    rejected = []
     for m in range(1, motors + 1):
-        ok &= motor_test(master, m, MOTOR_TEST_SECONDS, MOTOR_TEST_THROTTLE)
-    if not ok:
-        print(f"{WARN} Some motors were rejected. (Safety switch? Battery?)")
+        if not motor_test(master, m, MOTOR_TEST_SECONDS, MOTOR_TEST_THROTTLE):
+            rejected.append(m)
+            # A refusal on the first motor is systemic — safety switch, no
+            # battery, already armed — not specific to that motor, so the rest
+            # would fail identically. Stop rather than print four copies.
+            if m == 1:
+                print(f"{WARN} Motor 1 refused; stopping (the cause is not "
+                      f"motor-specific).")
+                break
+    if rejected:
+        which = ", ".join(str(m) for m in rejected)
+        print(f"{WARN} Motor(s) {which} rejected. (Safety switch? Battery?)")
         return False
     time.sleep(MOTOR_TEST_SECONDS + 1)
     print(f"{PASS} Mission 2 complete.")

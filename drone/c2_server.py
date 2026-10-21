@@ -580,6 +580,20 @@ class C2Server:
         if self._pending and time.time() - self._pending_at > PENDING_CONFIRM_S:
             self.log(f"{self._pending} lapsed — CONFIRM came {PENDING_CONFIRM_S:g}+ s late")
             self._pending = None
+        # The gates were last checked when this flight was *prepared*, up to
+        # PENDING_CONFIRM_S ago, so re-check them before anything arms. Props can
+        # be toggled inside that window (menu id 6 runs immediately, with no
+        # confirm of its own) and a GPS fix can drop; on an unauthenticated link
+        # anything in radio range can inject that toggle. Gating on `_pending`
+        # being set, rather than on a list of flight names, keeps this closed for
+        # any flight kind added later.
+        if self._pending:
+            ok, reason = self._validate_pending()
+            if not ok:
+                self.log(f"{self._pending} blocked at CONFIRM: {reason}")
+                self._pending = None
+                send(p.message(p.ACK, 0, accepted=False, reason=reason))
+                return
         if self._pending == "mission1":
             self.run_mission1(link, send)
         elif self._pending == "mission2":
@@ -588,6 +602,21 @@ class C2Server:
             self.run_hover(link, send)
         else:
             self.run_flight(link, send)     # declines unless "waypoints" is pending
+
+    def _validate_pending(self):
+        """The gates that must still hold at CONFIRM time, for any flight.
+
+        Deliberately not _validate_fly(): that also demands an uploaded mission,
+        which only the waypoints flight has — and which, once uploaded, cannot
+        be lost inside the confirm window anyway. What *can* change in that
+        window is the props declaration and the GPS fix, so those are what get
+        re-read here.
+        """
+        if self.props_off:
+            return False, "props are OFF — flight needs props ON"
+        if not self.fc.has_gps_fix():
+            return False, "no GPS 3D fix"
+        return True, "ok"
 
     def _validate_fly(self):
         """Safety gate for arming and flying the uploaded mission."""
