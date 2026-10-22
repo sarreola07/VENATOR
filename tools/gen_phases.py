@@ -38,16 +38,23 @@ THEMES = {
                   ink="#F2F1EE", signal="#E05316"),
 }
 
+# Only these three. A state marker the table uses but this map does not know is
+# invisible to read_states(), so the phase reads as missing and the build fails
+# with "no row in the Status table for phase(s) N" -- which is what a stray
+# emoji in the table looks like from here.
 ICON = {"✅": "done", "🔵": "wip", "⬜": "todo"}
 
 # phase -> (two-line label, caption). State is NOT here; it comes from the table.
+# Note phase 6 is deliberately ONE node covering both of the table's two rows
+# numbered 6 (polish, and obstacle avoidance); read_states() requires repeated
+# phase numbers to agree on state rather than treating them as a mistake.
 DRAW = {
     "0": (["NVMe +", "restore"],     "0 · NVMe install + project restore"),
     "1": (["C2", "protocol"],        "1 · C2 protocol — newline JSON, handshake, ACK / retransmit"),
     "2": (["laptop", "client"],      "2 · laptop client — runs today with --mock; CI builds .exe and .app"),
     "3": (["Heltec", "firmware"],    "3 · firmware — flashed and validated on real radios, OLED on both sticks"),
     "4": (["Jetson", "C2 server"],   "4 · Jetson server — working over real LoRa, zero-touch boot service"),
-    "5": (["GPS +", "waypoints"],    "5 · waypoint flight — built and bench-tested; the GPS is not fitted yet"),
+    "5": (["GPS +", "waypoints"],    "5 · waypoint flight — built and bench-tested; the GPS reports no fix"),
     "6": (["polish +", "avoidance"], "6 · polish and obstacle avoidance — not started"),
 }
 

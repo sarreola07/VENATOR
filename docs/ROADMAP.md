@@ -43,11 +43,11 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 3c | Pico + RYLR998 gateway (`radio/firmware/Pico_Gateway`) | 🔵 talks to the drone; framing is last-peer-wins, so do not power it alongside the Heltec remote |
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ **motors spun on the real aircraft from the handheld remote, 2026-10-21** — this needed `MAV_CMD_ACTUATOR_TEST`; `DO_MOTOR_TEST` is ArduPilot-only and PX4 answered it UNSUPPORTED, so nothing had ever actually turned through this path |
 | 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | 🔵 units, key split and crash-loop guards done; **not yet verified across a reboot with hardware attached** |
-| 5 | GPS + waypoint flight | ⚠️ upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
+| 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
 | — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first; true 3 ft needs the downward lidar, since `EKF2_HGT_REF=2` currently falls back to the baro |
 | — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock only); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
-| 7 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started (was a second row numbered 6) |
+| 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
 
 > **The site shows the finished system; this table is the status.** The search
 > and rescue banner on [how-it-works][site] runs the mission end to end — fence,

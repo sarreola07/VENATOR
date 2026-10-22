@@ -76,7 +76,7 @@
     <text id="c2" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">2 · laptop client — runs today with --mock; CI builds .exe and .app</text>
     <text id="c3" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">3 · firmware — flashed and validated on real radios, OLED on both sticks</text>
     <text id="c4" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">4 · Jetson server — working over real LoRa, zero-touch boot service</text>
-    <text id="c5" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">5 · waypoint flight — built and bench-tested; the GPS is not fitted yet</text>
+    <text id="c5" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">5 · waypoint flight — built and bench-tested; the GPS reports no fix</text>
     <text id="c6" x="96" y="282" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">6 · polish and obstacle avoidance — not started</text>
     <text id="cs" x="96" y="282" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">4 done · 2 in progress · 1 not started — the link works end to end; flight is what is left</text>
   </g>
