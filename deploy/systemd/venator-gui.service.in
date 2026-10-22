@@ -14,6 +14,18 @@ After=local-fs.target
 # Never stop retrying: a failure here is usually the OAK still renegotiating
 # its USB link, which resolves on its own.
 StartLimitIntervalSec=0
+# A failed Condition makes systemd SKIP the unit and mark the job successful, so
+# Restart=always + StartLimitIntervalSec=0 above never engages. Without these, a
+# missing interpreter -- or a branch checkout that moves the wildlife tree out
+# from under ExecStart -- becomes a 5-second restart loop that runs forever.
+# That happened on 2026-10-21: the tree lived only on an unmerged branch and
+# this unit reached a restart counter of 102 in eight minutes. A clean skip is
+# reportable in `systemctl status`; a loop just burns the 7 W budget silently.
+#
+# These MUST be in [Unit]. systemd accepts no Condition* key in [Service]:
+# it logs "Unknown key name ... ignoring" and the guard does nothing at all.
+ConditionFileIsExecutable=__OAK_PY__
+ConditionPathExists=__REPO__/drone/wildlife/gui_server.py
 
 [Service]
 Type=simple
@@ -22,12 +34,26 @@ User=__USER__
 # before the interpreter starts, not merely inherited from the passwd entry.
 Environment=HOME=/home/__USER__
 Environment=XDG_STATE_HOME=/home/__USER__/.local/state
+# The GUI's own secret, deliberately NOT the C2 key.
+#
+# radio/auth.py's key_path() honours VENATOR_KEY_FILE, and both this unit's
+# ExecStartPre and gui_server.py's make_token(auth.load_key()) read the key
+# through that one function -- so naming the file here is enough to move the
+# GUI's secret, with no new crypto and no second code path.
+#
+# WHY: the handheld remote (radio/firmware/Venator_Remote) does not sign.
+# serial_link.py defaults auth_key=auth.load_key() and drops every message that
+# fails verify(), so a key at the DEFAULT path silently kills RUN 1/2/7 from the
+# remote. Creating a key for the camera used to do exactly that, on every boot.
+# Two paths, two decisions. See venator-c2.service.in for the other half.
+Environment=VENATOR_KEY_FILE=/home/__USER__/.venator/gui-key
 WorkingDirectory=__REPO__
 # A GUI that boots without a key file binds 127.0.0.1 only (the fail-safe in
 # gui_server.py) and is invisible to the phone — the worst possible field
 # outcome, because everything looks healthy from the Jetson. Creating the key
 # is idempotent and keeps the fail-safe intact; the alternative of forcing
-# --host 0.0.0.0 would serve an unauthenticated camera instead.
+# --host 0.0.0.0 would serve an unauthenticated camera instead. It creates the
+# GUI key named above, not the C2 key, so this no longer mutes the remote.
 ExecStartPre=/bin/bash __REPO__/deploy/field_mode.sh _require_key
 # Run the interpreter directly. oak_camera.sh pipes through `tee` because a
 # shell has to own the pipeline there; under systemd stdout already goes to the

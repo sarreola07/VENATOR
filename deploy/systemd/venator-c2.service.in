@@ -6,15 +6,37 @@ Description=Venator C2 server — LoRa command link to the drone
 After=local-fs.target
 # Never give up restarting while it waits for the ports / Pixhawk to appear.
 StartLimitIntervalSec=0
+# Skip cleanly rather than restart-loop if the venv was never built. Must be in
+# [Unit]: systemd ignores any Condition* key placed in [Service].
+ConditionFileIsExecutable=__REPO__/venv/bin/python
 
 [Service]
 Type=simple
 User=__USER__
 WorkingDirectory=__REPO__
-# Real flight controller, props OFF by default: only motor tests are runnable
-# remotely; flight missions stay rejected until this is deliberately changed to
-# add --props-on. Nothing arms on boot — arming only happens on a confirmed
-# command that also passes PX4's own pre-arm checks.
+# The C2 link is deliberately UNAUTHENTICATED.
+#
+# The handheld remote (radio/firmware/Venator_Remote) does not sign, and
+# serial_link.py drops every message that fails verify(), so any key at
+# auth.py's default path silently mutes RUN 1/2/7. Pointing at a path that does
+# not exist makes that an explicit, auditable decision in this file rather than
+# an accident of whether ~/.venator/key happens to exist -- which is how the
+# remote went dead before: venator-gui.service used to create that key on every
+# boot. The camera now has its own (see venator-gui.service.in).
+#
+# To turn signing ON: implement it in the remote's firmware first, then place
+# the same key at this path on the Jetson and on the ground station. See
+# docs/SECURITY.md.
+Environment=VENATOR_KEY_FILE=/home/__USER__/.venator/c2-key
+# Real flight controller. NOTE: the server's own default is props ON -- see
+# --help, where --props-on is documented as "(default)". Props OFF is applied by
+# deploy/flight_mode.sh off, which writes a drop-in at
+# /etc/systemd/system/venator-c2.service.d/props.conf overriding this ExecStart.
+# It is NOT baked in here on purpose: flight_mode.sh on works by DELETING that
+# drop-in and relying on this line being props-ON, so hardcoding --props-off
+# would make enabling flight silently fail. Check which is live with
+# `flight_mode.sh status`. Nothing arms on boot either way -- arming needs a
+# confirmed command that also passes PX4's own pre-arm checks.
 ExecStart=__REPO__/venv/bin/python __REPO__/drone/c2_server.py --real
 Restart=on-failure
 RestartSec=5

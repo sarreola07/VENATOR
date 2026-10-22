@@ -40,6 +40,25 @@ HOTSPOT_IP="10.42.0.1"
 PORTAL_HOST="venatordrone.com"
 OAK_PY="${OAK_PY:-/home/jetson/oak-venv/bin/python}"
 
+# The GUI's own secret, deliberately NOT the C2 key.
+#
+# radio/auth.py's key_path() honours VENATOR_KEY_FILE, and everything that
+# touches a key resolves through it -- auth.py --init via create_key(), and
+# gui_server.py's make_token(auth.load_key()). So naming the file here moves the
+# GUI's secret with no new crypto and no second code path. The export is
+# load-bearing: it is what makes token()'s heredoc and require_key()'s
+# subprocess agree with what venator-gui.service sets, so `field_mode.sh url` in
+# a terminal prints the token the service is really serving rather than one
+# derived from the C2 key.
+#
+# WHY they must differ: the handheld remote (radio/firmware/Venator_Remote) does
+# not sign. serial_link.py defaults auth_key=auth.load_key() and drops every
+# message that fails verify(), so a key at the DEFAULT path silently kills
+# RUN 1/2/7 from the remote. Creating a key for the camera used to do exactly
+# that, on every boot. Two paths, two decisions.
+GUI_KEY_FILE="${VENATOR_KEY_FILE:-${HOME:-/home/jetson}/.venator/gui-key}"
+export VENATOR_KEY_FILE="${GUI_KEY_FILE}"
+
 GUI_UNIT="venator-gui.service"
 NET_UNIT="venator-net-fallback.service"
 
@@ -90,13 +109,21 @@ PY
 # binds loopback only and the phone cannot see it, which looks like a working
 # system from the Jetson and a dead one from the field.
 require_key() {
-    if [[ -n "$(token)" ]]; then
+    # Test the FILE, not the derived token. create_key() in radio/auth.py opens
+    # with O_TRUNC, and token() swallows every error (2>/dev/null) -- so
+    # deciding on token() meant any import failure silently ROTATED an existing
+    # key, changing the phone's URL and every printed QR code on each boot.
+    # Checking the file also keeps the gui_server import out of the boot path.
+    if [[ -s "${GUI_KEY_FILE}" ]]; then
         return 0
     fi
-    say "no C2 key file yet — creating one so the GUI can be reached"
+    say "no GUI key at ${GUI_KEY_FILE} — creating one so the phone can reach the camera"
+    # VENATOR_KEY_FILE is exported above, so auth.py --init writes the GUI key
+    # rather than the C2 one. create_key() makes the parent dir and uses 0600.
     "${OAK_PY}" "${REPO}/radio/auth.py" --init >/dev/null 2>&1 \
         || python3 "${REPO}/radio/auth.py" --init >/dev/null 2>&1 \
-        || die "could not create a key (tried ${OAK_PY} and python3)"
+        || die "could not create a GUI key (tried ${OAK_PY} and python3)"
+    [[ -s "${GUI_KEY_FILE}" ]] || die "radio/auth.py --init did not write ${GUI_KEY_FILE}"
     say "GUI token is now $(token)"
 }
 
@@ -119,10 +146,27 @@ preflight() {
         local who; who="$(ss -lntp 2>/dev/null | awk '/:8080 /{print $NF}' | head -1)"
         say "FAIL  port 8080 is already in use ${who}"
         say "      a boot unit would retry against it every 5 s forever"
-        say "      fix:  ${REPO}/drone/camera.sh stop"
+        # venator-gui itself is the usual holder when re-running install; naming
+        # camera.sh alone sent people chasing the wrong process.
+        say "      fix:  sudo systemctl stop venator-gui"
+        say "        or:  ${REPO}/drone/camera.sh stop"
         bad=1
     else
         say "ok    port 8080 free"
+    fi
+
+    # The separation this script depends on, made testable. A key at the DEFAULT
+    # path is also read by radio/serial_link.py, which would then drop the
+    # handheld remote's unsigned RUN commands -- the failure is silent on both
+    # ends, so check it here rather than discover it in the field.
+    if [[ "${GUI_KEY_FILE}" == "${HOME:-/home/jetson}/.venator/key" ]]; then
+        say "FAIL  the GUI key path IS the C2 key path (${GUI_KEY_FILE})"
+        say "      radio/serial_link.py reads that file too, and would drop the"
+        say "      handheld remote's unsigned RUN 1/2/7 commands"
+        say "      fix:  unset VENATOR_KEY_FILE, or point it at .venator/gui-key"
+        bad=1
+    else
+        say "ok    GUI key ${GUI_KEY_FILE} is separate from the C2 key"
     fi
 
     if [[ -x "${OAK_PY}" ]] && "${OAK_PY}" -c 'import depthai' 2>/dev/null; then
