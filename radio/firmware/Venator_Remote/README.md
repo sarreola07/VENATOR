@@ -80,6 +80,16 @@ It never retries a `RUN`: the server does not dedupe them, so a resend could
 run a motor test twice. "No answer from the drone" therefore means
 *unknown*, not *didn't run*. Look at the drone.
 
+**Power this remote or the Pico gateway, never both.** The Pico + RYLR998
+([../Pico_Gateway/README.md](../Pico_Gateway/README.md)) needs a 5-byte header
+on every packet, and `LoRa_Transceiver` adds one or not based on a single flag
+set by whichever packet it heard last. With both remotes live, every reply that
+follows the Pico's transmission arrives here with five binary bytes before the
+`{`, fails to parse, and is dropped — with no error shown at either end. Given
+the paragraph above, that is the bad case: a lost `DONE` is indistinguishable
+from a motor test that never ran. Why, and the fix it would take:
+[One remote at a time](../README.md#one-remote-at-a-time).
+
 **Not authenticated.** The remote does not sign messages (`radio/auth.py`), so
 the server must run without `~/.venator/key` while you use it. Anything in
 radio range that speaks this protocol can command the aircraft. See

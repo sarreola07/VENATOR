@@ -22,8 +22,19 @@ On boot `main.py` sets the RYLR998 to match the bridge: 915 MHz, SF7, 125 kHz,
 The RYLR998 puts a 5-byte header in front of every packet: destination (2 B,
 little-endian), source (2 B, little-endian), length. It drops packets that lack
 one. `LoRa_Transceiver` strips that header on the way in, and adds one (to
-broadcast address 0) on the way out while its last peer used it. Plain-LoRa
-peers such as the Heltec remote are unaffected.
+broadcast address 0) on the way out while its last peer used it.
+
+> **Power this gateway or the Heltec handheld, never both.** "While its last
+> peer used it" is one global flag on the bridge, set by whichever packet
+> arrived most recently. With both remotes live the bridge alternates framing,
+> and each remote silently drops the replies that follow the other's
+> transmission — the RYLR998 discards anything without a header, and the Heltec
+> cannot parse JSON behind five binary bytes. Neither reports an error; it just
+> looks like a flaky link. Full explanation and the fix it would take:
+> [One remote at a time](../README.md#one-remote-at-a-time).
+
+A plain-LoRa peer on its own is unaffected: a protocol line always starts `{`,
+which is what the bridge keys the decision off.
 
 ## Install
 

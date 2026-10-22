@@ -3,6 +3,10 @@
 > The handheld remote (a WiFi LoRa 32 V3 with a rotary encoder) has its own
 > sketch and notes: [Venator_Remote/README.md](Venator_Remote/README.md). It talks
 > to a stick running this transceiver; the two must keep the same radio settings.
+>
+> So does the Pico + RYLR998 gateway: [Pico_Gateway/README.md](Pico_Gateway/README.md).
+> **Only one of the two may be powered at a time** — see
+> [One remote at a time](#one-remote-at-a-time) below for why.
 
 ## What this is
 
@@ -15,6 +19,61 @@ flow in **both directions**.
 It replaces the original one-way sketches (`LoRa_TX.ino` + `LoRa_RX.ino`), which
 could only send *or* receive — not enough for the "Jetson sends the menu, laptop
 sends the choice" handshake.
+
+## One remote at a time
+
+> **Do not power the Pico gateway and the Heltec handheld remote at the same
+> time.** Each will intermittently lose the drone's replies, and neither reports
+> an error.
+
+Two kinds of peer now talk to this sketch, and they want different things on the
+air:
+
+| Peer | Wants |
+|---|---|
+| Heltec handheld (`Venator_Remote`) and the laptop GCS | the raw JSON line |
+| Pico + RYLR998 (`Pico_Gateway`) | the same line behind a 5-byte REYAX header |
+
+The sketch adapts per packet. `onRxDone` decides from the shape of whatever just
+arrived:
+
+```c
+peerRylr = size > RYLR_HDR && payload[0] != '{' && payload[4] == size - RYLR_HDR;
+```
+
+A protocol line always begins `{`, so that first test alone separates a plain
+peer from a framed one; the length byte confirms it. `sendLine` then adds the
+header only while `peerRylr` is set.
+
+**`peerRylr` is one global, set by the *last* packet heard.** With a single
+remote powered that is exactly right and nothing needs configuring. With both
+powered it becomes last-writer-wins, and the reply goes out in whichever framing
+the *other* remote last caused:
+
+1. The Pico transmits → `peerRylr` becomes true → the drone's next reply is framed.
+2. The handheld hears that framed reply, finds five binary bytes before the `{`,
+   fails to parse it and drops it silently.
+3. The handheld transmits → `peerRylr` becomes false → the next reply is plain.
+4. The RYLR998 sees no valid header and drops it before the Pico ever reads it.
+
+So each remote loses precisely the replies that follow the other's transmission.
+Nothing errors; both just look like a flaky link.
+
+**Why that is worse than it sounds on the handheld.** It never retries a `RUN`
+(the server does not dedupe them, so a resend could run a motor test twice), so
+a dropped `DONE` means *unknown*, not *didn't run* — see
+[Venator_Remote/README.md](Venator_Remote/README.md). A lost reply in this state
+leaves the operator unsure whether the motors just ran.
+
+Fixing it properly means per-peer addressing — the protocol carries no `from` or
+`to`, which is the same gap that leaves the link unauthenticated. The shape of
+that work is in [../../docs/ROADMAP.md](../../docs/ROADMAP.md) under "A third
+radio: what it takes". Until then, power one remote.
+
+One caveat on the detection itself: a *corrupted* plain packet that happens not
+to start with `{` and whose fifth byte happens to equal its remaining length
+will flip `peerRylr` spuriously, costing the plain peer one reply. Unlikely, and
+self-correcting on the next good packet.
 
 ## Flash it on BOTH sticks
 
