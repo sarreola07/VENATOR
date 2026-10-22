@@ -211,6 +211,61 @@ hotspot_on() {
     return 1
 }
 
+# Non-interactive AP bring-up, for venator-net-fallback.service.
+#
+# hotspot_on() above cannot be used from a systemd unit, for four reasons:
+#   1. `sudo -v` (below) needs a TTY and a cached credential; under a unit it
+#      dies immediately.
+#   2. create_hotspot() prompts for a password when HOTSPOT_PASSWORD is unset,
+#      and dies when stdin is not a TTY.
+#   3. switch_to() nests `sudo systemd-run` inside what would already be a
+#      unit - it works, but it buries the real error in a transient unit's
+#      journal instead of this one's.
+#   4. STATE_DIR resolves through $HOME, which is /root under a system unit, so
+#      PREV_FILE would be a different file from the operator's and `off` would
+#      later not know what to go back to.
+#
+# This path is already root, so none of that applies. It deliberately does NOT
+# create the profile: a boot unit must never invent a Wi-Fi password, and a
+# missing profile is an operator error to report rather than paper over. It
+# also does not write PREV_FILE - at boot there is no previous network, and
+# previous_network() already falls back to the most recent non-AP profile.
+boot_ap() {
+    local iface try
+    iface="$(wifi_iface)"
+    [[ -n "${iface}" ]] || die "No Wi-Fi card found (check: nmcli device status)."
+
+    nmcli connection show "${CON}" >/dev/null 2>&1 || die \
+"No '${CON}' profile exists, so there is no hotspot to start.
+Create it once, at the Jetson, with a password of your choosing:
+    HOTSPOT_PASSWORD='<8-63 chars>' $(dirname "${SELF}")/wifi_mode.sh on"
+
+    if [[ "$(active_con "${iface}")" == "${CON}" ]]; then
+        say "AP already up on ${iface}."
+        return 0
+    fi
+
+    # Retry: NetworkManager reports the device ready before the Realtek driver
+    # will reliably accept an AP-mode activation, especially early in boot.
+    for try in 1 2 3 4 5; do
+        if nmcli --wait 30 connection up "${CON}" >/dev/null 2>&1; then
+            say "AP '${CON}' up on ${iface} (attempt ${try})."
+            return 0
+        fi
+        say "AP attempt ${try}/5 failed; retrying in 5s."
+        sleep 5
+    done
+
+    say "AP did not come up after 5 attempts."
+    if [[ "$(nmcli -e no -g 802-11-wireless.band connection show "${CON}")" == "a" ]]; then
+        say "  5 GHz may be refused by the card or the regulatory domain:"
+        say "  - 'iw reg get' should show a country (e.g. US), not 00"
+        say "  - 2.4 GHz would work, but it collides with the RC transmitter,"
+        say "    so do NOT switch bands on an aircraft that is going to fly."
+    fi
+    return 1
+}
+
 hotspot_off() {
     local iface current prev
     iface="$(wifi_iface)"
@@ -288,5 +343,8 @@ case "${1:-status}" in
              fi ;;
     status)  status ;;
     _switch) _switch "${2:-}" "${3:-}" ;;
+    # Internal, for venator-net-fallback.service. Underscore-prefixed like
+    # _switch to mark it as not-for-humans.
+    _boot_ap) boot_ap ;;
     *) echo "Usage: $0 [on|off|toggle|status]"; exit 2 ;;
 esac

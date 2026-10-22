@@ -1,0 +1,49 @@
+#!/usr/sbin/nft -f
+#
+# Venator captive portal — redirect phone traffic on port 80 to the GUI.
+#
+# Installed to /etc/venator/portal.nft by deploy/field_mode.sh, and loaded and
+# unloaded with the access point by the NetworkManager dispatcher script at
+# deploy/dispatcher/90-venator-portal.
+#
+# WHY A REDIRECT AND NOT JUST BINDING PORT 80
+# Captive-portal probes go to port 80, but this Jetson will not let an
+# unprivileged process bind it: net.ipv4.ip_unprivileged_port_start is 1024,
+# the interpreters carry no file capabilities, and authbind is not installed.
+# The alternatives were both worse than one scoped firewall rule:
+#
+#   * sysctl net.ipv4.ip_unprivileged_port_start=80 would let EVERY
+#     unprivileged process on the box bind 80-1023, including 443. A
+#     kernel-wide change to solve a one-interface problem.
+#   * setcap cap_net_bind_service on the venv interpreter would apply to every
+#     script that interpreter ever runs, and is silently lost whenever the venv
+#     is rebuilt.
+#
+# This rule is scoped to one interface, one destination address and one port;
+# it exists only while the hotspot is up; and gui_server.py keeps running
+# unprivileged on 8080, which also stays directly reachable for laptops.
+#
+# Check without loading:   sudo nft -c -f /etc/venator/portal.nft
+# Inspect once loaded:     sudo nft list table ip venator-portal
+
+# Our own table, so NetworkManager tearing down its nm-shared-<iface> table on
+# hotspot deactivation cannot take this with it, and ours cannot disturb its
+# masquerade rules.
+#
+# The create/delete/create prologue makes the file idempotent: the bare `table`
+# line creates it if absent, so the `delete` that follows can never fail, and
+# re-running the file replaces the ruleset rather than appending to it.
+table ip venator-portal
+delete table ip venator-portal
+
+table ip venator-portal {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+
+        # Only plain HTTP the phone aimed at us. After the DNS redirection in
+        # deploy/dnsmasq/venator-portal.conf, every captive-portal probe lands
+        # here. Traffic being forwarded to a real uplink is untouched, so a
+        # shared Ethernet connection still works normally.
+        iifname "__IFACE__" ip daddr 10.42.0.1 tcp dport 80 redirect to :8080
+    }
+}

@@ -1,0 +1,23 @@
+[Unit]
+Description=Venator network fallback — host an access point when no known Wi-Fi is in range
+Documentation=file://__REPO__/docs/FIELD_MODE.md
+Wants=NetworkManager.service
+After=NetworkManager.service
+# NOT NetworkManager-wait-online.service: it is disabled on this Jetson, and
+# the whole point of this unit is to decide what to do when there is nothing to
+# come online to. net_fallback.sh does its own bounded waiting instead.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# So wifi_mode.sh's say() logs to the operator's state directory rather than
+# root's. Without this, STATE_DIR resolves through $HOME to /root and the
+# hotspot's "previous network" bookkeeping diverges from the user's.
+Environment=XDG_STATE_HOME=/home/__USER__/.local/state
+ExecStart=/bin/bash __REPO__/deploy/net_fallback.sh
+# NET_FALLBACK_WAIT_S (45 s) plus five AP attempts at 30 s each, with margin.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,33 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Wildlife Camera (IMX219)
+GenericName=CSI Camera
+Comment=Live CSI feed — colour by day, black and white at night, image inverted
+Exec=__REPO__/drone/wildlife/imx219_camera.sh 720p
+Icon=__REPO__/assets/ai-camera.png
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=camera;csi;imx219;jetson;argus;wildlife;night;
+Actions=Day;Night;Feed1080p;Snapshot;HealthCheck;
+
+[Desktop Action Day]
+Name=Force day mode (colour)
+Exec=__REPO__/drone/wildlife/imx219_camera.sh day
+
+[Desktop Action Night]
+Name=Force night mode (black and white)
+Exec=__REPO__/drone/wildlife/imx219_camera.sh night
+
+[Desktop Action Feed1080p]
+Name=Live feed — 1920x1080 (~25 fps)
+Exec=__REPO__/drone/wildlife/imx219_camera.sh 1080p
+
+[Desktop Action Snapshot]
+Name=Snapshot — full res 3280x2464
+Exec=__REPO__/drone/wildlife/imx219_camera.sh snapshot
+
+[Desktop Action HealthCheck]
+Name=Run camera health check
+Exec=__REPO__/drone/wildlife/checks/diagnose.sh

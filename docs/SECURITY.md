@@ -126,19 +126,39 @@ Open an issue, or for anything you would rather not post publicly, contact the
 repository owner through their GitHub profile. This is a personal project with
 no security team and no response-time commitment.
 
-### 4. The camera stream has no access control at all — **medium**
+### 4. The camera stream had no access control at all — **fixed**
 
-`drone/camera_publisher.py` serves `/`, `/status.json` and `/stream.mjpg` from
+`drone/camera_publisher.py` served `/`, `/status.json` and `/stream.mjpg` from a
 `ThreadingHTTPServer` bound to `0.0.0.0` with no key, no token and no check of
-any kind. Anyone who can reach the port can watch the aircraft's camera and read
-the detection status.
+any kind. Anyone who could reach the port could watch the aircraft's camera.
 
-The relay at least has a key. This has nothing. On the Jetson's own hotspot that
-is arguably the intent; on a shared or untrusted network it is a live video feed
-served to that network. `CAMERA_STREAM_HOST` can be set to `127.0.0.1` to limit
-it to the Jetson itself, which breaks viewing it from a laptop.
+Its replacement, `drone/wildlife/gui_server.py`, requires a token on every route
+except `/healthz`, and **fails safe rather than open**: with no key file it binds
+`127.0.0.1` only and prints the command to create one. It also logs every
+address it became reachable on, by name, at startup — on a shared SSID that line
+is the warning.
+
+The token is **derived** from the C2 key rather than being it:
+
+```python
+token = hmac.new(auth.load_key(), b"venator-gui-v1", sha256).hexdigest()[:16]
+```
+
+so a token seen in browser history, a bookmark or a photographed QR code yields
+nothing about the key that signs flight commands, and a GUI token cannot verify
+a C2 message. `tests/test_gui_auth.py` asserts both directions, along with the
+`/api/evidence/<name>` allowlist that refuses path traversal and arbitrary
+reads. Comparison is `secrets.compare_digest` with a growing delay on failure,
+the same shape as the relay's.
+
+`drone/camera_publisher.py` itself is unchanged in this respect and still has no
+check — it is the older depthai-2.x person tracker, it serves a 300×300 network
+frame rather than a camera view, and only one process can own the OAK at a time.
+Prefer the GUI.
 
 ## Scope note
 
-Both the camera stream and the relay bind to every interface so a phone on the
-same Wi-Fi can reach them. Only the relay checks anything.
+The GUI and the relay both bind every interface **once a key exists**, so a
+phone on the same Wi-Fi can reach them, and both check a key. Without a key the
+GUI stays on loopback; `camera_publisher.py` does not, which is the remaining
+gap above.

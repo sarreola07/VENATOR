@@ -17,8 +17,8 @@ shared. The sticks can also sit on different computers, e.g. a laptop and the
 Jetson: run the relay on each with that computer's stick, and name it so the
 two pages are easy to tell apart:
 
-    python3 phone_relay.py --names Laptop        # page: http://<laptop>:8080/laptop?k=...
-    python3 phone_relay.py --names Jetson        # page: http://10.42.0.1:8080/jetson?k=...
+    python3 phone_relay.py --names Laptop        # page: http://<laptop>:8081/laptop?k=...
+    python3 phone_relay.py --names Jetson        # page: http://10.42.0.1:8081/jetson?k=...
 
 Messages go out as protocol LOG lines, so `link_test.py --chat` on the far stick
 shows them too. The radio is half-duplex and two people typing will sometimes
@@ -48,6 +48,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
 from radio.link_test import Link, LinkDown, list_ports
+# The constant, not the module: main() binds a local named `ports` for the
+# serial device list, which would shadow a module import and raise
+# UnboundLocalError on the argparse default below.
+from ports import PHONE_RELAY_HTTP
 
 MAX_TEXT = 180          # characters per message; the JSON wrapper adds ~40 bytes
 MAX_LINE_BYTES = 240    # MAX_LINE in LoRa_Transceiver.ino: longer lines are cut off
@@ -354,7 +358,11 @@ def main():
     ap.add_argument("--names", nargs="+", metavar="NAME",
                     help="one name per stick, in --ports order, shown on its page and used "
                          "as its address, e.g. --names Jetson (default: Stick A, Stick B, ...)")
-    ap.add_argument("--http-port", type=int, default=8080)
+    # 8081, not 8080: the operator GUI owns 8080, and that is the port
+    # wifi_mode.sh, camera.sh and both READMEs advertise. Both of these
+    # defaulted to 8080 and nothing caught it, because neither is a boot
+    # service - it would have surfaced in the field as one failing to bind.
+    ap.add_argument("--http-port", type=int, default=PHONE_RELAY_HTTP)
     ap.add_argument("--key", default=None,
                     help="access key in the page address (default: a random 8-character key)")
     args = ap.parse_args()

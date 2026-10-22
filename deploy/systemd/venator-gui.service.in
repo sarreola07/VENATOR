@@ -1,0 +1,43 @@
+[Unit]
+Description=Venator operator GUI — OAK camera feed for a phone on the drone's hotspot
+Documentation=file://__REPO__/docs/FIELD_MODE.md
+# Ordered on local-fs.target, NOT multi-user.target: snapd.seeded.service
+# stalls multi-user by about two minutes on this Jetson, and the camera is the
+# thing an operator is waiting for. NetworkManager itself finishes in ~2.5 s.
+#
+# Deliberately NOT ordered on NetworkManager-wait-online.service either: it is
+# disabled on this box, and an access point never becomes "online" anyway, so
+# waiting for it would stall forever or time out for nothing. The GUI does not
+# need the network to exist before it binds - and gui_server.py already serves
+# with no camera attached and reopens the OAK every RECONNECT_WAIT_S.
+After=local-fs.target
+# Never stop retrying: a failure here is usually the OAK still renegotiating
+# its USB link, which resolves on its own.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=__USER__
+# radio/auth.py evaluates Path.home() at import time, so HOME must be right
+# before the interpreter starts, not merely inherited from the passwd entry.
+Environment=HOME=/home/__USER__
+Environment=XDG_STATE_HOME=/home/__USER__/.local/state
+WorkingDirectory=__REPO__
+# A GUI that boots without a key file binds 127.0.0.1 only (the fail-safe in
+# gui_server.py) and is invisible to the phone — the worst possible field
+# outcome, because everything looks healthy from the Jetson. Creating the key
+# is idempotent and keeps the fail-safe intact; the alternative of forcing
+# --host 0.0.0.0 would serve an unauthenticated camera instead.
+ExecStartPre=/bin/bash __REPO__/deploy/field_mode.sh _require_key
+# Run the interpreter directly. oak_camera.sh pipes through `tee` because a
+# shell has to own the pipeline there; under systemd stdout already goes to the
+# journal, so a pipe would only add a process to kill.
+ExecStart=__OAK_PY__ __REPO__/drone/wildlife/gui_server.py --save-dir /home/__USER__/Pictures/wildlife
+# always, not on-failure: a clean exit in a field is still an outage.
+Restart=always
+RestartSec=5
+# gui_server.py maps SIGINT/SIGTERM/SIGHUP onto its stop flag, so the default
+# KillSignal gives a clean shutdown with no KillMode tuning.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Wildlife Detector (OAK-D)
+GenericName=Animal and person detection
+Comment=Detect animals and people with distance, using the OAK-D stereo camera
+Exec=gnome-terminal --title=Wildlife Detector -- __REPO__/drone/wildlife/oak_camera.sh detect
+Icon=__REPO__/assets/ai-camera.png
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=oak;depthai;wildlife;animal;detection;depth;
+Actions=Info;Test;Classes;Status;
+
+[Desktop Action Info]
+Name=Identify the OAK (model, sensors, IR)
+Exec=gnome-terminal --title=OAK Info -- env OAK_HOLD=1 __REPO__/drone/wildlife/oak_camera.sh info
+
+[Desktop Action Test]
+Name=Test streaming and stereo depth
+Exec=gnome-terminal --title=OAK Test -- env OAK_HOLD=1 __REPO__/drone/wildlife/oak_camera.sh test
+
+[Desktop Action Classes]
+Name=What species can it detect?
+Exec=gnome-terminal --title=OAK Classes -- env OAK_HOLD=1 __REPO__/drone/wildlife/oak_camera.sh classes
+
+[Desktop Action Status]
+Name=Who currently owns the OAK?
+Exec=gnome-terminal --title=OAK Status -- env OAK_HOLD=1 __REPO__/drone/wildlife/oak_camera.sh status

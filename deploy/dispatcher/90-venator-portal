@@ -1,0 +1,43 @@
+#!/bin/sh
+# NetworkManager dispatcher: load the captive-portal port-80 redirect with the
+# access point, and remove it when the access point goes away.
+#
+# Installed to /etc/NetworkManager/dispatcher.d/90-venator-portal (0755,
+# root-owned) by deploy/field_mode.sh. NetworkManager-dispatcher.service is
+# already enabled on this Jetson.
+#
+# A dispatcher hook rather than a one-shot boot unit on purpose: it fires every
+# time the hotspot activates, so the rule is still there after the operator
+# toggles Wi-Fi mode by hand, after NetworkManager restarts, and after a
+# reconnect — none of which a boot-time rule would survive.
+#
+# Called by NetworkManager as:  $0 <interface> <action>
+# with CONNECTION_ID in the environment. No filename extension, because
+# NetworkManager skips scripts whose names end in certain suffixes.
+
+set -u
+
+RULES="/etc/venator/portal.nft"
+NFT="/usr/sbin/nft"
+
+# Only our access point. Every other connection coming up or down on this box
+# is none of our business.
+[ "${CONNECTION_ID:-}" = "venator-hotspot" ] || exit 0
+[ -r "${RULES}" ] || exit 0
+[ -x "${NFT}" ] || exit 0
+
+case "${2:-}" in
+    up)
+        # The ruleset's own create/delete/create prologue makes this safe to
+        # run repeatedly.
+        "${NFT}" -f "${RULES}" \
+            && logger -t venator-portal "port 80 -> 8080 redirect loaded for ${1:-?}" \
+            || logger -t venator-portal "FAILED to load ${RULES}"
+        ;;
+    down|pre-down)
+        "${NFT}" delete table ip venator-portal 2>/dev/null \
+            && logger -t venator-portal "redirect removed" || true
+        ;;
+esac
+
+exit 0

@@ -5,6 +5,8 @@
 #   * AI Camera (preview)     — live camera window on the Jetson's screen
 #   * AI Camera (web stream)  — tracker + video for laptop browsers
 #   * Wi-Fi Hotspot (toggle)  — school Wi-Fi <-> the Jetson's own hotspot
+#   * Wildlife Camera         — camera 2, the CSI day/night feed (if CAM0 fitted)
+#   * Wildlife Detector       — camera 1, OAK-D animal/person detection
 #
 # The AI camera is intentionally NOT a boot service: it is optional and toggled
 # by hand, fully decoupled from the core MAVLink/telemetry background services.
@@ -45,6 +47,32 @@ install_launcher "ai-camera-toggle.desktop"
 install_launcher "ai-camera-preview.desktop"
 install_launcher "ai-camera-stream.desktop"
 install_launcher "wifi-hotspot-toggle.desktop"
+# Camera 2 (CSI) — only when it is actually fitted: on a laptop, or a Jetson
+# with nothing on CAM0, the launcher would be dead weight.
+if [[ -e /dev/video0 ]]; then
+    install_launcher "wildlife-camera.desktop"
+else
+    echo "    skipped wildlife-camera.desktop (no /dev/video0 — no CSI camera)"
+fi
+# Camera 1 (OAK wildlife detector) — needs its own depthai 3.x venv, which is
+# separate from the flight tracker's. Skip rather than install a launcher that
+# would fail the moment it is clicked.
+if [[ -x "${OAK_PY:-/home/jetson/oak-venv/bin/python}" ]]; then
+    install_launcher "wildlife-oak.desktop"
+    # Field mode drives the same camera, so it shares the depthai requirement.
+    # This icon is the manual escape hatch from the boot services: the drone
+    # hosts its own Wi-Fi whenever no known network is in range, and this is
+    # how an operator gets back to the lab network without a terminal.
+    install_launcher "venator-field-mode.desktop"
+else
+    echo "    skipped wildlife-oak.desktop (no depthai venv at /home/jetson/oak-venv)"
+    echo "    skipped venator-field-mode.desktop (same reason)"
+fi
+
+# A launcher from before drone/wildlife/ existed; its Exec paths are all dead.
+for stale in "${APPS}/imx219-camera.desktop" "${DESKTOP_DIR}/imx219-camera.desktop"; do
+    [[ -e "${stale}" ]] && { rm -f "${stale}"; echo "    removed stale $(basename "${stale}")"; }
+done
 update-desktop-database "${APPS}" 2>/dev/null || true
 
 echo
@@ -54,7 +82,13 @@ echo "  - 'AI Camera (toggle)'  starts/stops the OAK-D tracker (headless)."
 echo "  - 'AI Camera (preview)' opens a live window to visually check the camera."
 echo "  - 'AI Camera (web stream)' starts the tracker with video for laptop browsers."
 echo "  - 'Wi-Fi Hotspot (toggle)' switches between school Wi-Fi and the VenatorDrone hotspot."
+[[ -e /dev/video0 ]] && \
+echo "  - 'Wildlife Camera (IMX219)' opens the CSI feed; right-click for day/night/snapshot."
+[[ -x "${OAK_PY:-/home/jetson/oak-venv/bin/python}" ]] && \
+echo "  - 'Wildlife Detector (OAK-D)' detects animals/people with distance; right-click for info/test."
 echo
-echo "Both can also be driven from a terminal:"
+echo "All can also be driven from a terminal:"
 echo "  ./drone/camera.sh start | stream | stop | status | restart | preview"
+echo "  ./drone/wildlife/imx219_camera.sh 720p | day | night | snapshot   # camera 2"
+echo "  ./drone/wildlife/oak_camera.sh detect | info | test | status      # camera 1"
 echo "  ./deploy/wifi_mode.sh on | off | toggle | status"

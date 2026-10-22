@@ -36,6 +36,41 @@ jobs:
       - name: Command link authentication
         run: python3 tests/test_auth.py
 
+      # No camera: the class policy is a pure table, so the thresholds that
+      # decide what the drone reports are pinned here. The invariant that
+      # matters is that the device-side filter can never sit above a per-class
+      # threshold — anything the hardware drops is gone before the policy
+      # gets a vote on it.
+      - name: Detection class policy
+        run: python3 tests/test_classes.py
+
+      # No camera and no sockets: the hub, the token derivation and the
+      # evidence-name allowlist are all exercised in-process. This pins the
+      # properties that replaced SECURITY.md item 4 - a GUI token must not be
+      # usable as a C2 signing key, path traversal must be refused by shape,
+      # the viewer cap must hold on a box with zero swap, and an alert must
+      # survive 200 intervening detections while the detections coalesce.
+      - name: Operator GUI auth, paths and delivery
+        run: python3 tests/test_gui_auth.py
+
+      # No camera: tracklets are plain dicts, so the bookkeeping on top of the
+      # device tracker is exercised in-process. The property that matters is
+      # that one object seen over fifty frames is ONE object — counting
+      # detection events instead is the bug this replaced, where a person the
+      # detector dropped for a frame was counted again on the next hit.
+      - name: Object tracking and dwell
+        run: python3 tests/test_tracking.py
+
+      # No camera and no sockets: the request handler is driven in-process.
+      # Every captive-portal route sits ahead of the token check, because a
+      # phone probing for a login page has never seen the token — so the exact
+      # boundary is load-bearing. This pins that the portal exposes only a
+      # redirect, a JSON blob and a landing page, that everything else stays
+      # behind the gate, and that Apple's probe never receives the "Success"
+      # body that would stop the popup from appearing.
+      - name: Captive portal routes and boundary
+        run: python3 tests/test_captive.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 
