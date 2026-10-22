@@ -27,6 +27,7 @@
  */
 #include "LoRaWan_APP.h"
 #include "HT_SSD1306Wire.h"
+#include <Preferences.h>     // NVS: the setup wizard's encoder-direction flag
 
 // ---- radio: identical to LoRa_Transceiver.ino, or the two cannot hear each other
 #define RF_FREQUENCY     915000000
@@ -78,10 +79,23 @@ static const int MENU_N = sizeof(MENU) / sizeof(MENU[0]);
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
+// WIZARD is appended so every existing enumerator keeps its value.
 enum State { LINKING, MENU_VIEW, LOCAL_CONFIRM, WAIT_ACK, WAIT_DONE,
-             FLY_CONFIRM, FLYING, RESULT };
+             FLY_CONFIRM, FLYING, RESULT, WIZARD };
 static State state = LINKING;
 static uint32_t stateAt = 0;
+
+// ---- commissioning wizard, for a newly built remote ------------------------
+// Entered only by holding BACK through boot, so a flown unit is untouched. It
+// walks the controls in order and then proves the radio; it deliberately cannot
+// *edit* the radio parameters, which must stay identical to
+// LoRa_Transceiver.ino or the two ends go deaf to each other.
+enum WizStep { WZ_INTRO, WZ_CLICK, WZ_CW, WZ_CCW, WZ_BACK, WZ_RADIO, WZ_DONE };
+static WizStep  wizStep = WZ_INTRO;
+static int      wizCwSeen = 0, wizCcwSeen = 0;
+static bool     wizInvertFound = false;
+static uint32_t wizStepAt = 0, wizHelloAt = 0;
+static char     wizNote[48] = "";
 
 static int sel = 0;                // selected menu index
 static const Item *active = nullptr;
@@ -125,7 +139,24 @@ static void IRAM_ATTR onEncoder() {
     portEXIT_CRITICAL_ISR(&encMux);
 }
 
+// On a hand-soldered encoder A and B get swapped about half the time, which
+// silently inverts the knob. The wizard measures the direction and stores the
+// correction in NVS, so a mis-wired unit works without a resolder or a
+// per-unit recompile.
+static Preferences prefs;
+static bool encInvert = false;
+
 static int takeDetents() {
+    portENTER_CRITICAL(&encMux);
+    int d = encDetents;
+    encDetents = 0;
+    portEXIT_CRITICAL(&encMux);
+    return encInvert ? -d : d;
+}
+
+// Raw detents, ignoring encInvert. Only the wizard uses this: it is measuring
+// the sign, so it must not read through the correction it is trying to derive.
+static int takeDetentsRaw() {
     portENTER_CRITICAL(&encMux);
     int d = encDetents;
     encDetents = 0;
@@ -368,6 +399,37 @@ static void draw() {
         snprintf(buf, sizeof(buf), "Looking for the drone... BACK retries now.");
         drawBody("VENATOR", buf);
         break;
+    case WIZARD:
+        switch (wizStep) {
+        case WZ_INTRO:
+            drawBody("Setup", "Click the knob to start. BACK exits.");
+            break;
+        case WZ_CLICK:
+            drawBody("1/5 knob", "Click works.");
+            break;
+        case WZ_CW:
+            snprintf(buf, sizeof(buf), "Turn the knob CLOCKWISE  %d/3", abs(wizCwSeen));
+            drawBody("2/5 turn", buf);
+            break;
+        case WZ_CCW:
+            snprintf(buf, sizeof(buf), "Now turn it ANTICLOCKWISE  %d/3", abs(wizCcwSeen));
+            drawBody("3/5 turn", buf);
+            break;
+        case WZ_BACK:
+            snprintf(buf, sizeof(buf), "%s. Press BACK.", wizNote);
+            drawBody("4/5 BACK", buf);
+            break;
+        case WZ_RADIO:
+            snprintf(buf, sizeof(buf), "Calling the drone... BACK skips.");
+            drawBody("5/5 radio", buf);
+            break;
+        case WZ_DONE:
+            snprintf(buf, sizeof(buf), "Link %ddB. %s. Click to start.",
+                     (int)lastRssi, wizNote);
+            drawBody("Ready", buf);
+            break;
+        }
+        break;
     case MENU_VIEW: {
         snprintf(buf, sizeof(buf), "props %s | gps %s", propsOff ? "OFF" : "ON", gps);
         display.drawString(0, 13, buf);
@@ -445,6 +507,11 @@ static void runRemote() {
     bool backClick = back.takeClick();
 
     switch (state) {
+    case WIZARD:
+        // Unreachable: loop() routes WIZARD to runWizard() instead. Named
+        // explicitly so this switch stays exhaustive and the compiler keeps
+        // warning if a future state is added without being handled here.
+        break;
     case LINKING:
         if (backClick || now - lastHelloMs > HELLO_EVERY_MS) {
             lastHelloMs = now;
@@ -528,6 +595,67 @@ static void runRemote() {
 }
 
 // ---------------------------------------------------------------------------
+// Commissioning wizard
+// ---------------------------------------------------------------------------
+static void wizGo(WizStep s) { wizStep = s; wizStepAt = millis(); }
+
+static void runWizard() {
+    uint32_t now = millis();
+    int d = takeDetentsRaw();
+
+    switch (wizStep) {
+    case WZ_INTRO:
+        if (knob.takeClick()) wizGo(WZ_CLICK);
+        break;
+    case WZ_CLICK:
+        // Getting here already proved the knob switch. Hold the confirmation on
+        // screen long enough to read before asking for the next input.
+        if (now - wizStepAt > 900) { wizCwSeen = 0; wizGo(WZ_CW); }
+        break;
+    case WZ_CW:
+        wizCwSeen += d;
+        if (abs(wizCwSeen) >= 3) { wizCcwSeen = 0; wizGo(WZ_CCW); }
+        break;
+    case WZ_CCW:
+        wizCcwSeen += d;
+        if (abs(wizCcwSeen) >= 3) {
+            // Clockwise must count up. If it counted down while anticlockwise
+            // counted up, A/B are swapped -- record it rather than ask for a
+            // resolder. Any other combination means one channel is dead or
+            // stuck, which inverting would hide, so leave it alone and say so.
+            wizInvertFound = (wizCwSeen < 0 && wizCcwSeen > 0);
+            bool consistent = (wizCwSeen > 0 && wizCcwSeen < 0) || wizInvertFound;
+            if (consistent) {
+                encInvert = wizInvertFound;
+                prefs.begin("venator", false);
+                prefs.putBool("encInvert", encInvert);
+                prefs.end();
+                snprintf(wizNote, sizeof(wizNote), "%s",
+                         wizInvertFound ? "A/B swapped, fixed in software"
+                                        : "direction correct");
+            } else {
+                snprintf(wizNote, sizeof(wizNote), "CHECK WIRING: A or B stuck");
+            }
+            wizGo(WZ_BACK);
+        }
+        break;
+    case WZ_BACK:
+        if (back.takeClick()) { rxCount = 0; wizHelloAt = 0; wizGo(WZ_RADIO); }
+        break;
+    case WZ_RADIO:
+        if (now - wizHelloAt > HELLO_EVERY_MS) { wizHelloAt = now; sendMsg("HELLO"); }
+        if (rxCount > 0) wizGo(WZ_DONE);
+        break;
+    case WZ_DONE:
+        if (knob.takeClick()) setState(LINKING);
+        break;
+    }
+
+    // BACK leaves the wizard from any step except the two that use it.
+    if (wizStep != WZ_BACK && wizStep != WZ_DONE && back.takeClick()) setState(LINKING);
+}
+
+// ---------------------------------------------------------------------------
 void setup() {
     Serial.begin(115200);
     Mcu.begin(HELTEC_BOARD, SLOW_CLK_TPYE);
@@ -547,6 +675,10 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_A), onEncoder, CHANGE);
     attachInterrupt(digitalPinToInterrupt(PIN_ENC_B), onEncoder, CHANGE);
 
+    prefs.begin("venator", true);              // read-only
+    encInvert = prefs.getBool("encInvert", false);
+    prefs.end();
+
     RadioEvents.TxDone    = onTxDone;
     RadioEvents.TxTimeout = onTxTimeout;
     RadioEvents.RxDone    = onRxDone;
@@ -562,7 +694,15 @@ void setup() {
     Radio.Rx(0);
 
     Serial.println("Venator remote ready.");
-    setState(LINKING);
+    // Holding BACK through boot runs the commissioning wizard. Nothing else
+    // reaches it, so a remote that is already flying behaves exactly as before.
+    if (digitalRead(PIN_BACK) == LOW) {
+        Serial.println("BACK held at boot - setup wizard.");
+        wizGo(WZ_INTRO);
+        setState(WIZARD);
+    } else {
+        setState(LINKING);
+    }
 }
 
 void loop() {
@@ -576,7 +716,8 @@ void loop() {
     }
     knob.poll();
     back.poll();
-    runRemote();
+    if (state == WIZARD) runWizard();
+    else                 runRemote();
     pumpRadio();
     // Redraw last and never mid-transmit: a 128x64 frame is ~20 ms of I2C.
     if (!txBusy && millis() - lastDraw >= DRAW_MS) {

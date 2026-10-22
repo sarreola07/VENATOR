@@ -33,6 +33,34 @@ The encoder's `+` is on 3V3. Clockwise runs A/B `11 → 01 → 00 → 10 → 11`
 transitions per detent. These were found with a pin scan of this remote, not a
 schematic. If you rewire, change the `PIN_*` defines at the top of the sketch.
 
+## Commissioning a newly built remote
+
+Hold **BACK** while the board boots to get a five-step setup wizard. It exists
+because these are hand-wired: it checks the controls in order and then proves
+the radio, so a dead solder joint is found at the bench instead of in the field.
+
+| Step | Asks for | Catches |
+|---|---|---|
+| 1/5 knob | a click | the encoder's push switch (`PIN_KNOB`) |
+| 2/5 turn | three detents **clockwise** | a dead or unconnected A/B channel |
+| 3/5 turn | three detents **anticlockwise** | **A and B swapped** — see below |
+| 4/5 BACK | a press of BACK | `PIN_BACK` wired, and not swapped with the knob |
+| 5/5 radio | nothing | sends `HELLO` until the drone answers; shows the RSSI |
+
+Steps 2 and 3 are the point. On a hand-soldered KY-040, A and B end up swapped
+about half the time, which inverts the knob — the menu scrolls the wrong way and
+nothing in the code is wrong. If clockwise counts *down* and anticlockwise counts
+*up*, the wizard records that in NVS (`venator/encInvert`) and `takeDetents()`
+negates from then on, so the unit works without a resolder or a per-unit build.
+Any other combination means a channel is stuck, which inverting would only
+hide, so it says `CHECK WIRING` and changes nothing.
+
+The wizard **cannot change the radio parameters**. `RF_FREQUENCY`, `LORA_SF` and
+`LORA_SYNCWORD` must stay identical to `LoRa_Transceiver.ino` or the two ends go
+deaf, so step 5 verifies the link rather than offering to edit it. BACK leaves
+the wizard at any step. Booting without BACK held skips it entirely, so a remote
+that is already flying behaves exactly as before.
+
 ## Safety, and where it lives
 
 The **drone** decides. The props interlock, the GPS gate and PX4's own pre-arm
