@@ -147,7 +147,9 @@ def poll_radio():
 
 
 # ---- state ---------------------------------------------------------------------
-state, state_at = "linking", utime.ticks_ms()
+# Start in the menu: the controls must work before (and without) a link, or a
+# drone that is off makes the whole remote look dead.
+state, state_at = "menu", utime.ticks_ms()
 sel, active = 0, None
 wait_seq = 0
 drone = {}                 # last HELLO_ACK
@@ -175,8 +177,6 @@ def handle(m):
     t = m.get("t")
     if t == "HELLO_ACK":
         drone = m
-        if state == "linking":
-            set_state("menu")
     elif t == "LOG":
         last_log = m.get("text", "")
         if state == "flying":
@@ -206,15 +206,12 @@ def step(now):
     click, bclick = knob.take_click(), back.take_click()
     idle = utime.ticks_diff(now, last_tx)
 
-    if state == "linking":
-        if bclick or utime.ticks_diff(now, last_hello) > HELLO_EVERY_MS:
-            last_hello = now
-            send("HELLO", proto=1)
-    elif state == "menu":
+    if state == "menu":
         sel = enc.value()
-        if bclick:
-            send("HELLO", proto=1)
-        elif idle > IDLE_PING_MS:
+        if bclick or (not drone and utime.ticks_diff(now, last_hello) > HELLO_EVERY_MS):
+            last_hello = now
+            send("HELLO", proto=1)     # until the drone answers, keep asking
+        elif drone and idle > IDLE_PING_MS:
             send("PING")
         if click:
             active = MENU[sel]
@@ -293,10 +290,9 @@ def draw(now):
         fb.text("%.1fV" % drone["batt"], 88, 0)
     fb.hline(0, 9, 128, 1)
     rows = []
-    if state == "linking":
-        rows = ["VENATOR", "Looking for", "the drone...", "BACK = retry"]
-    elif state == "menu":
-        fb.text("props %s" % ("OFF" if drone.get("props_off") else "ON"), 0, 12)
+    if state == "menu":
+        fb.text(("props %s" % ("OFF" if drone.get("props_off") else "ON"))
+                if drone else "linking...", 0, 12)
         for i, (_, label, _) in enumerate(MENU):
             fb.text((">" if i == sel else " ") + label[:15], 0, 24 + i * 10)
     elif state == "local_confirm":
