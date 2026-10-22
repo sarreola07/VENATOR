@@ -1050,10 +1050,17 @@ class MonitoredFlight:
 class LoRaLink(SerialLink):
     """The Jetson's link. Drops outbound messages while the stick is away
     rather than raising: the server loop has to keep running so it can answer
-    once the stick is back."""
+    once the stick is back.
+
+    defer_open for the same reason, extended to startup. As a boot service this
+    races USB enumeration -- the Pixhawk on this airframe has taken minutes to
+    appear -- and raising here meant exit 1, which under Restart=on-failure with
+    StartLimitIntervalSec=0 is a restart every RestartSec forever rather than a
+    wait. port_finder so the retry re-resolves instead of hammering one path."""
 
     def __init__(self, port, baud):
         super().__init__(port, baud, raise_on_down=False,
+                         defer_open=True, port_finder=find_lora_device,
                          log=lambda m: print(m, flush=True))
 
 
@@ -1153,10 +1160,14 @@ def main():
     # flight controller is missing (previously this crash-looped in silence).
     lora_port = find_lora_device() if args.lora_port == "auto" else args.lora_port
     print("LoRa device: {}".format(lora_port), flush=True)
-    try:
-        link = LoRaLink(lora_port, args.lora_baud)
-    except Exception as e:
-        sys.exit(f"Could not open LoRa port {lora_port}: {e}")
+    # LoRaLink defers its first open, so an absent or still-enumerating stick is
+    # a wait rather than exit 1. Exiting here was a crash-loop under systemd:
+    # Restart=on-failure with StartLimitIntervalSec=0 retried every 5 s forever,
+    # which is how a demo loses the command link to a slow USB port.
+    link = LoRaLink(lora_port, args.lora_baud)
+    if not link.up:
+        print("LoRa stick not there yet — the server is up and will attach to "
+              "it as soon as it appears.", flush=True)
 
     if args.real:
         if missions is None:

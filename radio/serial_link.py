@@ -54,6 +54,19 @@ class SerialLink:
                   signed and inbound ones that do not verify are dropped before
                   the caller sees them. Without one the link behaves exactly as
                   it did before authentication existed. See docs/SECURITY.md.
+    defer_open    tolerate the stick being absent at construction: set the
+                  reconnect timer instead of raising, so the caller comes up and
+                  _ensure() picks the port up within RECONNECT_WAIT_S. For a
+                  boot service, where the stick may still be enumerating -- the
+                  Pixhawk on this airframe has taken minutes -- and where
+                  raising means systemd restarts every RestartSec forever
+                  instead of waiting. Off by default so interactive tools keep
+                  failing immediately and visibly.
+    port_finder   optional callable re-consulted on every reconnect attempt, so
+                  a stick that comes back on a different node is still found.
+                  Without it the first resolved path is frozen for the process's
+                  life, which defeats drone/c2_server.py's find_lora_device()
+                  ("so a replug (ttyUSB0->ttyUSB1) can't kill the service").
     """
 
     # On the class, not just the module, so a subclass can be asked what pacing
@@ -64,7 +77,8 @@ class SerialLink:
     _UNSET = object()
 
     def __init__(self, port, baud=115200, *, settle=0.0, report_raw=False,
-                 raise_on_down=False, send_gap=None, log=print, auth_key=_UNSET):
+                 raise_on_down=False, send_gap=None, log=print, auth_key=_UNSET,
+                 defer_open=False, port_finder=None):
         self.port, self.baud, self.settle = port, baud, settle
         self.report_raw, self.raise_on_down = report_raw, raise_on_down
         self.send_gap = self.MIN_SEND_GAP_S if send_gap is None else send_gap
@@ -77,24 +91,49 @@ class SerialLink:
         self.auth_key = _auth.load_key() if auth_key is self._UNSET else auth_key
         self._seen = []          # replay window for this receiver
         self._rejected = 0
-        self._open()
+        self._port_finder = port_finder
+        self._ever_open = False   # distinguishes "not there yet" from "went away"
+        if defer_open:
+            # A missing stick is a wait, not a failure. Report it through the
+            # same path as a mid-session loss so the message and the retry timer
+            # are identical, then let _ensure() open it when it appears.
+            try:
+                self._open()
+            except Exception as exc:
+                self._drop(exc)
+        else:
+            self._open()
 
     # --- the port ---------------------------------------------------------
     def _open(self):
         import serial
+        # Re-resolve first: a stick that re-enumerated may be on another node,
+        # and freezing the path found at construction is what find_lora_device()
+        # in drone/c2_server.py exists to avoid.
+        if self._port_finder is not None:
+            found = self._port_finder()
+            if found and found != self.port:
+                self._log("LoRa device now {}".format(found))
+                self.port = found
         # exclusive=True so a stray serial monitor cannot grab the port and
         # silently eat half the conversation.
         self.ser = serial.Serial(self.port, self.baud, timeout=0.2, exclusive=True)
+        self._ever_open = True
         self._buf = ""
         if self.settle > 0:
             time.sleep(self.settle)
             self.ser.reset_input_buffer()    # drop the firmware's boot banner
 
     def _drop(self, exc):
-        """The port went away. Report it once, not once per read."""
+        """The port is unusable. Report it once, not once per read."""
         if not self._down_reported:
-            self._log("{} went away ({}) - retrying every {:g}s".format(
-                self.port, exc, RECONNECT_WAIT_S))
+            # "went away" is wrong for a port that was never open -- which is
+            # the defer_open case at boot, where the stick is simply not
+            # enumerated yet. Saying it went away sends people looking for a
+            # disconnection that never happened.
+            what = "went away" if self._ever_open else "is not there yet"
+            self._log("{} {} ({}) - retrying every {:g}s".format(
+                self.port, what, exc, RECONNECT_WAIT_S))
             self._down_reported = True
         try:
             if self.ser is not None:

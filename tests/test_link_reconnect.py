@@ -145,6 +145,48 @@ field.ser.alive = False
 field.poll()
 check("ground client returns False instead", field.send({"t": "PING", "seq": 3}), False)
 
+print("\n  A stick absent at STARTUP is a wait, not a crash (defer_open)")
+# The boot service races USB enumeration. Before defer_open, SerialLink.__init__
+# called _open() unguarded, so an absent stick raised, c2_server exited 1, and
+# systemd's Restart=on-failure + StartLimitIntervalSec=0 retried every 5 s
+# forever. The retry machinery only ever covered losing the port mid-session.
+from radio.serial_link import SerialLink  # noqa: E402
+
+FakeSerial.available = False
+logs = []
+late = SerialLink("/dev/fake8", settle=0, raise_on_down=False, defer_open=True,
+                  auth_key=None, log=logs.append)
+check("constructs with the port absent", late.up, False)
+check("says 'not there yet', not 'went away'",
+      "is not there yet" in (logs[-1] if logs else ""), True)
+check("poll while never-opened returns None", late.poll(), None)
+FakeSerial.available = True
+late._retry_at = 0
+check("attaches once the port appears", late.poll(), None)
+check("reports up", late.up, True)
+
+# The default must stay strict: an interactive tool should fail loudly, and
+# radio/link_test.py relies on the raise to tell the operator at once.
+FakeSerial.available = False
+try:
+    SerialLink("/dev/fake9", settle=0, auth_key=None, log=lambda m: None)
+    check("without defer_open it still raises", "no exception", "OSError")
+except OSError:
+    check("without defer_open it still raises", "OSError", "OSError")
+FakeSerial.available = True
+
+# port_finder is re-consulted on reconnect, so a stick that comes back on a
+# different node is still found -- what find_lora_device() exists for.
+FakeSerial.available = False
+moved = SerialLink("/dev/fake-old", settle=0, raise_on_down=False,
+                   defer_open=True, auth_key=None,
+                   port_finder=lambda: "/dev/fake-new", log=lambda m: None)
+check("starts down on the stale path", moved.up, False)
+FakeSerial.available = True
+moved._retry_at = 0
+moved.poll()
+check("reconnect re-resolves the device", moved.port, "/dev/fake-new")
+
 print("\n  ====================================================")
 print(f"  {'ALL CHECKS PASSED' if not FAIL else f'{FAIL} CHECK(S) FAILED'}")
 sys.exit(1 if FAIL else 0)
