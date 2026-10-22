@@ -100,10 +100,14 @@ to fill the space.
 
 ### The hero is the one exception, and it is deliberate
 
-The hero on `index.html` is a scroll-scrubbed image sequence: 120 frames of the
-aircraft, advanced against scroll position. It reports something — what the
-machine is, what is inside it, how it goes together — so it satisfies the rule
-above. It is not motion filling space.
+The hero on `index.html` is a 120-frame image sequence of the aircraft, played
+once when it comes into view. It reports something — what the machine is, what
+is inside it, how it goes together — so it satisfies the rule above. It is not
+motion filling space.
+
+It used to scrub against scroll position. That cost two and a half screens of
+dead scroll with scripting off, so it plays once on an `IntersectionObserver`
+instead; see the note further down about `cine-play.js`.
 
 Two things about it are worth writing down rather than rediscovering.
 

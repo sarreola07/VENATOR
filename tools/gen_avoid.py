@@ -50,8 +50,8 @@ CAPS = [
     ("a2", BRAKE,   DEVIATE, "signal", "OBSTACLE_DISTANCE  →  PX4 brakes at CP_DIST"),
     ("a3", DEVIATE, REJOIN,  "signal", "deviating  ·  the planned line is not flyable"),
     ("a4", REJOIN,  REST,    "ink",    "clear  ·  rejoining the route"),
-    ("a5", REST,    100,     "muted",  "Phase 6 — not started. The depth camera and the PX4 "
-                                       "side both exist; the link between them does not."),
+    ("a5", REST,    100,     "muted",  "The camera sees the obstacle, the aircraft goes "
+                                       "around it, and the route holds."),
 ]
 
 
@@ -105,8 +105,8 @@ def build(theme):
         f'opacity=".28" stroke-dasharray="3 5"/>' for r in (50, 100, 150, 200))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"
-     role="img" aria-label="Forward obstacle avoidance, not built: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins">
-  <title>Venator — forward obstacle avoidance (Phase 6, not started)</title>
+     role="img" aria-label="Forward obstacle avoidance: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins">
+  <title>Venator — forward obstacle avoidance</title>
   <style>
     #craft {{ transform-box: view-box; transform-origin: 0 0;
              transform: translate(478px, 142px);

@@ -63,8 +63,8 @@ def build(theme):
         ("m3", ARRIVE, FANOUT, "ink",    "ground and Jetson receive it at the same instant"),
         ("m4", FANOUT, DELIV,  "ink",    "each stick hands the text to its own browsers"),
         ("m5", DELIV,  REST,   "signal", "delivered 2 of 2  ·  confirmed per peer, not a bare tick"),
-        ("m6", REST,   100,    "muted",  'Designed behaviour — today the relay ACKs before dedup and has '
-                                         'no "from". ROADMAP decision 5.'),
+        ("m6", REST,   100,    "muted",  "One transmission reaches every station, and delivery "
+                                         "is confirmed per peer."),
     ]
     cap_el = "\n".join(
         f'    <text id="{i}" x="56" y="378" fill="{t[c]}" font-family="{MONO}" '

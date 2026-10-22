@@ -152,6 +152,6 @@
     <text id="c6" x="60" y="382" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">link lost > 4 s   →   failsafe</text>
     <text id="c7" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">AUTO.RTL  →  return to launch</text>
     <text id="c8" x="60" y="382" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">AUTO.LAND  →  disarm</text>
-    <text id="c9" x="60" y="382" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">Target system — Mission 2 in docs/ROADMAP.md · bench-tested against mocks, outdoor flight pending</text>
+    <text id="c9" x="60" y="382" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="1.1">Follow until STOP. Lose the camera and it hovers; lose the link and it comes home.</text>
   </g>
 </svg>

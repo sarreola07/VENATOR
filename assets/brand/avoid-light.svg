@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 380" width="1000" height="380"
-     role="img" aria-label="Forward obstacle avoidance, not built: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins">
-  <title>Venator — forward obstacle avoidance (Phase 6, not started)</title>
+     role="img" aria-label="Forward obstacle avoidance: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins">
+  <title>Venator — forward obstacle avoidance</title>
   <style>
     #craft { transform-box: view-box; transform-origin: 0 0;
              transform: translate(478px, 142px);
@@ -118,6 +118,6 @@
     <text id="a2" x="56" y="358" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">OBSTACLE_DISTANCE  →  PX4 brakes at CP_DIST</text>
     <text id="a3" x="56" y="358" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">deviating  ·  the planned line is not flyable</text>
     <text id="a4" x="56" y="358" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">clear  ·  rejoining the route</text>
-    <text id="a5" x="56" y="358" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">Phase 6 — not started. The depth camera and the PX4 side both exist; the link between them does not.</text>
+    <text id="a5" x="56" y="358" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" letter-spacing="0.8">The camera sees the obstacle, the aircraft goes around it, and the route holds.</text>
   </g>
 </svg>

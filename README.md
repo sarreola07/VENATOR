@@ -6,8 +6,20 @@
 </p>
 
 <p align="center">
-  <strong>Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute.</strong><br>
+  <strong>An autonomous aircraft commanded over a radio link that needs no infrastructure —<br>
+  no internet, no cellular, no ground control software — to search an area,<br>
+  find the people in it, and stay in contact when the network is gone.</strong>
+</p>
+
+<p align="center">
+  <em>Fence an area, sweep it, find who is in it, come home.</em><br>
   <sub>Holybro X500 V2 · Pixhawk 6X · Jetson Orin Nano · Heltec Wireless Stick V3 · LoRa C2</sub>
+</p>
+
+<p align="center">
+  <a href="docs/MISSION.md"><strong>Mission</strong></a> ·
+  <a href="docs/ROADMAP.md">Status</a> ·
+  <a href="https://sarreola07.github.io/VENATOR/">Product page</a>
 </p>
 
 <p align="center">
@@ -52,9 +64,9 @@ GUI, no internet — a laptop, a radio and a drone.
 |---|---|
 | Airframe | Holybro X500 V2, quadcopter, 500 mm wheelbase, 144x144 mm body plate, 610 g frame weight |
 | Flight controller | Pixhawk 6X (FMUv6X, v2A baseboard) |
-| Firmware | PX4 version TBD - confirm on hardware |
-| GPS | Holybro M10 (fitted, getting a fix) |
-| Motors | 4x Holybro 2216 KV920 |
+| Firmware | PX4 1.17.0 (confirmed on hardware) |
+| GPS | Holybro M10, fitted on the tail mast. Reports `fix_type 0`, 0 satellites with `GPS_1_CONFIG=201` — a cable or port fault, not configuration |
+| Motors | 4x Holybro 2216. Holybro's CAD names them DJ-2216-KV880, the kit listing says KV920; unresolved, so neither is claimed |
 | ESCs | 4x BLHeli S 20A (4S compatible) |
 | Propellers | 1045 |
 | Battery | 4S 3000-5000 mAh 20C+ with XT60 (not included in kit) |
@@ -160,8 +172,11 @@ Notes for this vehicle (Pixhawk 6X, FMUv6X):
 - `CBRK_IO_SAFETY=22027` bypasses the safety switch. The 2.4.8 build had no
   switch wired; the 6X ships one, so this bypass should be re-decided rather
   than carried over.
-- `COM_ARM_WO_GPS=1` allowed arming with no GPS because none was fitted. Now
-  that the M10 is fitted and getting a fix, this should be reviewed.
+- `COM_ARM_WO_GPS=1` allowed arming with no GPS because none was fitted. The M10
+  is fitted now but still reports no fix, so this is load-bearing rather than
+  vestigial: PX4 will arm this aircraft without a position estimate, and the only
+  thing refusing a GPS-less flight is the server's own gate in `_validate()`.
+  Review it once the GPS fault is fixed.
 - `COM_CPU_MAX=-1` was a workaround for an FMUv2 quirk where PX4 v1.13 did not
   run `load_mon`. The 6X is a different, far more capable board, so this
   workaround is likely unnecessary and should be re-tested rather than carried

@@ -43,8 +43,8 @@ CAPTIONS = [
     ("c6", 58, 68, "signal", "link lost > 4 s   →   failsafe"),
     ("c7", 68, 82, "ink",    "AUTO.RTL  →  return to launch"),
     ("c8", 82, 90, "ink",    "AUTO.LAND  →  disarm"),
-    ("c9", 90, 100, "muted", "Target system — Mission 2 in docs/ROADMAP.md · "
-                             "bench-tested against mocks, outdoor flight pending"),
+    ("c9", 90, 100, "muted", "Follow until STOP. Lose the camera and it hovers; "
+                             "lose the link and it comes home."),
 ]
 
 

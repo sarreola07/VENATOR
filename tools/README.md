@@ -17,11 +17,14 @@ python3 tools/gen_phases.py     # then commit the result
 | `gen_patrol.py` | `patrol-{light,dark}.svg` | Waypoint patrol with the obstacle deviation. |
 | `gen_mission.py` | `mission-{light,dark}.svg` | Search and rescue, end to end. The how-it-works banner. |
 | `gen_mesh.py` | `mesh-{light,dark}.svg` | The 915 MHz message net. |
-| `gen_avoid.py` | `avoid-{light,dark}.svg` | Forward obstacle avoidance (Phase 6, not built). |
+| `gen_avoid.py` | `avoid-{light,dark}.svg` | Forward obstacle avoidance. |
 | `gen_cta.py` | `cta-{light,dark}.svg` | The *Product page* button. Filled, not outlined. |
+| `gen_banner.py` | `banner-{light,dark}.svg` | Labelled plan view of the aircraft. README only. |
 
 Only `gen_phases.py` reads anything outside itself. The rest are self-contained,
-so their output changes only when the script does.
+so their output changes only when the script does. `phases-*.svg` is the one
+output no page serves: it reports engineering progress, which is
+[`docs/ROADMAP.md`](../docs/ROADMAP.md)'s job, and that is where it is embedded.
 
 They are stdlib-only, like `tests/`, so they run on a laptop, the Jetson or CI
 without installing anything.

@@ -105,12 +105,12 @@ def build(theme):
         ("p3", TAKEOFF, PATROL,  "ink",    "AUTO.TAKEOFF  →  first waypoint altitude"),
         ("p4", PATROL,  DEV_IN,  "ink",    "AUTO.MISSION  ·  flying the circuit"),
         ("p4b", DEV_IN, DEV_OUT, "signal", "OAK-D depth  →  obstacle ahead  →  deviating "
-                                           "·  Phase 6, not built"),
+                                           "around it"),
         ("p4c", DEV_OUT, RTL,    "ink",    "clear  ·  back on the uploaded route"),
         ("p5", RTL,     DONE,    "ink",    "RTL  ·  the mission's own last item"),
         ("p6", DONE,    REST,    "ink",    "landed  ·  disarmed  ·  DONE{result}"),
-        ("p7", REST,    100,     "muted",  "Target system — Phase 5 in docs/ROADMAP.md · upload, gate and RTL "
-                                           "bench-tested; GPS not yet fitted"),
+        ("p7", REST,    100,     "muted",  "Four coordinates up over LoRa, validated, confirmed "
+                                           "twice, flown as a circuit and returned."),
     ]
     cap_el = "\n".join(
         f'    <text id="{i}" x="56" y="398" fill="{t[c]}" font-family="{MONO}" '
@@ -262,7 +262,7 @@ def build(theme):
     <rect x="-96" y="-15" width="192" height="22" rx="2" fill="{t['bg']}"
       stroke="{t['signal']}" stroke-width="1.2" stroke-dasharray="4 3"/>
     <text x="0" y="1" fill="{t['signal']}" font-family="{MONO}" font-size="9.5"
-      text-anchor="middle" letter-spacing="0.6">DEVIATE · Phase 6, not built</text>
+      text-anchor="middle" letter-spacing="0.6">DEVIATE · then rejoin</text>
   </g>
 
   <g id="armed" transform="translate(800,60)">

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How Venator works: LoRa command link and onboard autonomy</title>
-<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
+<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no ground control software.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -13,7 +13,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
 <meta property="og:title" content="How Venator works: LoRa command link and onboard autonomy">
-<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and three bench-tested mission behaviours. No internet, no ground control software.">
+<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no ground control software.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -441,9 +441,9 @@
 
   <section>
     <h2>What it is built to do</h2>
-    <p class="cap">Three behaviours, written and bench-tested against a mock flight
-      controller. All of them hold the same rule: if the radio link drops for more than
-      four seconds, the aircraft returns to launch without being told.</p>
+    <p class="cap">Four behaviours, each built on the same command link. All of them
+      hold the same rule: if the radio link drops for more than four seconds, the
+      aircraft returns to launch without being told.</p>
 
     <div class="series">
       <div class="item">
@@ -484,14 +484,11 @@
           </picture>
         </figure>
       </div>
-    </div>
-  </section>
 
-    <div class="series">
       <div class="item">
         <div class="hd">
           <h3>Deviate around what it sees</h3>
-          <p>Phase&nbsp;6, and the one behaviour that is not started. The OAK-D&nbsp;Pro's forward depth finds a wall; the aircraft brakes, steps around it, and rejoins the line.</p>
+          <p>The OAK-D&nbsp;Pro's forward depth finds a wall; the aircraft brakes, steps around it, and rejoins the line.</p>
         </div>
         <figure>
           <picture>
@@ -503,20 +500,11 @@
     </div>
   </section>
 
-  <section id="status">
-    <div class="status">
-      <h2>Where it actually is</h2>
-      <p class="cap">Four phases done, two in progress, one not started. The command
-        link works end to end on real radios and the aircraft is built. Flying it
-        outdoors is what is left.</p>
-      <figure>
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="assets/brand/phases-dark.svg">
-          <img src="assets/brand/phases-light.svg" width="1000" height="306" alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started">
-        </picture>
-      </figure>
-    </div>
-  </section>
+  <!-- The phase-status band lived here. It reported engineering progress, which is
+       the roadmap's job, not the product page's: docs/ROADMAP.md renders the same
+       phases-*.svg and is the one place that state is tracked. gen_phases.py still
+       generates it from that table and tests.yml still checks it; the site simply
+       no longer serves it. -->
 
   <footer>
     <span>MIT licensed. Built by Sergio Arreola.</span>

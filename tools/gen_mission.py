@@ -667,6 +667,13 @@ def build(theme):
 
 
 if __name__ == "__main__":
+    # Both variants, though how-it-works.html always serves the dark one: this
+    # band is #0A0A0A in either colour scheme, the same as cta-*.svg and the
+    # lockup. mission-light.svg is generated and committed but never served --
+    # kept so the pair stays symmetric with every other diagram here, and so a
+    # light treatment is a markup change rather than a rebuild. It also means
+    # site-audit.yml's phone-legibility check, which greps the pages for
+    # `-light.svg`, never inspects this diagram.
     for name in ("light", "dark"):
         p = ROOT / f"mission-{name}.svg"
         p.write_text(build(name), encoding="utf-8")

@@ -175,7 +175,7 @@
     <rect x="-96" y="-15" width="192" height="22" rx="2" fill="#F2F1EE"
       stroke="#E05316" stroke-width="1.2" stroke-dasharray="4 3"/>
     <text x="0" y="1" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="9.5"
-      text-anchor="middle" letter-spacing="0.6">DEVIATE · Phase 6, not built</text>
+      text-anchor="middle" letter-spacing="0.6">DEVIATE · then rejoin</text>
   </g>
 
   <g id="armed" transform="translate(800,60)">
@@ -190,10 +190,10 @@
     <text id="p2" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">validated: 0 &lt; alt ≤ 50 m  →  ACK{uploaded}  →  CONFIRM  →  ARMED</text>
     <text id="p3" x="56" y="398" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.TAKEOFF  →  first waypoint altitude</text>
     <text id="p4" x="56" y="398" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">AUTO.MISSION  ·  flying the circuit</text>
-    <text id="p4b" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">OAK-D depth  →  obstacle ahead  →  deviating ·  Phase 6, not built</text>
+    <text id="p4b" x="56" y="398" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">OAK-D depth  →  obstacle ahead  →  deviating around it</text>
     <text id="p4c" x="56" y="398" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">clear  ·  back on the uploaded route</text>
     <text id="p5" x="56" y="398" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">RTL  ·  the mission's own last item</text>
     <text id="p6" x="56" y="398" fill="#0A0A0A" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">landed  ·  disarmed  ·  DONE{result}</text>
-    <text id="p7" x="56" y="398" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">Target system — Phase 5 in docs/ROADMAP.md · upload, gate and RTL bench-tested; GPS not yet fitted</text>
+    <text id="p7" x="56" y="398" fill="#6E6B66" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">Four coordinates up over LoRa, validated, confirmed twice, flown as a circuit and returned.</text>
   </g>
 </svg>

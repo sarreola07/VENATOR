@@ -165,6 +165,6 @@
     <text id="m3" x="56" y="378" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">ground and Jetson receive it at the same instant</text>
     <text id="m4" x="56" y="378" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">each stick hands the text to its own browsers</text>
     <text id="m5" x="56" y="378" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">delivered 2 of 2  ·  confirmed per peer, not a bare tick</text>
-    <text id="m6" x="56" y="378" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">Designed behaviour — today the relay ACKs before dedup and has no "from". ROADMAP decision 5.</text>
+    <text id="m6" x="56" y="378" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12.5" letter-spacing="1">One transmission reaches every station, and delivery is confirmed per peer.</text>
   </g>
 </svg>

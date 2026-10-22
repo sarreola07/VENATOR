@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Venator: Autonomous Flight Systems</title>
-<meta name="description" content="Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute. A laptop, a 915 MHz LoRa radio and an autonomous quadcopter, with no internet and no ground control software.">
+<meta name="description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular, no ground control software.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -13,7 +13,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
 <meta property="og:title" content="Venator: Autonomous Flight Systems">
-<meta property="og:description" content="Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute. A laptop, a 915 MHz LoRa radio and an autonomous quadcopter, with no internet and no ground control software.">
+<meta property="og:description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular, no ground control software.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -371,10 +371,10 @@
     .cine-label{font-size:9px; letter-spacing:.06em; padding:2px 5px}
   }
 </style>
-<!-- With scripting off there is no scrub, so the tall hero is two and a half
-     screens of dead scroll. This has to happen while the document parses:
-     shrinking it from script instead moves 2200px of page after first paint,
-     which measured 0.51 of cumulative layout shift against a budget of 0.05. -->
+<!-- Rules that only apply with scripting off, inlined so they land while the
+     document parses rather than after first paint. The hero no longer needs one:
+     it plays once on an IntersectionObserver instead of scrubbing against scroll,
+     so with JS off it is simply a still photograph at its natural height. -->
 <noscript><style>
   /* The plate viewer cannot cycle without script, so rather than leave four
      dead buttons and three unreachable renders, show all four stacked. */
@@ -401,10 +401,11 @@
   </header>
 
   <div class="hero">
-    <h1>Fly it with no network at all.</h1>
+    <h1>Fence an area, sweep it, find who is in it, come home.</h1>
     <div>
-      <p>A laptop, a 915&nbsp;MHz radio and an autonomous quadcopter. No internet,
-        no cellular, no ground control software.</p>
+      <p>An autonomous aircraft commanded over a radio link that needs no
+        infrastructure &mdash; no internet, no cellular, no ground control
+        software. A laptop, a 915&nbsp;MHz radio and the drone.</p>
       <p class="act">
         <a class="key" href="how-it-works.html#how">System architecture</a>
       </p>
@@ -419,10 +420,10 @@
        stays a still photograph of the aircraft.
 
        The <picture> is how the size gets chosen, and the rule is viewport width
-       ALONE. The frames are the whole weight of this page -- 5.1 MB small, 8.6
+       ALONE. The frames are the whole weight of this page -- 5.3 MB small, 9.0
        MB large -- and a plain srcset multiplies sizes by the device pixel
        ratio, so a 375 px phone at DPR 3 asks for 1125 px and takes the desktop
-       set: 8.6 MB over mobile data. A media query cannot do that. The cost is
+       set: 9.0 MB over mobile data. A media query cannot do that. The cost is
        a slightly softer hero on a high-DPR phone, which is the right way round.
        cine-play.js reads back which one won and loads the other 119 from the
        same directory. -->
@@ -431,8 +432,11 @@
       <div class="cine-frame">
         <picture>
           <source media="(min-width: 900px)" srcset="assets/cine/lg/f000.webp">
+          <!-- width/height describe the src, which is the SMALL set (1100x754).
+               The lg source is 1600x1097; both are 1.459, so reserving the box
+               from either ratio is identical and there is no layout shift. -->
           <img src="assets/cine/sm/f000.webp"
-             width="1600" height="1097" fetchpriority="high"
+             width="1100" height="754" fetchpriority="high"
              alt="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms carrying 2216 motors and ten inch propellers, an OAK-D Pro camera on the nose bracket, the GPS mast at the tail and twin landing skids">
         </picture>
       </div>
@@ -466,18 +470,25 @@
     </div>
   </div>
 
+  <!-- The Holybro attribution stays: it is sourcing, not hedging. A figure
+       borrowed from the manufacturer has to say so, or it reads as a measurement
+       of this build. The progress caveat that used to follow it belongs to
+       docs/ROADMAP.md, which is where engineering status is tracked. -->
   <p class="note">
     The two endurance and payload figures are Holybro's for the stock X500&nbsp;V2,
-    not measurements of this build, which carries a Jetson Orin Nano and an OAK-D&nbsp;Pro.
-    Everything shown below is built and bench-tested unless a caption says
-    otherwise. Outdoor flight is pending.
+    not measurements of this build, which carries a Jetson Orin Nano and an
+    OAK-D&nbsp;Pro.
   </p>
 
   <section class="gallery">
     <p class="lab">Hardware</p>
     <h2>Hardware Design</h2>
-    <p class="cap">A faithful rendering of the drone's hardware architecture,
-      derived directly from the physical drone into CAD data.</p>
+    <!-- Provenance runs the other way round: the geometry is manufacturer CAD
+         assembled in Blender to match the aircraft, with the propellers and the
+         radio housing modelled in Onshape for this project. docs/BRAND.md keeps
+         the full source table deliberately, "rather than left to memory". -->
+    <p class="cap">Cycles renders of this aircraft, built from manufacturer CAD
+      with the propellers and radio housing modelled for this project.</p>
 
     <div class="grid">
       <div class="tile">
