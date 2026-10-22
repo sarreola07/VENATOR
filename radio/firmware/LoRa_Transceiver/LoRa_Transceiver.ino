@@ -38,6 +38,17 @@
 #define LORA_SYNCWORD    0x12
 #define MAX_LINE         240         // keep under the LoRa payload limit (255)
 
+// REYAX RYLR998 peers (the Pico gateway) frame every packet with a 5-byte
+// header: destination (2 B, little-endian), source (2 B, LE), payload length.
+// An RYLR998 drops packets without one, and its header is not JSON, so strip it
+// on the way in and add one on the way out -- but only while the last packet
+// heard was framed that way, so plain-LoRa peers (the Heltec remote) see no
+// change. Broadcast destination 0 is what the RYLR998 accepted on the bench.
+#define RYLR_HDR         5
+#define RYLR_DEST        0           // broadcast
+#define RYLR_SRC         2
+static bool peerRylr = false;
+
 static RadioEvents_t RadioEvents;
 
 static volatile bool txBusy = false;     // true while a packet is transmitting
@@ -140,11 +151,20 @@ static void startRx() {
 }
 
 static void sendLine(const char *buf, size_t len) {
+    static uint8_t pkt[RYLR_HDR + MAX_LINE];
     txBusy = true;
 #if USE_OLED
     txCount++;
 #endif
-    Radio.Send((uint8_t *)buf, len);     // leaves Rx; onTxDone returns to Rx
+    if (peerRylr) {
+        pkt[0] = RYLR_DEST & 0xFF; pkt[1] = RYLR_DEST >> 8;
+        pkt[2] = RYLR_SRC & 0xFF;  pkt[3] = RYLR_SRC >> 8;
+        pkt[4] = (uint8_t)len;
+        memcpy(pkt + RYLR_HDR, buf, len);
+        Radio.Send(pkt, RYLR_HDR + len);
+    } else {
+        Radio.Send((uint8_t *)buf, len); // leaves Rx; onTxDone returns to Rx
+    }
 }
 
 // ---- radio callbacks --------------------------------------------------------
@@ -154,6 +174,13 @@ void onRxTimeout(void) { startRx(); }
 void onRxError(void)   { startRx(); }
 
 void onRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+    // A protocol line starts with '{', so a valid length byte at [4] cannot be
+    // mistaken for one.
+    peerRylr = size > RYLR_HDR && payload[0] != '{' && payload[4] == size - RYLR_HDR;
+    if (peerRylr) {
+        payload += RYLR_HDR;
+        size -= RYLR_HDR;
+    }
     for (uint16_t i = 0; i < size; i++) {
         Serial.write(payload[i]);        // print received bytes verbatim
     }
