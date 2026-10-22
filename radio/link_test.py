@@ -23,7 +23,7 @@ Free-text mode carries a typed line across the link in either direction:
 
     python3 link_test.py --chat        # on both machines; type, press Enter
 
-Speaks the same newline-JSON protocol as gcs_client.py and jetson_c2_server.py
+Speaks the same newline-JSON protocol as gcs_client.py and drone/c2_server.py
 (see docs/PROTOCOL.md), so a successful run proves the real link, not a
 special-case one. Stdlib + pyserial only, so it runs on macOS, Windows and the
 Jetson unchanged.

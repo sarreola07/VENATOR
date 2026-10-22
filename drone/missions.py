@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
-Bench-test missions for the Pixhawk 2.4.8 (PX4 v1.13.3) hexarotor.
+Bench-test missions for the Pixhawk 6X (PX4 1.17.0) on a Holybro X500 V2 quad.
+
+Four motors, not six: --motors defaults to 4 and that is correct for this
+airframe. This file used to say "Pixhawk 2.4.8 (PX4 v1.13.3) hexarotor", which
+was the previous aircraft -- a dangerous label on the file that drives the
+motors, because it invites `--motors 6` and two commands to outputs that do not
+exist.
 
 Missions:
   1) Spin each motor one at a time for 3 s (props MUST be off)
@@ -57,7 +63,8 @@ LORA_BAUD = 115200
 def connect(device, baud, timeout=15):
     print(f"{INFO} Connecting to {device} @ {baud} ...")
     master = mavutil.mavlink_connection(device, baud=baud)
-    # PX4 v1.13 keeps USB silent until it hears MAVLink from us
+    # PX4 keeps USB silent until it hears MAVLink from us (seen on 1.13 and
+    # still true on 1.17.0 -- the heartbeat below is what starts the stream)
     master.mav.heartbeat_send(
         mavutil.mavlink.MAV_TYPE_GCS, mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
     if master.wait_heartbeat(timeout=timeout) is None:
@@ -490,7 +497,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 52)
-    print(" Pixhawk missions — PX4 v1.13.3 hexarotor bench test")
+    print(" Pixhawk 6X missions — PX4 1.17.0, X500 V2 quad bench test")
     print("=" * 52)
 
     props_off = ask_props_state()

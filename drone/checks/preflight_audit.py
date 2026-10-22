@@ -105,8 +105,9 @@ def main():
     if found == 0:
         print(f"  {BAD} no magnetometer registered — compass not detected")
     elif found > 1:
-        print(f"  {WRN} {found} compasses registered. On a Pixhawk 2.4.8 the internal one is")
-        print(f"       noisy; if calibration keeps failing, disable it and use the GPS mast only.")
+        print(f"  {WRN} {found} compasses registered. On the previous Pixhawk 2.4.8 the internal")
+        print(f"       one was noisy; if calibration keeps failing, disable it and use the GPS")
+        print(f"       mast only. Not re-confirmed on this 6X, whose IMUs are isolated.")
     print(f"  {INF} SYS_HAS_MAG = {readp(m, 'SYS_HAS_MAG')}  (1 = a compass is required)")
 
     # ---------- GPS ----------

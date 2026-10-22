@@ -38,13 +38,16 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 0 | NVMe install + restore project (see [REINSTALL.md](REINSTALL.md)) | ✅ done |
 | 1 | C2 protocol ([PROTOCOL.md](PROTOCOL.md), `radio/protocol.py`) | ✅ done |
 | 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | 🔵 in progress |
-| 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks |
-| 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ working over real LoRa (motor test); boot service + rich menu done |
-| 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested; real outdoor flight pending |
-| — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock); hover 2 m on GPS, person detection over LoRa; real flight outdoors, true 3 ft with lidar |
-| — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
+| 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks. Also strips/adds the RYLR998's 5-byte header so the Pico gateway interoperates |
+| 3b | Handheld LoRa remote (`radio/firmware/Venator_Remote`) | ✅ motor tests + props refusal verified on the real aircraft; setup wizard compiles, not yet flashed |
+| 3c | Pico + RYLR998 gateway (`radio/firmware/Pico_Gateway`) | 🔵 talks to the drone; framing is last-peer-wins, so do not power it alongside the Heltec remote |
+| 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ **motors spun on the real aircraft from the handheld remote, 2026-10-21** — this needed `MAV_CMD_ACTUATOR_TEST`; `DO_MOTOR_TEST` is ArduPilot-only and PX4 answered it UNSUPPORTED, so nothing had ever actually turned through this path |
+| 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | 🔵 units, key split and crash-loop guards done; **not yet verified across a reboot with hardware attached** |
+| 5 | GPS + waypoint flight | ⚠️ upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
+| — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first; true 3 ft needs the downward lidar, since `EKF2_HGT_REF=2` currently falls back to the baro |
+| — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock only); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
-| 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
+| 7 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started (was a second row numbered 6) |
 
 > **The site shows the finished system; this table is the status.** The search
 > and rescue banner on [how-it-works][site] runs the mission end to end — fence,
@@ -72,15 +75,26 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   serial and the Pixhawk; serves the menu, runs missions (reusing `drone/missions.py`),
   streams ACK/DONE. Defaults to a **mock FC** (`--real` connects the Pixhawk) but props default **ON**; `--real`
   connects the Pixhawk, `--props-on` enables flight. Tested end-to-end against the
-  real client over a loopback — props + GPS gates verified. `deploy/systemd/venator-c2.service`
-  is the zero-touch boot unit (enable deliberately). The two-step arm confirm
-  (`CONFIRM` gates every flight), the link-loss failsafe (`LINK_LOSS_S = 4.0` →
-  RTL) and mid-mission `ABORT` are all in place: the mission loops poll the link
-  while flying instead of blocking, so aborts and heartbeats are handled promptly.
-- **5 — Waypoint flight:** the Holybro M10 is fitted and getting a fix
-  (`EKF2_AID_MASK=1` already set). Upload via `MISSION_ITEM_INT` →
-  `AUTO.MISSION`, altitude cap + RTL-last, bench-validate acceptance, then fly
-  outdoors.
+  real client over a loopback — props + GPS gates verified.
+  `deploy/systemd/venator-c2.service.in` is the template for the zero-touch boot
+  unit (enable deliberately). The two-step arm confirm, the link-loss failsafe
+  (`LINK_LOSS_S = 4.0` → RTL) and mid-mission `ABORT` are all in place: the
+  mission loops poll the link while flying instead of blocking, so aborts and
+  heartbeats are handled promptly. Since 2026-10-21 `confirm()` also **re-checks**
+  props and GPS at launch time, not just when the flight was prepared — props can
+  be toggled inside the 60 s confirm window, and on an unauthenticated link
+  anything in radio range can inject that toggle.
+  **One exception, still open:** menu id 3 ("Fly to waypoints") carries no `fly`
+  key, so it is not routed through `_prepare`/`CONFIRM` — it goes straight to
+  `missions.mission_3(..., require_confirm=False)`, which arms after a 3 s sleep.
+  It is still gated on props ON plus a GPS fix, so it cannot fire on the bench,
+  but it is the only flight path in the system without a second step.
+- **5 — Waypoint flight:** ⚠️ **blocked on GPS hardware.** The Holybro M10 is
+  fitted and `GPS_1_CONFIG=201` is set, but PX4 reports `fix_type 0` with 0
+  satellites and `XY_POSITION_CONTROL` unhealthy — an M10 cable or port fault,
+  not configuration. Nothing that needs a position estimate can run until that
+  is fixed. The plumbing is built: upload via `MISSION_ITEM_INT` →
+  `AUTO.MISSION`, altitude cap + RTL-last, bench-validated acceptance.
 - **6 — Polish:** zero-click launch agents on your own Win/Mac, a saved places
   library, a browser GUI, and the OFFBOARD-mode camera-follow port.
 - **6 — Obstacle avoidance** *(not started):* nothing in this repo avoids
@@ -89,9 +103,11 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   The hardware is already most of the way there: `drone/camera_publisher.py`
   runs a `MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so
   forward obstacle distance is a matter of reading the depth map rather than the
-  detections. PX4 1.13 accepts `OBSTACLE_DISTANCE` / `DISTANCE_SENSOR` from a
-  companion computer and will brake against it with `CP_DIST`. The patrol
-  animation shows this deviation marked as not built.
+  detections. PX4 accepts `OBSTACLE_DISTANCE` / `DISTANCE_SENSOR` from a
+  companion computer and will brake against it with `CP_DIST` — established
+  against 1.13, the firmware at the time, and not re-checked on the 1.17.0 this
+  aircraft now runs. The patrol animation shows this deviation marked as not
+  built.
 
 ## Open decisions (needed by Phase 4/5)
 

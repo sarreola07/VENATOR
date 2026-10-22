@@ -6,8 +6,13 @@ Operator GUI for camera 1 — live video and detections on a phone.
     ./drone/wildlife/oak_camera.sh gui          # same, with device arbitration
 
 Then open http://jetson.local:8080/?k=<token> on a phone. The token is printed
-at startup; it is derived from radio/auth.py's key, so there is one secret on
-the aircraft rather than two.
+at startup, derived from whatever key radio/auth.py resolves -- which is this
+service's OWN key, not the C2 one. venator-gui.service sets
+VENATOR_KEY_FILE=~/.venator/gui-key and venator-c2.service points at a separate
+path. Two secrets on the aircraft, deliberately: serial_link.py verifies against
+the C2 key and drops anything unsigned, and the handheld remote does not sign --
+so one shared key meant that creating a key for the camera silently muted
+RUN 1/2/7 from the remote, on every boot.
 
 WHY THE CAMERA DOES THE ENCODING
 --------------------------------
@@ -193,14 +198,20 @@ def log(msg):
     print(f"{time.strftime('%H:%M:%S')} {msg}", flush=True)
 
 
-# --- the one secret ---------------------------------------------------------
+# --- this service's secret --------------------------------------------------
 
 def make_token(key):
-    """A GUI token derived from the C2 key, or None when there is no key.
+    """A GUI token derived from whichever key was loaded, or None if there is none.
 
-    Derived rather than reused so that someone who sees a browser URL, a
-    bookmark or a photographed QR code learns nothing about the key that signs
-    flight commands.
+    Still a derivation rather than the key itself, so someone who sees a browser
+    URL, a bookmark or a photographed QR code learns nothing about the key it
+    came from.
+
+    The caller decides WHICH key: venator-gui.service sets VENATOR_KEY_FILE to
+    ~/.venator/gui-key, so in production this is the camera's own secret and not
+    the one that signs flight commands. It used to be the C2 key, which coupled
+    the two: creating a key so the phone could reach the camera also made
+    serial_link.py start verifying, and the handheld remote does not sign.
     """
     if not key:
         return None
@@ -1169,7 +1180,14 @@ def main():
             log(f"  reachable: {url}   ({label})")
     else:
         log("NO KEY FILE - the GUI is bound to 127.0.0.1 only.")
-        log("Create one so a phone can reach it:  python3 radio/auth.py --init")
+        # Name the GUI's own path explicitly. A bare `auth.py --init` writes to
+        # auth.py's DEFAULT path, which is the C2 key -- and a key there makes
+        # serial_link.py drop the handheld remote's unsigned commands. That is
+        # the trap this whole split exists to close, so the fix printed here
+        # must not walk back into it.
+        log("Create one so a phone can reach it:")
+        log("  VENATOR_KEY_FILE=~/.venator/gui-key python3 radio/auth.py --init")
+        log("  (or just: bash deploy/field_mode.sh _require_key)")
 
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, lambda *_: STOP.__setitem__("flag", True))

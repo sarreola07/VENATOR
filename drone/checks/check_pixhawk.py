@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pixhawk 2.4.8 (PX4 v1.13.3) connection test.
+Pixhawk 6X (PX4 1.17.0) connection test.
 
 Connects to the flight controller over MAVLink, waits for a heartbeat,
 and prints firmware version, flight mode, battery, GPS and attitude data

@@ -9,8 +9,10 @@ rejoins the line.
 Nothing here is implemented. run_mission2 steers toward a person and otherwise
 hovers; the only rangefinder discussed in the repo is a downward lidar for
 altitude. The parts that ARE real are the ingredients: camera_publisher.py runs
-a MobileNetSpatialDetectionNetwork on stereo depth, and PX4 1.13 brakes on
-OBSTACLE_DISTANCE via CP_DIST. The resting caption says exactly that.
+a MobileNetSpatialDetectionNetwork on stereo depth, and PX4 brakes on
+OBSTACLE_DISTANCE via CP_DIST — documented against 1.13, the firmware at the
+time; this aircraft now runs 1.17.0 and it has not been re-checked there. The
+resting caption says exactly that.
 """
 from pathlib import Path
 

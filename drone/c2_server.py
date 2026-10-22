@@ -7,10 +7,10 @@ mission menu, runs missions on the Pixhawk, and ACKs back to the laptop client.
 The laptop never touches the drone directly — it only speaks the protocol.
 
     # safe: mock flight controller, no hardware touched (default)
-    python3 jetson_c2_server.py
+    python3 drone/c2_server.py
 
-    # real: connect the Pixhawk and actually run missions
-    ./venv/bin/python jetson_c2_server.py --real
+    # real: connect the Pixhawk and actually run missions, props OFF
+    ./venv/bin/python drone/c2_server.py --real --props-off
 
 Safety: defaults to a MOCK flight controller (--real for the Pixhawk). Props are
 assumed ON, since in flight testing they stay fitted and the operator can't reach
@@ -417,7 +417,10 @@ class RealFC:
 
         Positional items use the global relative-alt frame; RTL has no position,
         so it must use MAV_FRAME_MISSION or PX4 rejects the whole mission as
-        UNSUPPORTED (verified on this FMUv2 / PX4 1.13.3).
+        UNSUPPORTED. Verified on the PREVIOUS aircraft (FMUv2 / PX4 1.13.3) and
+        not re-verified on this Pixhawk 6X / PX4 1.17.0 -- the waypoint flight
+        has never been run on this airframe, so treat it as a carried-over
+        finding rather than a current one.
         """
         REL = mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT
         MISSION = mavutil.mavlink.MAV_FRAME_MISSION

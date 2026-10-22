@@ -138,15 +138,29 @@ except `/healthz`, and **fails safe rather than open**: with no key file it bind
 address it became reachable on, by name, at startup — on a shared SSID that line
 is the warning.
 
-The token is **derived** from the C2 key rather than being it:
+The token is **derived** from a key rather than being it:
 
 ```python
 token = hmac.new(auth.load_key(), b"venator-gui-v1", sha256).hexdigest()[:16]
 ```
 
 so a token seen in browser history, a bookmark or a photographed QR code yields
-nothing about the key that signs flight commands, and a GUI token cannot verify
-a C2 message. `tests/test_gui_auth.py` asserts both directions, along with the
+nothing about the key it came from, and a GUI token cannot verify a C2 message.
+
+**Which key is a per-service decision, and the two are deliberately different.**
+`auth.load_key()` resolves through `key_path()`, which honours
+`VENATOR_KEY_FILE`: `venator-gui.service` sets it to `~/.venator/gui-key` and
+`venator-c2.service` to `~/.venator/c2-key`. These used to be one file, and the
+coupling was a live fault rather than a tidy simplification — the GUI unit's
+`ExecStartPre` creates a key so a phone can reach the camera, `serial_link.py`
+drops every message that fails `verify()`, and the handheld remote does not
+sign. So bringing the camera up on boot silently muted `RUN 1/2/7` from the
+remote, every boot, with no error at either end. Separate paths let the camera
+be authenticated while the C2 link stays open for an unsigned remote, and make
+that posture an explicit line in each unit instead of a side effect of which
+files happen to exist. The C2 path intentionally does not exist yet; see
+[`deploy/systemd/venator-c2.service.in`](../deploy/systemd/venator-c2.service.in)
+for how to enable signing once the remote can sign. `tests/test_gui_auth.py` asserts both directions, along with the
 `/api/evidence/<name>` allowlist that refuses path traversal and arbitrary
 reads. Comparison is `secrets.compare_digest` with a growing delay on failure,
 the same shape as the relay's.
