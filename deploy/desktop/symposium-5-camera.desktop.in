@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=5 · Camera
+GenericName=Live camera feed and its addresses
+Comment=Opens the running camera feed and prints every address a phone can use. Does not take the device, so it cannot clash with the camera service.
+Exec=gnome-terminal "--title=Venator — camera" -- bash -c "__REPO__/deploy/symposium_camera.sh --open; echo; read -r -n1 -p 'Press any key to close...'"
+Icon=camera-video
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;camera;feed;preview;live;oak;
+Actions=Addresses;Restart;Logs;
+
+[Desktop Action Addresses]
+Name=Show the addresses only (do not open)
+Exec=gnome-terminal "--title=Camera addresses" -- bash -c "__REPO__/deploy/symposium_camera.sh; echo; read -r -n1 -p 'Press any key to close...'"
+
+[Desktop Action Restart]
+Name=Restart the camera service
+Exec=gnome-terminal "--title=Restart camera" -- bash -c "sudo systemctl restart venator-gui && sleep 4 && __REPO__/deploy/symposium_camera.sh; echo; read -r -n1 -p 'Press any key to close...'"
+
+[Desktop Action Logs]
+Name=Live camera log
+Exec=gnome-terminal "--title=Camera log" -- bash -c "journalctl -u venator-gui -f"

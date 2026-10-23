@@ -5,9 +5,26 @@ The end product, in the order you use it. Click **1** before you speak.
 | | What it does |
 |---|---|
 | **1 · Check everything** | Services, props interlock, camera, radios, flight controller, phone URL. Green means go. |
-| **2 · Phone camera feed** | The address to read out. A phone on `VenatorDrone` opens the live feed. |
+| **2 · Phone camera feed** | The captive-portal address, for when the redirect is working. |
 | **3 · Wi-Fi hotspot** | Switch between the venue's Wi-Fi and the drone hosting its own network. |
 | **4 · Missions and motor test** | Jetson-side mission menu. The handheld remote is the better demo — this is the backup. |
+| **5 · Camera** | **Use this one for the phone.** Opens the feed and prints every address that works. |
+
+### Use 5, not 2, if you only remember one
+
+Icon **5** leads with `http://10.42.0.1:8080/?k=…` — the port the server actually
+listens on, which works whether or not the captive-portal redirect loaded. Icon
+**2** gives `venatordrone.com`, which is prettier but needs an `nft` rule on top
+of DNS; when that rule fails the phone just gets a dead connection with no clue
+why.
+
+### Never start a second camera
+
+The OAK takes **one** host process, and `venator-gui` already has it. Running
+`camera.sh preview` or `oak_camera.sh detect` while it is up gives
+`X_LINK_DEVICE_ALREADY_IN_USE` — that is the arbitration working, not a fault.
+To see the feed on this Jetson, click **5 · Camera**; it opens the stream that
+is already running instead of competing for the device.
 
 ## What starts by itself
 

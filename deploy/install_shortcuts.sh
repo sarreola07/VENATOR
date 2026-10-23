@@ -51,11 +51,12 @@ install_symposium() {
     local dir="${DESKTOP_DIR}/Symposium"
     mkdir -p "${dir}"
     echo "==> Installing the Symposium folder (${dir}) ..."
-    chmod +x "${REPO}/deploy/symposium_check.sh"
+    chmod +x "${REPO}/deploy/symposium_check.sh" "${REPO}/deploy/symposium_camera.sh"
     install_launcher "symposium-1-check.desktop"    "${dir}"
     install_launcher "symposium-2-feed.desktop"     "${dir}"
     install_launcher "symposium-3-hotspot.desktop"  "${dir}"
     install_launcher "symposium-4-missions.desktop" "${dir}"
+    install_launcher "symposium-5-camera.desktop"   "${dir}"
     sed "s|__REPO__|${REPO}|g" "${REPO}/deploy/desktop/symposium-README.md.in" \
         > "${dir}/README.md"
     gio set "${dir}" metadata::trusted true 2>/dev/null || true
