@@ -27,6 +27,33 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 AP_IP="${AP_IP:-10.42.0.1}"
 PORT="${PORT:-8080}"
 
+# --view: open the live feed on this Jetson and say nothing. For the desktop
+# icon, where a terminal full of addresses is noise -- you clicked it to watch
+# video. Everything below still applies: this opens the stream venator-gui is
+# already serving, it does NOT open the OAK a second time.
+if [[ "${1:-}" == "--view" || "${1:-}" == "--view-raw" ]]; then
+    tok="$(bash "${HERE}/field_mode.sh" url 2>/dev/null)"; tok="${tok##*k=}"
+    # The server can still be starting right after a boot; the icon is useless
+    # if clicking it early just fails, so wait a little rather than give up.
+    for _ in $(seq 1 20); do
+        curl -sf --max-time 2 "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 && break
+        sleep 1
+    done
+    # The full page draws detection boxes client-side and is the product; the
+    # raw endpoint is just the MJPEG, for when the page itself is in the way.
+    if [[ "${1}" == "--view-raw" ]]; then
+        url="http://127.0.0.1:${PORT}/live.mjpg?k=${tok}"
+    else
+        url="http://127.0.0.1:${PORT}/?k=${tok}"
+    fi
+    # firefox by name first: xdg-open goes through the same default handler but
+    # adds a layer that can fail quietly inside a desktop launcher's environment.
+    if command -v firefox >/dev/null 2>&1; then
+        exec firefox --new-window "${url}"
+    fi
+    exec xdg-open "${url}"
+fi
+
 G=$'\033[92m'; R=$'\033[91m'; Y=$'\033[93m'; B=$'\033[94m'; Z=$'\033[0m'
 
 # The token the RUNNING service is serving. field_mode.sh resolves it through

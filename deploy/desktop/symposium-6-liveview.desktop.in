@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=6 · Live view (this Jetson)
+GenericName=Watch the camera here
+Comment=Opens the live camera feed in a window on this Jetson. Shows the same stream the phone gets, with detection boxes.
+Exec=__REPO__/deploy/symposium_camera.sh --view
+Icon=video-display
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;live;view;preview;camera;video;
+Actions=Stream;Snapshot;
+
+[Desktop Action Stream]
+Name=Raw video only (no page, lighter)
+Exec=bash -c "__REPO__/deploy/symposium_camera.sh --view-raw"
+
+[Desktop Action Snapshot]
+Name=Open the newest saved frame
+Exec=bash -c "ls -t /home/jetson/Pictures/wildlife/*.jpg | head -1 | xargs -r xdg-open"

@@ -57,6 +57,7 @@ install_symposium() {
     install_launcher "symposium-3-hotspot.desktop"  "${dir}"
     install_launcher "symposium-4-missions.desktop" "${dir}"
     install_launcher "symposium-5-camera.desktop"   "${dir}"
+    install_launcher "symposium-6-liveview.desktop" "${dir}"
     sed "s|__REPO__|${REPO}|g" "${REPO}/deploy/desktop/symposium-README.md.in" \
         > "${dir}/README.md"
     gio set "${dir}" metadata::trusted true 2>/dev/null || true
