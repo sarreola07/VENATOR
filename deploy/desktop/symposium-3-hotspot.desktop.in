@@ -1,0 +1,25 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=3 · Wi-Fi hotspot
+GenericName=Venue Wi-Fi or VenatorDrone
+Comment=Switch between the venue's Wi-Fi and the drone hosting its own VenatorDrone network at 10.42.0.1
+Exec=gnome-terminal "--title=Venator — Wi-Fi hotspot" -- __REPO__/deploy/wifi_mode.sh toggle --pause
+Icon=network-wireless
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;wifi;hotspot;ap;network;
+Actions=Status;On;Off;
+
+[Desktop Action Status]
+Name=Which network am I on?
+Exec=gnome-terminal "--title=Wi-Fi status" -- __REPO__/deploy/wifi_mode.sh status --pause
+
+[Desktop Action On]
+Name=Host VenatorDrone
+Exec=gnome-terminal "--title=Hotspot on" -- __REPO__/deploy/wifi_mode.sh on --pause
+
+[Desktop Action Off]
+Name=Rejoin the venue Wi-Fi
+Exec=gnome-terminal "--title=Hotspot off" -- __REPO__/deploy/wifi_mode.sh off --pause

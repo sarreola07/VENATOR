@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=1 · Check everything
+GenericName=Pre-demo check
+Comment=Services, props interlock, camera, radios, flight controller and the phone URL. Run this before you present.
+Exec=gnome-terminal "--title=Venator — pre-demo check" -- bash -c "__REPO__/deploy/symposium_check.sh; echo; read -r -n1 -p 'Press any key to close...'"
+Icon=utilities-system-monitor
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;check;status;preflight;demo;

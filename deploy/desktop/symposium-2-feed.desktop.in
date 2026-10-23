@@ -1,0 +1,24 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=2 · Phone camera feed
+GenericName=Live camera URL
+Comment=The address to read out or put on screen. A phone on the drone's Wi-Fi opens the live feed from here.
+Exec=gnome-terminal "--title=Venator — phone camera feed" -- bash -c "__REPO__/deploy/field_mode.sh url; echo; echo 'Join the VenatorDrone Wi-Fi on a phone, then open the address above.'; echo 'If no captive sheet appears, try http://10.42.0.1/ instead.'; echo; read -r -n1 -p 'Press any key to close...'"
+Icon=camera-web
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;camera;feed;phone;url;token;
+Actions=Open;Status;
+
+[Desktop Action Open]
+Name=Open the feed on this Jetson
+# Piped rather than $(...): the Desktop Entry spec requires a literal $ to be
+# escaped as \\$, which would stop the substitution running at all. cut takes
+# the bare URL, since `url` appends a hint when there is no key yet.
+Exec=bash -c "__REPO__/deploy/field_mode.sh url | cut -d' ' -f1 | xargs -r xdg-open"
+
+[Desktop Action Status]
+Name=Field mode status
+Exec=gnome-terminal "--title=Field mode status" -- bash -c "__REPO__/deploy/field_mode.sh status; echo; read -r -n1 -p 'Press any key to close...'"

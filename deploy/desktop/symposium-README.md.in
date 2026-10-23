@@ -1,0 +1,52 @@
+# Symposium
+
+The end product, in the order you use it. Click **1** before you speak.
+
+| | What it does |
+|---|---|
+| **1 · Check everything** | Services, props interlock, camera, radios, flight controller, phone URL. Green means go. |
+| **2 · Phone camera feed** | The address to read out. A phone on `VenatorDrone` opens the live feed. |
+| **3 · Wi-Fi hotspot** | Switch between the venue's Wi-Fi and the drone hosting its own network. |
+| **4 · Missions and motor test** | Jetson-side mission menu. The handheld remote is the better demo — this is the backup. |
+
+## What starts by itself
+
+These three are **systemd services**. They come up a few seconds after power-on,
+with no login and nothing clicked:
+
+| Service | Does |
+|---|---|
+| `venator-gui` | The camera feed on port 8080 |
+| `venator-net-fallback` | Hosts `VenatorDrone` when no known Wi-Fi is in range |
+| `venator-c2` | The LoRa command link the handheld remote talks to |
+
+Everything in this folder is a **tool you invoke** — none of them need to be
+running for the demo to work.
+
+## The demo
+
+1. **1 · Check everything** — expect `ALL CLEAR`.
+2. Phone joins `VenatorDrone`, opens the URL from **2**. Live video.
+3. On the handheld remote, in this order:
+   - **RUN 7** Drone status — changes nothing, proves the round trip.
+   - **RUN 1** Test each motor — 1→4, three seconds each.
+   - **RUN 2** Test all motors — all four together.
+   - **RUN 8** Hover 3 ft — **it refuses**: `props are OFF`. Show this one; it
+     is the best evidence the safety gate is real.
+
+Props stay off. Battery connected (the ESCs need it or nothing turns, even
+though the commands are accepted). Kill switch in hand.
+
+## If asked
+
+- **"Has it flown?"** Not outdoors. Motors have spun on the real aircraft,
+  commanded from the handheld over LoRa with no network of any kind — that is
+  the result, and it is true.
+- **"What about GPS?"** `fix_type 0` — the M10 is fitted but not detected, a
+  cable or port fault. It blocks outdoor flight and nothing being shown here.
+- **Camera stutters?** It reconnects itself in about five seconds. Say so and
+  keep going; do not replug anything mid-demo — disturbing the USB bus is what
+  knocks it over.
+
+The statement you are delivering: [`docs/MISSION.md`](__REPO__/docs/MISSION.md).
+Engineering status, if anyone digs: [`docs/ROADMAP.md`](__REPO__/docs/ROADMAP.md).

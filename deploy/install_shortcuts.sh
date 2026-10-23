@@ -28,18 +28,42 @@ chmod +x "${REPO}/drone/run_missions.sh" "${REPO}/drone/camera.sh" \
 
 install_launcher() {
     local file="$1"          # basename of the .desktop this produces
+    local into="${2:-${DESKTOP_DIR}}"
     local template="${REPO}/deploy/desktop/${file}.in"
-    local dest="${DESKTOP_DIR}/${file}"
+    local dest="${into}/${file}"
     local rendered
     rendered="$(mktemp)"
     sed "s|__REPO__|${REPO}|g" "${template}" > "${rendered}"
     install -m 755 "${rendered}" "${dest}"
-    install -m 644 "${rendered}" "${APPS}/${file}"
+    # Only the Desktop copies belong in the applications menu; the Symposium
+    # folder is a place to click, not a second set of menu entries.
+    [[ "${into}" == "${DESKTOP_DIR}" ]] && install -m 644 "${rendered}" "${APPS}/${file}"
     rm -f "${rendered}"
     # GNOME requires desktop launchers to be marked trusted before they run.
     gio set "${dest}" metadata::trusted true 2>/dev/null || true
-    echo "    installed ${file}"
+    echo "    installed $(basename "${into}")/${file}"
 }
+
+# --symposium: the demo-day folder only. Four numbered icons in the order they
+# get used, kept off the main Desktop so a cluttered background cannot hide the
+# one you need while an audience watches.
+install_symposium() {
+    local dir="${DESKTOP_DIR}/Symposium"
+    mkdir -p "${dir}"
+    echo "==> Installing the Symposium folder (${dir}) ..."
+    chmod +x "${REPO}/deploy/symposium_check.sh"
+    install_launcher "symposium-1-check.desktop"    "${dir}"
+    install_launcher "symposium-2-feed.desktop"     "${dir}"
+    install_launcher "symposium-3-hotspot.desktop"  "${dir}"
+    install_launcher "symposium-4-missions.desktop" "${dir}"
+    sed "s|__REPO__|${REPO}|g" "${REPO}/deploy/desktop/symposium-README.md.in" \
+        > "${dir}/README.md"
+    gio set "${dir}" metadata::trusted true 2>/dev/null || true
+    echo
+    echo "Done. Open Desktop/Symposium and click '1 · Check everything' first."
+    exit 0
+}
+[[ "${1:-}" == "--symposium" ]] && install_symposium
 
 echo "==> Installing desktop shortcuts for ${REPO} ..."
 install_launcher "venator-mission.desktop"

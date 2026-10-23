@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=4 · Missions and motor test
+GenericName=Jetson-side mission menu
+Comment=Run the motor tests and status from the Jetson. The handheld remote is the better demo; this is the backup if it misbehaves.
+Exec=gnome-terminal "--title=Venator — missions" -- __REPO__/drone/run_missions.sh
+Icon=applications-engineering
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;mission;motor;test;lora;
+Actions=Props;StopC2;
+
+[Desktop Action Props]
+Name=Props state (must read BENCH)
+Exec=gnome-terminal "--title=Props state" -- bash -c "__REPO__/deploy/flight_mode.sh status; echo; read -r -n1 -p 'Press any key to close...'"
+
+[Desktop Action StopC2]
+Name=Stop the C2 service (frees the radio and Pixhawk)
+Exec=gnome-terminal "--title=Stop venator-c2" -- bash -c "sudo systemctl stop venator-c2 && echo 'venator-c2 stopped — the ports are free for this menu.'; echo; read -r -n1 -p 'Press any key to close...'"
