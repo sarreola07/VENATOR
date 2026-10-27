@@ -147,6 +147,12 @@ def test_monitored_flight():
         srv.FLIGHT_MAX_S = 1.5       # long enough to arm, short enough to cap
         s2.run_flight(quiet, quiet.send)
         check("time cap ends the flight", "time cap" in (quiet.done() or ""), quiet.done())
+        # A waypoint flight has no phases. The client renders whatever phase it
+        # is sent, so one it never updates would read "takeoff" all the way
+        # round the route.
+        check("waypoint flight sends no phase field",
+              not any("phase" in m for m in quiet.sent if m["t"] == c2.STATUS),
+              str([m for m in quiet.sent if m["t"] == c2.STATUS][:1]))
     finally:
         srv.HOVER_TIME_S, srv.FLIGHT_MAX_S = hover_was, cap_was
 

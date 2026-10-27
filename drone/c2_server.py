@@ -758,6 +758,7 @@ class C2Server:
         person_present = False
         last_person_at = None
         flight = MonitoredFlight(self, link, send, "mission1", "MISSION1",
+                                 phase="takeoff",
                                  on_close=lambda: cam.close() if cam else None)
         for now, st in flight.ticks():
             person = self._read_person(cam)
@@ -837,7 +838,7 @@ class C2Server:
 
         offboard = False
         flight = MonitoredFlight(self, link, send, "mission2", "MISSION2",
-                                 allow_stop=True, tick=0.1,
+                                 allow_stop=True, tick=0.1, phase="takeoff",
                                  on_close=lambda: cam.close() if cam else None)
         for now, st in flight.ticks():
             person = self._read_person(cam)
@@ -885,7 +886,7 @@ class C2Server:
         climb_start = time.time()
         hold_start = None
         flight = MonitoredFlight(self, link, send, "hover", "HOVER",
-                                 allow_stop=True, failsafe="LAND")
+                                 allow_stop=True, failsafe="LAND", phase="takeoff")
         for now, st in flight.ticks():
             if not flight.flying:
                 continue
@@ -977,14 +978,20 @@ class MonitoredFlight:
     _FAILSAFE_TEXT = {"RTL": "returning home", "LAND": "landing in place"}
 
     def __init__(self, server, link, send, mission_id, log_tag, *,
-                 allow_stop=False, tick=0.15, on_close=None, failsafe="RTL"):
+                 allow_stop=False, tick=0.15, on_close=None, failsafe="RTL",
+                 phase=None):
         self.server, self.link, self.send = server, link, send
         self.mission_id, self.log_tag = mission_id, log_tag
         self.allow_stop, self.tick, self.on_close = allow_stop, tick, on_close
         self.failsafe = failsafe    # flight mode for ABORT, link loss and the time cap
         self.rtl = False
         self.ending = None          # None -> flying; "STOP"/"ABORT"/"LINKLOSS"
-        self.phase = "takeoff"
+        # Only missions that have phases report one. A waypoint flight has no
+        # phases, and the client renders the field whenever it is present -- so
+        # sending a phase it never updates would show "takeoff" for the whole
+        # flight, including while the aircraft is halfway round the route.
+        self.phase = phase
+        self._report_phase = phase is not None
         self.extra = {}
         self.timed_out = False
         self._last_ping = time.time()
@@ -1031,9 +1038,11 @@ class MonitoredFlight:
             yield now, st                      # the mission does its own work here
 
             if now - self._last_status >= STATUS_INTERVAL_S:
-                self.send(p.message(p.STATUS, 0, rtl=self.rtl,
-                                    phase="RTL" if self.rtl else (self.ending or self.phase),
-                                    **self.extra, **st))
+                fields = dict(self.extra)
+                if self._report_phase:
+                    fields["phase"] = ("RTL" if self.rtl
+                                       else (self.ending or self.phase))
+                self.send(p.message(p.STATUS, 0, rtl=self.rtl, **fields, **st))
                 self._last_status = now
 
             if not st["armed"]:                # it landed and disarmed
