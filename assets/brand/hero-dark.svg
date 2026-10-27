@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 384" width="1000" height="384"
-     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready and the aircraft lifts">
+     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS has no fix from a cable fault; the aircraft has not yet flown outdoors; then ready and the aircraft lifts">
   <title>Venator — system self-test</title>
   <style>
     #cur { animation: blink 1.05s steps(1,end) infinite }
@@ -152,10 +152,10 @@
     <text x="44" y="278" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">&gt;</text>
     <text x="72" y="278" fill="#F2F1EE" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
       letter-spacing="1.2">GPS</text>
-    <text x="196" y="278" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">M10 · 3D fix</text>
+    <text x="196" y="278" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15">M10 · no fix — cable fault</text>
     <g id="ok6" opacity="0">
-      <text x="600" y="278" fill="#E05316" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
-        letter-spacing="1.4">[ OK ]</text>
+      <text x="600" y="278" fill="#8A8781" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15"
+        letter-spacing="1.4">[ -- ]</text>
     </g>
   </g>
   <g id="ln7" opacity="0">
