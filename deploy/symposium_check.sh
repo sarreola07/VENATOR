@@ -219,8 +219,24 @@ if ip -4 -o addr show 2>/dev/null | grep -q "${AP_IP}/"; then
     code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "http://${AP_IP}/" 2>/dev/null)"
     case "${code}" in
         200|302|403) ok "port 80 -> 8080 reached the camera server (HTTP ${code})" ;;
-        000)         fail "port 80 REFUSED — this is the failure that broke the iPhone"
-                     fail "      nothing is listening on 80 and the dnat rule did not load" ;;
+        000)
+            # Do NOT blame the nft rule here. curl reports 000 for a refusal and
+            # for a timeout alike, and the two have opposite causes: no rule
+            # versus a rule pointing at a server that is not accepting. Saying
+            # "the dnat rule did not load" directly under a line reporting the
+            # table as loaded sent us hunting the firewall while the real fault
+            # was gui_server wedged with a full accept queue. Name the suspect
+            # by what else is true.
+            if curl -s -o /dev/null --max-time 6 "http://127.0.0.1:8080/healthz" 2>/dev/null; then
+                fail "port 80 did not answer, but :8080 is healthy — the redirect is the problem"
+                fail "      journalctl -t venator-portal -b | tail -3"
+            else
+                fail "port 80 did not answer, and :8080 is not answering either"
+                fail "      the redirect is probably fine — the camera server is down or wedged"
+                fail "      check:  ss -lntp | grep 8080   (Recv-Q at the backlog = wedged, not dead)"
+                fail "      then:   sudo systemctl restart venator-gui"
+            fi
+            ;;
         *)           warn "port 80 answered HTTP ${code} — unexpected, but something is there" ;;
     esac
 
