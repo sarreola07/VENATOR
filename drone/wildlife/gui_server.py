@@ -77,6 +77,7 @@ from radio import auth
 
 MODEL = "luxonis/wildlife-megadetector:mdv6-yolov10-c"
 DEFAULT_SHAVES = 5          # measured fastest; see oak_wildlife.py
+ZOO_CACHE = "/home/jetson/oak-venv/zoo-cache"
 
 #: name -> (size, jpeg quality, fps). Two rungs so the operator can trade
 #: picture for link margin without restarting the pipeline - setQuality is
@@ -865,14 +866,55 @@ def start_server(hub, token, host, port, save_dir, cfg):
 
 # --- camera -----------------------------------------------------------------
 
+def resolve_model(dai, name):
+    """Path to the model archive, preferring the local cache over the zoo.
+
+    THIS IS WHY THE CAMERA MUST NOT CALL getModelFromZoo FIRST
+
+    dai.getModelFromZoo() contacts the Luxonis API to resolve a model name to a
+    version before it will touch the cache, and it does that on the main thread
+    while holding the GIL. On the access point there is no internet at all, and
+    on a captive campus network the request connects and then simply stops --
+    observed here stalled at 5767 bytes received for eight minutes with no
+    progress.
+
+    The consequences were not "the camera is slow". The HTTP server runs in a
+    thread that cannot be scheduled while the GIL is held, so port 8080 accepted
+    the TCP handshake and then never answered: `ss` showed the listen queue full
+    at Recv-Q 6 against a backlog of 5. Every page on every device hung rather
+    than failing, and SIGTERM could not be serviced either, so `systemctl stop`
+    took the full 90-second timeout and ended in SIGKILL -- which is what made
+    toggling the access point so destructive.
+
+    The archive is already on disk. Loading it directly takes 1.14 s and needs
+    no network, so that is the default path and the zoo is only a fallback for a
+    model that has genuinely never been fetched.
+    """
+    # The archive is named for the VARIANT (the part after ':'), not the model:
+    # "luxonis/wildlife-megadetector:mdv6-yolov10-c" is cached as
+    # "MDV6-yolov10-c.rvc2.tar.xz". metadata.yaml alongside it holds only
+    # opaque aim_* ids, so the filename is the one usable key.
+    variant = (name.split(":")[-1] if ":" in name else name.split("/")[-1]).lower()
+    # Exact stem match, not a prefix: the cache also holds yolov6n-r2-288x512,
+    # and quietly loading a different detector would look like a bad model
+    # rather than a bad lookup.
+    for path in sorted(glob.glob(os.path.join(ZOO_CACHE, "*", "*.tar.xz"))):
+        if os.path.basename(path).split(".")[0].lower() == variant:
+            log(f"model from cache: {os.path.basename(path)} (no network needed)")
+            return path
+
+    log(f"model {name} is not cached — fetching from the zoo, which needs internet")
+    desc = dai.NNModelDescription(name)
+    desc.platform = "RVC2"
+    return dai.getModelFromZoo(desc)
+
+
 def run(args, hub, cfg):
     import depthai as dai
 
-    os.environ.setdefault("DEPTHAI_ZOO_CACHE_PATH", "/home/jetson/oak-venv/zoo-cache")
+    os.environ.setdefault("DEPTHAI_ZOO_CACHE_PATH", ZOO_CACHE)
 
-    desc = dai.NNModelDescription(args.model)
-    desc.platform = "RVC2"
-    archive = dai.NNArchive(dai.getModelFromZoo(desc))
+    archive = dai.NNArchive(resolve_model(dai, args.model))
     nn_w, nn_h = archive.getInputSize()
 
     with dai.Pipeline() as pipeline:
