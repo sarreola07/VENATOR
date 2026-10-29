@@ -13,9 +13,9 @@
 # not a fault. This script therefore shows you the feed that is running rather
 # than competing for the device.
 #
-# WHY IT LEADS WITH :8080 AND NOT venatordrone.com
+# WHY IT LEADS WITH :8080 AND NOT venator.com
 #
-# The pretty name needs two things: dnsmasq answering venatordrone.com with
+# The pretty name needs two things: dnsmasq answering venator.com with
 # 10.42.0.1, and an nft rule redirecting port 80 to 8080, loaded by the
 # NetworkManager dispatcher when the hotspot comes up. The DNS half is reliable;
 # the redirect is one more moving part, and when it fails the phone gets a dead
@@ -102,9 +102,9 @@ printf "    http://jetson.local:%s/?k=%s   (mDNS)\n\n" "$PORT" "$token"
 # --- the pretty name, honestly labelled ------------------------------------
 printf "  ${B}CAPTIVE PORTAL${Z}  (convenience — the addresses above always work)\n"
 if sudo -n nft list table ip venator-portal >/dev/null 2>&1; then
-    printf "    ${G}http://venatordrone.com/${Z}   redirect is loaded\n\n"
+    printf "    ${G}http://venator.com/${Z}   redirect is loaded\n\n"
 else
-    printf "    ${Y}http://venatordrone.com/${Z}   needs the port 80 -> %s redirect,\n" "$PORT"
+    printf "    ${Y}http://venator.com/${Z}   needs the port 80 -> %s redirect,\n" "$PORT"
     printf "    ${Y}which loads when the hotspot comes up. Check it with:${Z}\n"
     printf "      sudo nft -c -f /etc/venator/portal.nft      # syntax only\n"
     printf "      sudo nft list table ip venator-portal       # is it loaded\n"

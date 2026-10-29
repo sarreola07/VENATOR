@@ -89,18 +89,18 @@ Behaviour varies by OS and version, and that is not something this code can fix:
 - **A device that has joined before** may skip the probe entirely.
 
 **So the documented primary instruction is "open your browser and go to
-`venatordrone.com`", with the popup as a convenience.** The portal page says
+`venator.com`", with the popup as a convenience.** The portal page says
 exactly that, in case it is the popup the operator is looking at.
 
 ---
 
-## The address is `http://venatordrone.com` — not `https`
+## The address is `http://venator.com` — not `https`
 
 This is not a shortcut, and it cannot be changed:
 
 1. **Captive-portal probes are plain HTTP by design.** There is no HTTPS
    request to intercept.
-2. **No certificate authority will issue a certificate for `venatordrone.com`** —
+2. **No certificate authority will issue a certificate for `venator.com`** —
    it is an unregistered domain. Every validation method proves *control* of a
    domain, which is unprovable for one nobody owns.
 3. **A self-signed certificate breaks the feature.** The captive sheet has no
@@ -177,11 +177,11 @@ sudo nmcli connection down venator-hotspot && sudo nmcli connection up venator-h
 `field_mode.sh status` warns when the installed config is newer than the
 running dnsmasq.
 
-**No popup, and `venatordrone.com` does not resolve.** Confirm the fragment is
+**No popup, and `venator.com` does not resolve.** Confirm the fragment is
 installed and in effect:
 
 ```bash
-dig +short venatordrone.com @10.42.0.1          # -> 10.42.0.1
+dig +short venator.com @10.42.0.1          # -> 10.42.0.1
 ps -o args= -C dnsmasq | tr ' ' '\n' | grep conf-dir
 ```
 

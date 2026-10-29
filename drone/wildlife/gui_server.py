@@ -127,7 +127,7 @@ EVIDENCE_NAME = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9]{4}\.jpg$")
 #: authority will issue for an unregistered domain, and a self-signed cert
 #: would replace the automatic popup with a warning the captive sheet has no
 #: button to dismiss. See docs/FIELD_MODE.md.
-PORTAL_HOST = "venatordrone.com"
+PORTAL_HOST = "venator.com"
 
 #: Paths each operating system fetches to decide whether a network has
 #: internet. Answering any of them with something other than the expected
@@ -608,7 +608,7 @@ def make_handler(hub, token, save_dir, cfg):
             # from the list of reachable URLs this server prints at startup. An
             # earlier version redirected those too, which meant every LAN
             # address the server advertised bounced the browser to
-            # venatordrone.com, a name that only resolves on the drone's own
+            # venator.com, a name that only resolves on the drone's own
             # hotspot. Serving IPs unconditionally also keeps the USB-C link and
             # any future interface working without maintaining a list.
             host = (self.headers.get("Host") or "").rsplit(":", 1)[0].lower()

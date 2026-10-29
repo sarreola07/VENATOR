@@ -28,7 +28,7 @@ free. A radio only matters when the browser is somewhere the drone is not.
 
 Icon **5** leads with `http://10.42.0.1:8080/?k=…` — the port the server actually
 listens on, which works whether or not the captive-portal redirect loaded. Icon
-**2** gives `venatordrone.com`, which is prettier but needs an `nft` rule on top
+**2** gives `venator.com`, which is prettier but needs an `nft` rule on top
 of DNS; when that rule fails the phone just gets a dead connection with no clue
 why.
 

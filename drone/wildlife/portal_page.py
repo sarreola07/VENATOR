@@ -89,7 +89,7 @@ footer{margin:18px 18px 0;padding-top:12px;border-top:1px solid var(--line);
 <a class="go" id="go" href="#">Open the live camera</a>
 
 <p class="hint">If this button does nothing, open your browser and go to
-<b>venatordrone.com</b></p>
+<b>venator.com</b></p>
 
 <footer id="foot"></footer>
 
@@ -101,7 +101,7 @@ const auth = u => u + (u.includes('?') ? '&' : '?') + (TOKEN ? 'k=' + TOKEN : ''
 // cookie set inside a captive sheet never reaches Safari, so this link is the
 // only thing that carries authentication across the boundary.
 document.getElementById('go').href =
-  'http://venatordrone.com/' + (TOKEN ? '?k=' + TOKEN : '');
+  'http://venator.com/' + (TOKEN ? '?k=' + TOKEN : '');
 
 // A still frame on a timer, not a stream: a restricted WebView may not render
 // multipart/x-mixed-replace at all, and an MJPEG connection that gets killed

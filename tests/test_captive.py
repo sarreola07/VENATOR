@@ -143,7 +143,7 @@ check("polls a still frame, not a stream", b"/snapshot.jpg" in r.body)
 check("never opens an MJPEG stream", b"live.mjpg" not in r.body)
 check("never opens an EventSource", b"EventSource" not in r.body)
 check("offers a way out to the real browser", b"Open the live camera" in r.body)
-check("names the typed-URL fallback", b"venatordrone.com" in r.body)
+check("names the typed-URL fallback", b"venator.com" in r.body)
 
 print("\nfavicon is 204, not a redirect")
 # Some captive WebViews follow a 302 on /favicon.ico and loop forever.
@@ -158,7 +158,7 @@ for host in ("captive.apple.com", "connectivitycheck.gstatic.com",
     check(f"Host: {host} -> 302", r.code == 302)
 
 print("\nOur own hostnames are NOT hijacked — they fall through to the gate")
-for host in ("10.42.0.1", "venatordrone.com", "localhost", "127.0.0.1",
+for host in ("10.42.0.1", "venator.com", "localhost", "127.0.0.1",
              "venator.drone"):
     r = request("/api/status", host=host)
     check(f"Host: {host} reaches the auth gate (403 without a token)",
@@ -167,7 +167,7 @@ for host in ("10.42.0.1", "venatordrone.com", "localhost", "127.0.0.1",
 print("\nA bare IP is NEVER redirected, whatever subnet it is on")
 # Regression: an earlier version redirected any Host not in a fixed list, so
 # every LAN address this server prints at startup bounced the browser to
-# venatordrone.com - a name that only resolves on the drone's own hotspot. An
+# venator.com - a name that only resolves on the drone's own hotspot. An
 # address cannot arrive by DNS redirection, so it is always served.
 for host in ("192.168.4.117", "192.168.4.95", "172.17.0.1", "192.168.55.1",
              "10.0.0.5", "127.0.0.1"):

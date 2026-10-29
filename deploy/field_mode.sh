@@ -37,7 +37,7 @@ REPO="$(cd "${HERE}/.." && pwd)"
 
 CON="venator-hotspot"
 HOTSPOT_IP="10.42.0.1"
-PORTAL_HOST="venatordrone.com"
+PORTAL_HOST="venator.com"
 OAK_PY="${OAK_PY:-/home/jetson/oak-venv/bin/python}"
 
 # The GUI's own secret, deliberately NOT the C2 key.
