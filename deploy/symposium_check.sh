@@ -114,7 +114,7 @@ else
     # the whole run red for a tool you chose not to start is how a check stops
     # being read -- the same reasoning as the GPS case at the top of this file.
     warn "not answering on :${WEB_PORT} — it is NOT a service, so a reboot stops it"
-    warn "      start it:  click '4 · Mission dashboard', or"
+    warn "      start it:  click '7 · Mission dashboard', or"
     warn "                 bash ${REPO}/deploy/symposium_dashboard.sh"
 fi
 
