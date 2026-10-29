@@ -96,6 +96,28 @@ else
     fail "GUI not answering on http://127.0.0.1:8080/healthz"
 fi
 
+# ---------------------------------------------------------------- dashboard
+#
+# The QR sheet advertises :5037, but unlike the camera this is NOT a systemd
+# unit -- symposium_dashboard.sh starts it by hand, because it has to stop
+# venator-c2 first (one owner per serial port) and give the port back on exit.
+# So a reboot leaves the dashboard QR pointing at a dead port while every other
+# check still reads green. Checking it here is the only thing standing between
+# that and finding out in front of an audience.
+head_ "Mission dashboard"
+WEB_PORT="${WEB_PORT:-5037}"
+dash="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null)"
+if [[ "${dash}" == "200" ]]; then
+    ok "answering on :${WEB_PORT} (reminder: it does NOT start at boot)"
+else
+    # WARN, not FAIL: the dashboard is optional to the camera demo, and turning
+    # the whole run red for a tool you chose not to start is how a check stops
+    # being read -- the same reasoning as the GPS case at the top of this file.
+    warn "not answering on :${WEB_PORT} — it is NOT a service, so a reboot stops it"
+    warn "      start it:  click '4 · Mission dashboard', or"
+    warn "                 bash ${REPO}/deploy/symposium_dashboard.sh"
+fi
+
 # ---------------------------------------------------------------- radios + FC
 head_ "Radios and flight controller"
 lora="$(ls /dev/serial/by-id/ 2>/dev/null | grep -i 'CP2102\|Silicon_Labs' | head -1)"

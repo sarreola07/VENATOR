@@ -204,6 +204,15 @@ page = f'''<!doctype html>
   These addresses use no DNS and no firewall rule &mdash; they work even if the
   captive portal does not. If a phone shows &ldquo;no internet&rdquo;, that is
   expected: the drone is not a router. Stay on the network and scan 2.
+  <br><br>
+  <b>Typing it on a laptop?</b> The camera needs the <code>?k=</code> key and
+  the dashboard does not, so the bare camera address returns
+  <code>403 Wrong or missing key</code> &mdash; that is the key missing, not the
+  camera being down. Copy the whole address under code 2.
+  <br><br>
+  <b>Code 3 only answers while the dashboard is running.</b> It is not a
+  service and does not come back after a reboot &mdash; start it from the
+  Symposium folder. Codes 1 and 2 need nothing but the access point.
 </footer>
 '''
 

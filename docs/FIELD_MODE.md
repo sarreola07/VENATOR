@@ -204,6 +204,28 @@ Two further details worth knowing before you rely on them:
 A phone will say **"no internet"** on this network. That is correct — the drone
 is not a router. Stay joined and scan the camera code.
 
+### Two asymmetries that read like faults
+
+**The camera is token-gated and the dashboard is not.** Typing the bare camera
+address on a laptop returns `403 Wrong or missing key`, which looks like the
+camera is down when it is only the key missing:
+
+| | |
+|---|---|
+| `http://10.42.0.1:8080/` | **403** — no key |
+| `http://10.42.0.1:8080/?k=<token>` | **200** |
+| `http://10.42.0.1:5037/` | **200** — the dashboard has no auth at all |
+
+Scanning the QR avoids this entirely, because the code carries the key.
+
+**The dashboard is not a service.** `venator-gui`, `venator-c2` and
+`venator-net-fallback` start at boot; the mission dashboard does not.
+`symposium_dashboard.sh` launches it by hand because it must stop `venator-c2`
+first — one owner per serial port — and hand the port back when it exits. So
+after a reboot the dashboard QR points at a closed port while everything else
+is healthy. `symposium_check.sh` warns when that is the case; it is the only
+thing that will tell you.
+
 ---
 
 ## Security posture — read this before a demo
