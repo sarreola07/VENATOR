@@ -55,6 +55,37 @@ else
     ok "Pixhawk  ${fc}"
 fi
 
+# ---- already running? -----------------------------------------------------
+# This has to come BEFORE anything is stopped or started. Clicking the icon
+# twice used to end in "OSError: [Errno 98] Address already in use" from the
+# bridge -- and confusingly it prints "Listening on ..." BEFORE it binds, so
+# the traceback reads as if it died after starting. Worse, by then this script
+# had already stopped venator-c2 on behalf of a run that then failed, leaving
+# the handheld remote dead for no reason.
+port_held() { ss -lnt 2>/dev/null | grep -q "127.0.0.1:${1} \|0.0.0.0:${1} "; }
+
+if port_held "${BRIDGE_PORT}" && port_held "${WEB_PORT}"; then
+    echo
+    ok "already running — bridge on ${BRIDGE_PORT}, page on ${WEB_PORT}"
+    say "Another terminal owns it. Open the URLs below, or close that terminal"
+    say "first if you want a clean restart."
+    echo
+    printf "    on this Jetson : ${G}http://127.0.0.1:%s/${Z}\n" "${WEB_PORT}"
+    while read -r _ dev _ cidr _; do
+        ip="${cidr%%/*}"; [[ "$dev" == "lo" || -z "$ip" ]] && continue
+        printf "    from a phone   : ${G}http://%s:%s/${Z}  (%s)\n" "$ip" "${WEB_PORT}" "$dev"
+    done < <(ip -4 -o addr show 2>/dev/null)
+    echo
+    exit 0
+fi
+if port_held "${BRIDGE_PORT}" || port_held "${WEB_PORT}"; then
+    warn "a previous run left one half up; clearing it so this one starts clean"
+    pkill -f "python_bridge/drone_bridge.py" 2>/dev/null
+    pkill -f "deploy/venator_web.py"        2>/dev/null
+    sleep 2
+fi
+ADOPTED=0
+
 # ---- free the serial port -------------------------------------------------
 if systemctl is-active --quiet venator-c2 2>/dev/null; then
     warn "venator-c2 owns the Pixhawk; stopping it so the bridge can connect"
@@ -80,18 +111,20 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ---- start both -----------------------------------------------------------
-cd "${PLANNER}"
-"${PY}" python_bridge/drone_bridge.py &
-BRIDGE_PID=$!
-sleep 3
-kill -0 "${BRIDGE_PID}" 2>/dev/null && ok "bridge up on 127.0.0.1:${BRIDGE_PORT} (pid ${BRIDGE_PID})" \
-    || { bad "bridge exited immediately"; exit 1; }
+if (( ! ADOPTED )); then
+    cd "${PLANNER}"
+    "${PY}" python_bridge/drone_bridge.py &
+    BRIDGE_PID=$!
+    sleep 3
+    kill -0 "${BRIDGE_PID}" 2>/dev/null && ok "bridge up on 127.0.0.1:${BRIDGE_PORT} (pid ${BRIDGE_PID})" \
+        || { bad "bridge exited immediately"; exit 1; }
 
-"${PY}" "${HERE}/venator_web.py" --port "${WEB_PORT}" --bridge-port "${BRIDGE_PORT}" &
-WEB_PID=$!
-sleep 2
-kill -0 "${WEB_PID}" 2>/dev/null && ok "page up (pid ${WEB_PID})" \
-    || { bad "web server exited immediately"; exit 1; }
+    "${PY}" "${HERE}/venator_web.py" --port "${WEB_PORT}" --bridge-port "${BRIDGE_PORT}" &
+    WEB_PID=$!
+    sleep 2
+    kill -0 "${WEB_PID}" 2>/dev/null && ok "page up (pid ${WEB_PID})" \
+        || { bad "web server exited immediately"; exit 1; }
+fi
 
 # ---- where to open it -----------------------------------------------------
 echo
