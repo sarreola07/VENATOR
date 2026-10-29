@@ -60,4 +60,18 @@ table ip venator-portal {
         # explicitly is exactly equivalent.
         iifname "__IFACE__" ip daddr 10.42.0.1 tcp dport 80 dnat to 10.42.0.1:8080
     }
+
+    # Locally-originated traffic never traverses prerouting, so with only the
+    # chain above the redirect can be tested from another device and nowhere
+    # else. That is precisely how a rule the kernel could not load survived six
+    # days: every check anyone ran on the Jetson itself bypassed it.
+    #
+    # This chain makes `curl http://10.42.0.1/` ON the Jetson exercise the same
+    # dnat, so deploy/symposium_check.sh can prove the whole path with no phone,
+    # no second machine and no network. 10.42.0.1 only exists while the access
+    # point is up, and port 80 has no other listener, so nothing else can match.
+    chain output {
+        type nat hook output priority dstnat; policy accept;
+        ip daddr 10.42.0.1 tcp dport 80 dnat to 10.42.0.1:8080
+    }
 }

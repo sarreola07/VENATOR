@@ -156,6 +156,83 @@ fi
 head_ "Network and the phone URL"
 bash "${HERE}/field_mode.sh" status 2>/dev/null | sed 's/^/  /'
 
+# ---------------------------------------------------------------- portal
+#
+# The phone path, end to end, from the Jetson alone. This section exists
+# because the port-80 redirect failed silently on every boot for six days: the
+# dispatcher logged four words with nft's reason discarded, and every check
+# anyone ran from this machine bypassed the rule entirely, since locally
+# originated traffic does not traverse prerouting. The `output` chain in
+# deploy/nft/venator-portal.nft is what makes the curl below mean anything.
+head_ "Captive portal — the phone path"
+AP_IP="${AP_IP:-10.42.0.1}"
+PORTAL_HOST="${PORTAL_HOST:-venator.com}"
+
+if ip -4 -o addr show 2>/dev/null | grep -q "${AP_IP}/"; then
+    ok "access point is UP — ${AP_IP} is assigned"
+
+    # nft. `sudo -n` never prompts; distinguish "rule missing" from "could not
+    # look", because reporting a missing rule you simply failed to read would
+    # send you chasing a bug that is not there.
+    if sudo -n nft list table ip venator-portal >/dev/null 2>&1; then
+        ok "nft table venator-portal is loaded"
+    elif sudo -n true >/dev/null 2>&1; then
+        fail "nft table venator-portal NOT loaded — port 80 goes nowhere"
+        fail "      journalctl -t venator-portal -b | tail -3   (it now prints nft's reason)"
+    else
+        info "nft table not read (needs sudo) — the HTTP checks below still prove it"
+    fi
+
+    ans="$(dig +short +time=2 +tries=1 "${PORTAL_HOST}" @"${AP_IP}" 2>/dev/null | head -1)"
+    if [[ "${ans}" == "${AP_IP}" ]]; then
+        ok "DNS  ${PORTAL_HOST} -> ${AP_IP}"
+    else
+        fail "DNS  ${PORTAL_HOST} -> '${ans:-no answer}'  (want ${AP_IP})"
+        fail "      sudo nmcli con down venator-hotspot && sudo nmcli con up venator-hotspot"
+    fi
+
+    # 403 is a PASS: it is gui_server refusing an untokened request, which it
+    # can only do if the packet reached 8080. Reaching the server is the thing
+    # under test here, not being authorised by it.
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 6 "http://${AP_IP}/" 2>/dev/null)"
+    case "${code}" in
+        200|302|403) ok "port 80 -> 8080 reached the camera server (HTTP ${code})" ;;
+        000)         fail "port 80 REFUSED — this is the failure that broke the iPhone"
+                     fail "      nothing is listening on 80 and the dnat rule did not load" ;;
+        *)           warn "port 80 answered HTTP ${code} — unexpected, but something is there" ;;
+    esac
+
+    loc="$(curl -s -o /dev/null -w '%{redirect_url}' --max-time 6 \
+           -H "Host: captive.apple.com" "http://${AP_IP}/hotspot-detect.html" 2>/dev/null)"
+    if [[ "${loc}" == *"${PORTAL_HOST}"* ]]; then
+        ok "iOS captive probe -> ${loc}"
+    else
+        fail "iOS captive probe did not redirect (got '${loc:-nothing}')"
+        fail "      the phone will show no sign-in sheet; use the QR code instead"
+    fi
+else
+    # Not a failure. The Jetson has one radio, so being a client is the normal
+    # state while developing -- and turning this red would train you to ignore it.
+    info "access point is DOWN — this Jetson is a Wi-Fi client right now"
+    info "      the phone path cannot be tested from here"
+    info "      bring it up with:  bash deploy/wifi_mode.sh on"
+fi
+
+# ---------------------------------------------------------------- QR sheet
+head_ "QR sheet"
+QR_HTML="${QR_HTML:-${HOME}/Desktop/Symposium/venator-qr.html}"
+QR_PNG="${QR_PNG:-${HOME}/Desktop/Symposium/venator-qr-camera.png}"
+live_tok="$(bash "${HERE}/field_mode.sh" url 2>/dev/null)"; live_tok="${live_tok##*k=}"
+if [[ ! -f "${QR_HTML}" || ! -f "${QR_PNG}" ]]; then
+    warn "no QR sheet yet — bash deploy/symposium_qr.sh"
+elif [[ -n "${live_tok}" ]] && grep -q "${live_tok}" "${QR_HTML}" 2>/dev/null; then
+    ok "QR sheet matches the running token"
+else
+    # A printed sheet with a rotated token fails exactly when you point at it.
+    fail "QR sheet is STALE — it does not carry the current token"
+    fail "      regenerate:  bash deploy/symposium_qr.sh"
+fi
+
 # ---------------------------------------------------------------- verdict
 echo
 if (( bad )); then
