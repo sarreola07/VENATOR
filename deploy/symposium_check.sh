@@ -136,8 +136,19 @@ else
 fi
 
 # Only worth probing when the C2 service is not already holding the port.
+#
+# SKIP_FC=1 drops the probe. Worst case it costs 12 s in wait_heartbeat plus
+# two 6 s recv_match timeouts -- that is the board enumerating but not
+# answering, not the common case, and when the FC is simply absent the branch
+# below is not taken at all. So this is for re-testing the phone path outside
+# while the aircraft is powered down or out of reach, not a general speed-up.
+#
+# The absent/bootloader test comes FIRST: saying "probe skipped" when there was
+# no device to probe reads as though a healthy board was ignored.
 if [[ "$fc" == *_BL_* || -z "$fc" ]]; then
     :
+elif [[ -n "${SKIP_FC:-}" ]]; then
+    info "heartbeat probe skipped (SKIP_FC=1)"
 elif systemctl is-active --quiet venator-c2 2>/dev/null; then
     info "heartbeat not probed — venator-c2 owns the port (that is correct)"
 elif [[ -x "${REPO}/venv/bin/python" ]]; then

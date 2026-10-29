@@ -3,10 +3,36 @@ Type=Application
 Version=1.0
 Name=1 · Check everything
 GenericName=Pre-demo check
-Comment=Services, props interlock, camera, radios, flight controller and the phone URL. Run this before you present.
-Exec=gnome-terminal "--title=Venator — pre-demo check" -- bash -c "__REPO__/deploy/symposium_check.sh; echo; read -r -n1 -p 'Press any key to close...'"
+Comment=Services, props interlock, camera, mission dashboard, radios, flight controller, the captive portal end to end and the QR sheet. Run this before you present.
+# --geometry=100x52 because the check prints 45 lines and a default terminal is
+# 24. Without it the Boot services and Props sections scroll off the top and
+# the operator reads only the second half -- which is how you miss a FAIL on a
+# service while staring at a green verdict for the camera.
+Exec=gnome-terminal --geometry=100x52 "--title=Venator — pre-demo check" -- bash -c "__REPO__/deploy/symposium_check.sh; echo; read -r -n1 -p 'Press any key to close...'"
 Icon=utilities-system-monitor
 Terminal=false
 StartupNotify=true
 Categories=Utility;
-Keywords=venator;symposium;check;status;preflight;demo;
+Keywords=venator;symposium;check;status;preflight;demo;portal;dashboard;qr;
+Actions=Portal;QRSheet;Dashboard;
+
+[Desktop Action Portal]
+Name=Phone path only (portal, DNS, port 80)
+# The slow parts of the full check are the MAVLink heartbeat probe and its two
+# 6-second recv_match timeouts. Outside, walking between the aircraft and the
+# laptop, the phone path is the thing being re-tested -- this skips straight to
+# it. SKIP_FC is read by symposium_check.sh.
+Exec=gnome-terminal --geometry=100x34 "--title=Venator — phone path" -- bash -c "SKIP_FC=1 __REPO__/deploy/symposium_check.sh; echo; read -r -n1 -p 'Press any key to close...'"
+
+[Desktop Action QRSheet]
+Name=Open the QR sheet
+# No $ anywhere: the Desktop Entry spec requires a literal $ to be written \\$,
+# which stops it expanding, so the path is written out instead.
+Exec=bash -c "xdg-open /home/jetson/Desktop/Symposium/venator-qr.html"
+
+[Desktop Action Dashboard]
+Name=Is the mission dashboard up?
+# No \n in the curl format and no nested || echo: desktop-file-validate rejects
+# the backslash escape inside these already-nested quotes ("contains a quote
+# which is not closed"). Separate echo statements do the same job and parse.
+Exec=gnome-terminal --geometry=90x12 "--title=Mission dashboard" -- bash -c "curl -s -o /dev/null -w 'dashboard :5037 -> HTTP %%{http_code}' --max-time 6 http://127.0.0.1:5037/ ; echo ; echo '000 means it is not running - click 7 Mission dashboard' ; echo ; read -r -n1 -p 'Press any key to close...'"
