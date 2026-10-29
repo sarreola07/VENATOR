@@ -10,6 +10,19 @@ The end product, in the order you use it. Click **1** before you speak.
 | **4 · Missions and motor test** | Jetson-side mission menu. The handheld remote is the better demo — this is the backup. |
 | **5 · Camera** | **Use this one for the phone.** Prints every address that works. |
 | **6 · Live view** | **Watch it here.** One click, video on this Jetson's screen, no terminal. |
+| **7 · Mission dashboard** | **Command the drone from a browser.** Arm, motor test, disarm, telemetry. |
+
+### 7 pauses the handheld remote — on purpose
+
+A serial port has one owner. The dashboard's MAVLink bridge needs the Pixhawk,
+and `venator-c2` holds it, so the icon stops that service while it runs and
+restarts it when you close the terminal. While the dashboard is up, the
+handheld LoRa remote is not being listened to. They are two ways of commanding
+the same aircraft; pick one per demo segment.
+
+**No radio is involved.** The browser reaches the Jetson over Wi-Fi and the
+Jetson reaches the Pixhawk over USB — the LoRa stick and the SiK radio are both
+free. A radio only matters when the browser is somewhere the drone is not.
 
 ### Use 5, not 2, if you only remember one
 

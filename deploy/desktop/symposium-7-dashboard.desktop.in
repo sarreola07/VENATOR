@@ -1,0 +1,23 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=7 · Mission dashboard
+GenericName=Command the drone from a webpage
+Comment=Starts the MAVLink bridge and the dashboard page. Arm, motor test, disarm and telemetry from a browser. Stops venator-c2 while running, so the handheld remote pauses.
+Exec=gnome-terminal "--title=Venator — mission dashboard" -- __REPO__/deploy/symposium_dashboard.sh
+Icon=applications-internet
+Terminal=false
+StartupNotify=true
+Categories=Utility;
+Keywords=venator;symposium;dashboard;mission;mavlink;arm;motor;bridge;
+Actions=Open;BridgeOnly;
+
+[Desktop Action Open]
+Name=Open the dashboard in a browser
+Exec=bash -c "xdg-open http://127.0.0.1:5037/"
+
+[Desktop Action BridgeOnly]
+Name=Bridge only (no page)
+# No $HOME: the Desktop Entry spec needs a literal $ escaped as \\$, which would
+# stop it expanding anyway. The clone path is written out instead.
+Exec=gnome-terminal "--title=MAVLink bridge" -- bash -c "cd /home/jetson/Desktop/drone-mission-planner-css && __REPO__/venv/bin/python python_bridge/drone_bridge.py; read -r -n1 -p 'Press any key to close...'"
