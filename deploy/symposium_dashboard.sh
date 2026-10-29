@@ -13,10 +13,18 @@
 # being listened to. They are two ways of commanding the same aircraft, and
 # only one can hold the Pixhawk.
 #
-# NO RADIO IS INVOLVED. The browser reaches the Jetson over Wi-Fi and the
-# Jetson reaches the Pixhawk over USB. The LoRa stick and the SiK radio are
-# both free; the radio only matters when the browser is somewhere the drone
-# is not.
+# THE ACCESS POINT IS THE NETWORK
+#
+# The drone hosts VenatorDrone on 10.42.0.1 and the phone joins it. There is no
+# router, no venue Wi-Fi and no internet in the deployed system -- that is the
+# whole point of the aircraft. A client-network address works on a bench and is
+# printed as such, but it is not the product and must not be what gets
+# demonstrated.
+#
+# NO RADIO IS INVOLVED in the command path. The phone reaches the Jetson over
+# the Jetson's own access point, and the Jetson reaches the Pixhawk over USB.
+# The LoRa stick and the SiK radio are both free; a radio only matters when the
+# browser is somewhere the drone is not.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,6 +33,7 @@ PLANNER="${PLANNER:-${HOME}/Desktop/drone-mission-planner-css}"
 PY="${REPO}/venv/bin/python"
 WEB_PORT="${WEB_PORT:-5037}"
 BRIDGE_PORT="${BRIDGE_PORT:-5555}"
+AP_IP="${AP_IP:-10.42.0.1}"      # the VenatorDrone access point; the deployment address
 
 G=$'\033[92m'; R=$'\033[91m'; Y=$'\033[93m'; B=$'\033[94m'; Z=$'\033[0m'
 say()  { printf "  %s\n" "$*"; }
@@ -70,11 +79,12 @@ if port_held "${BRIDGE_PORT}" && port_held "${WEB_PORT}"; then
     say "Another terminal owns it. Open the URLs below, or close that terminal"
     say "first if you want a clean restart."
     echo
-    printf "    on this Jetson : ${G}http://127.0.0.1:%s/${Z}\n" "${WEB_PORT}"
-    while read -r _ dev _ cidr _; do
-        ip="${cidr%%/*}"; [[ "$dev" == "lo" || -z "$ip" ]] && continue
-        printf "    from a phone   : ${G}http://%s:%s/${Z}  (%s)\n" "$ip" "${WEB_PORT}" "$dev"
-    done < <(ip -4 -o addr show 2>/dev/null)
+    if ip -4 -o addr show 2>/dev/null | grep -q "${AP_IP}/"; then
+        printf "    ${G}http://%s:%s/${Z}   <- join the VenatorDrone Wi-Fi\n" "${AP_IP}" "${WEB_PORT}"
+    else
+        printf "    ${Y}http://%s:%s/${Z}   <- the real address, but the AP is DOWN\n" "${AP_IP}" "${WEB_PORT}"
+    fi
+    printf "    http://127.0.0.1:%s/   (on this Jetson)\n" "${WEB_PORT}"
     echo
     exit 0
 fi
@@ -127,14 +137,27 @@ if (( ! ADOPTED )); then
 fi
 
 # ---- where to open it -----------------------------------------------------
+# The access point is THE address, not one option among several. This aircraft
+# is built to work with no internet, no cellular and no ground-control
+# software; a URL that only resolves on somebody's venue Wi-Fi is not the
+# product. Client-network addresses are printed afterwards and labelled as
+# bench-only, so they are never mistaken for the real one.
 echo
 printf "  ${B}OPEN THE DASHBOARD${Z}\n"
-printf "    on this Jetson : ${G}http://127.0.0.1:%s/${Z}\n" "${WEB_PORT}"
+if ip -4 -o addr show 2>/dev/null | grep -q "${AP_IP}/"; then
+    printf "    ${G}http://%s:%s/${Z}   <- join the VenatorDrone Wi-Fi\n" "${AP_IP}" "${WEB_PORT}"
+else
+    printf "    ${Y}http://%s:%s/${Z}   <- the real address, but the AP is DOWN\n" "${AP_IP}" "${WEB_PORT}"
+    printf "    ${Y}bring it up:  %s/deploy/wifi_mode.sh on${Z}\n" "${REPO}"
+fi
+printf "    http://127.0.0.1:%s/   (on this Jetson)\n" "${WEB_PORT}"
+other=""
 while read -r _ dev _ cidr _; do
-    ip="${cidr%%/*}"
-    [[ "$dev" == "lo" || -z "$ip" ]] && continue
-    printf "    from a phone   : ${G}http://%s:%s/${Z}  (%s)\n" "$ip" "${WEB_PORT}" "$dev"
+    ip4="${cidr%%/*}"
+    [[ "$dev" == "lo" || -z "$ip4" || "$ip4" == "${AP_IP}" ]] && continue
+    other+="    http://${ip4}:${WEB_PORT}/   (${dev})"$'\n'
 done < <(ip -4 -o addr show 2>/dev/null)
+[[ -n "$other" ]] && { printf "  bench only, not the deployment path:\n"; printf "%s" "$other"; }
 echo
 say "In the page: pick the Pixhawk port, 115200 baud, Connect."
 say "Props OFF. The planner panel needs the C# service and stays unavailable."
