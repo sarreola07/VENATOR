@@ -44,6 +44,20 @@ table ip venator-portal {
         # deploy/dnsmasq/venator-portal.conf, every captive-portal probe lands
         # here. Traffic being forwarded to a real uplink is untouched, so a
         # shared Ethernet connection still works normally.
-        iifname "__IFACE__" ip daddr 10.42.0.1 tcp dport 80 redirect to :8080
+        #
+        # dnat, NOT redirect. `redirect to :8080` is the obvious way to write
+        # this and it cannot work on a Jetson: the L4T kernel does not build
+        # nft_redir, so nft refuses the rule with
+        #
+        #   Error: Could not process rule: No such file or directory
+        #                                  ^^^^^^^^  (pointing at `redirect`)
+        #
+        # which reads like a missing file rather than a missing kernel module.
+        # The dispatcher logged only "FAILED to load" and swallowed that detail,
+        # so the portal was silently dead on every boot. nft_nat IS available,
+        # and redirect is just dnat aimed at the local machine -- with the AP
+        # address fixed at 10.42.0.1 by the venator-hotspot profile, naming it
+        # explicitly is exactly equivalent.
+        iifname "__IFACE__" ip daddr 10.42.0.1 tcp dport 80 dnat to 10.42.0.1:8080
     }
 }

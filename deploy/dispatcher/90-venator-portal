@@ -30,9 +30,17 @@ case "${2:-}" in
     up)
         # The ruleset's own create/delete/create prologue makes this safe to
         # run repeatedly.
-        "${NFT}" -f "${RULES}" \
-            && logger -t venator-portal "port 80 -> 8080 redirect loaded for ${1:-?}" \
-            || logger -t venator-portal "FAILED to load ${RULES}"
+        #
+        # Capture nft's stderr and log it. The previous version discarded it and
+        # logged a bare "FAILED to load", which is how a rule that could never
+        # work on this kernel -- `redirect` needs nft_redir, which L4T does not
+        # build -- stayed broken across many boots. nft had been naming the
+        # exact statement and the reason every single time; nobody could see it.
+        if err="$("${NFT}" -f "${RULES}" 2>&1)"; then
+            logger -t venator-portal "port 80 -> 8080 loaded for ${1:-?}"
+        else
+            logger -t venator-portal "FAILED to load ${RULES}: ${err}"
+        fi
         ;;
     down|pre-down)
         "${NFT}" delete table ip venator-portal 2>/dev/null \
