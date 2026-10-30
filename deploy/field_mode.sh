@@ -105,6 +105,19 @@ print(gui_server.make_token(auth.load_key()) or "")
 PY
 }
 
+# The token an audience gets: it can watch everything and change nothing.
+view_token() {
+    REPO="${REPO}" "${OAK_PY}" - <<'PY' 2>/dev/null
+import os, sys
+repo = os.environ["REPO"]
+sys.path.insert(0, repo)
+sys.path.insert(0, os.path.join(repo, "drone", "wildlife"))
+from radio import auth
+import gui_server
+print(gui_server.make_view_token(auth.load_key()) or "")
+PY
+}
+
 # Called by venator-gui.service's ExecStartPre. Without a key file the server
 # binds loopback only and the phone cannot see it, which looks like a working
 # system from the Jetson and a dead one from the field.
@@ -371,9 +384,10 @@ case "${1:-status}" in
                fi ;;
     status)    status ;;
     url)       url ;;
+    view-token) view_token ;;
     install)   install_all ;;
     uninstall) uninstall_all ;;
     preflight) preflight ;;
     _require_key) require_key ;;
-    *) echo "Usage: $0 [on|off|toggle|status|url|install|uninstall|preflight] [--dry-run] [--pause]"; exit 2 ;;
+    *) echo "Usage: $0 [on|off|toggle|status|url|view-token|install|uninstall|preflight] [--dry-run] [--pause]"; exit 2 ;;
 esac

@@ -25,6 +25,9 @@ person-tracker. That one stays on depthai 2.32 in
 | `classes.py` | What gets reported and the confidence each class needs. One table shared by the live detector, the offline harness and the GUI, so they cannot disagree. |
 | `gui_server.py` | Operator GUI for a phone, on `:8080`. The OAK encodes MJPEG itself and this relays the bytes undecoded — the Jetson has no hardware video encoder. See [../../docs/OPERATOR_GUI.md](../../docs/OPERATOR_GUI.md). |
 | `gui_page.py` | The GUI's single page. Dark, red/amber, boxes drawn client-side on a canvas. |
+| `vest.py` | The vest search: finds the person in the target colour and ignores everyone else. See [Vest search](#vest-search). |
+| `vest_calibrate.py` | Teaches the vest search what the vests look like in this room. |
+| `webcam_search.py` | The vest search on a Mac's webcam, with Apple's person detector and no depth. A proof of concept, not the flight path. |
 | `oak_info.py` | Identifies the OAK, its fitted sensors and whether it has IR illumination. |
 | `oak_test.py` | Proves the OAK streams colour and stereo depth. |
 | `test_detector.py` | Runs the detector over image files, so you can check what it sees before flying it. |
@@ -214,6 +217,78 @@ the OAK-D-PRO illuminating these same sensors at 940 nm, do not — so the mono
 pair should also see an 850 nm laser. `oak_ir_test.py` settles it with a TV
 remote. Note the S2 has **no IR emitters** (`getIrDrivers() == []`): it is a
 passive sensor and still needs some light.
+
+## Vest search
+
+The search-and-rescue simulation: a missing person was last seen in a red vest.
+`gui_server.py --search` marks that person TARGET and everyone else
+ignored, shows a confidence chart on the phone page, and sends a report over
+loopback UDP for the flight code to read.
+
+This is a bench test, with the props off. **Nothing here commands the aircraft
+yet.** The flight side is not built. It needs the ARK Flow hover working first.
+
+Only one process can own the OAK, so stop the service first, and calibrate once
+in the room you are testing in:
+
+```bash
+sudo systemctl stop venator-gui
+~/oak-venv/bin/python drone/wildlife/vest_calibrate.py
+VENATOR_KEY_FILE=~/.venator/gui-key GUI_MAX_VIEWERS=16 \
+    ~/oak-venv/bin/python drone/wildlife/gui_server.py --search --save-dir ~/Pictures/venator-search
+```
+
+`VENATOR_KEY_FILE` matters: without it the server finds no GUI key and stays on
+loopback, so no phone can reach it. The startup log prints a `view-only` address
+for an audience, and phones joining the hotspot get the same view-only access.
+`bash deploy/symposium_qr.sh` prints it as a QR code. The separate save folder
+keeps older field photos out of the filmstrip the audience can browse. Press
+Ctrl+C when done, then `sudo systemctl start venator-gui` to go back to normal.
+
+To search for another colour, send the target over loopback. Phones can't do
+this, by design:
+
+```bash
+python3 -c "import socket, json; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(json.dumps({'target': 'blue'}).encode(), ('127.0.0.1', 5008))"
+```
+
+The chart plots **vest match** (how much of the chest is the target colour, with
+a lock possible above the match line) or **person** (the detector's confidence).
+**snapshot** keeps the chart and readings on that phone, and **save CSV**
+downloads them for the results table. Nothing is sent back to the drone.
+
+Bright clothes in the target colour will fool it: it matches a description, and
+a red shirt looks the same as a red vest. Calibrate red in the room you test in:
+skin under warm light and orange safety vests sit just past the edge of its range.
+
+### On a Mac's webcam, with no camera hardware
+
+`webcam_search.py` runs the same colour check, vote, page, chart and snapshots on
+the built-in webcam. See its header for the install line. It uses Apple's person
+detector rather than MegaDetector, and it has no depth, so it shows no distances
+and proves nothing about the 2 m safety rule. Run it from Terminal the first time:
+macOS only asks for camera access on behalf of an app that can show the prompt.
+Stand back far enough that your chest is in frame: at a desk, the part of the box
+it reads as the chest lands on your face.
+
+### On a laptop, before the Jetson
+
+The person detector runs on the camera's own chip, so the same test works with
+the OAK plugged into a Mac. Only speed, temperature and USB load in the Jetson's
+7 W mode still have to be measured on the Jetson.
+
+```bash
+python3 -m venv ~/oak-venv
+~/oak-venv/bin/pip install depthai==3.10.0 numpy
+~/oak-venv/bin/python drone/wildlife/oak_info.py
+~/oak-venv/bin/python drone/wildlife/vest_calibrate.py
+~/oak-venv/bin/python drone/wildlife/gui_server.py --search --save-dir ~/Pictures/venator-search
+```
+
+Then open <http://127.0.0.1:8080>. The first run downloads the detector, about
+4 MB, and needs internet. With no key file the page is only reachable from the
+laptop itself, which is what you want for this test. With no camera attached,
+Ctrl+C can take about 10 seconds, because it waits for the device search to end.
 
 ## Recovery
 

@@ -57,6 +57,43 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
   display:flex;gap:10px;align-items:center;animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{background:#2a0a0a}50%{background:#3d0d0d}}
 @media (prefers-reduced-motion:reduce){.alert{animation:none}}
+/* --- vest search: what the aircraft is looking for, above everything else --- */
+#search{display:none;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+  padding:10px 14px;background:#11141a;font-variant-numeric:tabular-nums}
+#search.on{display:flex}
+#search b{letter-spacing:.04em}
+#search.found b{color:#ffe600}
+#search .d{color:var(--muted);font-size:12px}
+/* view-only visitors can look at everything and change nothing */
+.viewonly #snap,.viewonly #lb-foot,.viewonly .shot .v{display:none}
+/* --- confidence chart: only shown during a search --- */
+#conf{display:none;border-bottom:1px solid var(--line);padding:0 8px 8px;background:var(--panel)}
+#conf.on{display:block}
+#conf .head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 2px 4px}
+#conf .ttl{font-weight:600;margin-right:auto}
+#conf .head button{padding:4px 10px;font-size:12px}
+#plot{position:relative}
+#chart{display:block;width:100%;height:150px;touch-action:pan-y}
+#ctip{display:none;position:absolute;top:4px;background:rgba(2,3,5,.92);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;
+  pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+#ctip .row{display:flex;align-items:center;gap:6px}
+#ctip .row b{min-width:34px;text-align:right}
+#ctip .row span{color:var(--muted)}
+#legend{display:flex;flex-wrap:wrap;gap:3px 12px;padding:4px 2px 0;font-size:12px}
+.key{display:inline-flex;align-items:center;gap:5px}
+.key i,#ctip i{display:inline-block;width:14px;height:2px;border-radius:1px}
+.key.more{color:var(--muted)}
+#snaps .bar{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:12px;color:var(--muted)}
+#snaps .bar button{margin-left:auto;padding:4px 10px;font-size:12px}
+.snap{border-top:1px solid var(--line);padding:8px 2px}
+.snap .when{font-size:12px;color:var(--muted);margin-bottom:4px}
+.snap img{display:block;width:100%;border-radius:4px;background:var(--bg)}
+.snap table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;
+  font-variant-numeric:tabular-nums}
+.snap th{color:var(--muted);font-weight:500;text-align:right;padding:2px 4px}
+.snap td{text-align:right;padding:2px 4px;border-top:1px solid var(--line)}
+.snap th:first-child,.snap td:first-child{text-align:left}
 .alert b{color:var(--bad);letter-spacing:.04em}
 .alert .meta{color:var(--muted);font-size:12px}
 .alert button{margin-left:auto}
@@ -147,6 +184,7 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 
 <div id="redfilter"></div><div id="dimmer"></div>
 <div id="alerts"></div>
+<div id="search"></div>
 
 <div id="stage">
   <img id="vid" alt="">
@@ -156,6 +194,20 @@ input[type=range]{width:88px;accent-color:var(--orange)}
     <span style="color:var(--muted)">Status below is still live while the page is
     connected. Beyond ~100 m this is normal — fall back to the LoRa link.</span></div>
   </div>
+</div>
+
+<div id="conf">
+  <div class="head">
+    <span class="ttl" id="conf-ttl">Vest match</span>
+    <button id="m-match" class="on">match</button>
+    <button id="m-person">person</button>
+    <button id="csnap">snapshot</button>
+  </div>
+  <div id="plot"><canvas id="chart" role="img"
+    aria-label="Confidence for each person over the last 30 seconds. The same readings are in the Tracks list and in snapshots."></canvas>
+    <div id="ctip"></div></div>
+  <div id="legend"></div>
+  <div id="snaps"></div>
 </div>
 
 <div id="chips"></div>
@@ -192,10 +244,13 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 </div>
 
 <script>
-const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__;
+const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__, VIEW_ONLY = __VIEW_ONLY__;
 const q = s => document.querySelector(s);
+document.body.classList.toggle('viewonly', VIEW_ONLY);
 const auth = u => u + (u.includes('?') ? '&' : '?') + (TOKEN ? 'k=' + TOKEN : '');
-const api = (p, body) => fetch(auth(p), body ? {
+// A view-only visitor's writes would only earn a 403 and a growing delay. Quality
+// and alert dismissal still work for them, because both are also local.
+const api = (p, body) => (VIEW_ONLY && body) ? Promise.resolve() : fetch(auth(p), body ? {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)} : {});
 
@@ -226,6 +281,19 @@ vid.onerror = () => setTimeout(loadVideo, 2000);
 /* ---------- box overlay ---------- */
 const ovl = q('#ovl'), ctx = ovl.getContext('2d');
 const COLOUR = {animal:'#ffcf4d', person:'#ff3fa4', vehicle:'#4fd6d6'};
+// The vest search. The target is the only loud thing on screen: everyone else
+// fading to grey is the point being demonstrated.
+const ROLE = {target:'#ffe600', match:'#ffb000', checking:'#e8edf2', ignored:'#7d8590'};
+const boxColour = d => ROLE[d.role] || COLOUR[d.c] || '#fff';
+let lastSearch = null;
+function roleLabel(d){
+  const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
+  const worn = d.vest ? ' ' + d.vest : '';
+  const need = lastSearch && lastSearch.vote_need;
+  return {target:`TARGET ${z}`, match:`also matches ${z}`,
+          checking:`checking ${d.votes||0}/${need||'?'}`,
+          ignored:`ignored${worn}`}[d.role];
+}
 let dets = [], showBox = true, showLab = true;
 function sizeCanvas(){
   // Back the canvas at device resolution, or the strokes blur on a phone.
@@ -244,16 +312,17 @@ function draw(){
   const ar = (vid.naturalWidth || 16) / (vid.naturalHeight || 9);
   let w = r.width, h = r.width / ar, ox = 0, oy = (r.height - h) / 2;
   if (h > r.height){ h = r.height; w = r.height * ar; oy = 0; ox = (r.width - w) / 2; }
-  ctx.lineWidth = 2; ctx.font = '600 12px ui-sans-serif,system-ui,sans-serif';
+  ctx.font = '600 12px ui-sans-serif,system-ui,sans-serif';
   for (const d of dets){
-    const c = COLOUR[d.c] || '#fff';
+    const c = boxColour(d);
     const x = ox + d.b[0]*w, y = oy + d.b[1]*h;
     const bw = (d.b[2]-d.b[0])*w, bh = (d.b[3]-d.b[1])*h;
+    ctx.lineWidth = d.role === 'target' ? 4 : 2;
     ctx.strokeStyle = c; ctx.strokeRect(x, y, bw, bh);
     if (!showLab) continue;
     const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
     const idtag = d.id !== undefined ? `#${d.id} ` : '';
-    const txt = `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
+    const txt = roleLabel(d) || `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
     const tw = ctx.measureText(txt).width + 8;
     const ty = y > 16 ? y - 16 : y + bh;
     ctx.fillStyle = 'rgba(5,7,10,.78)'; ctx.fillRect(x, ty, tw, 16);
@@ -274,14 +343,253 @@ function renderTracks(){
     .map(d => {
       const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '--';
       const len = d.len_m ? d.len_m.toFixed(1) + ' m' : '';
-      const raw = d.raw ? ` <span class="d">(${d.raw})</span>` : '';
+      const raw = (d.vest || d.raw) ? ` <span class="d">(${d.vest || d.raw})</span>` : '';
       const id = d.id !== undefined ? `<span class="d">#${d.id}</span>` : '';
       const dw = d.dwell ? `<span class="d">${d.dwell.toFixed(0)} s</span>` : '';
       const gone = d.st && d.st !== 'TRACKED' ? ' gone' : '';
-      return `<div class="trk${gone}">${id}<span class="cls ${d.c}">${d.c}</span>${raw}
+      const tone = d.role ? ` style="color:${boxColour(d)}"` : '';
+      return `<div class="trk${gone}">${id}<span class="cls ${d.c}"${tone}>${d.role || d.c}</span>${raw}
         <span class="d">${Math.round(d.p*100)}%</span>
         ${dw}<span class="d">${len}</span><span class="r">${z}</span></div>`;
     }).join('');
+}
+
+/* ---------- vest search ---------- */
+function renderSearch(s){
+  const el = q('#search'), on = !!(s && s.target);
+  lastSearch = s || null;
+  el.classList.toggle('on', on);
+  q('#conf').classList.toggle('on', on);
+  if (!on) return;
+  const name = s.target.toUpperCase() + ' VEST';
+  const head = {found:`FOUND: ${name}`, lost:`LOST SIGHT OF ${name}`,
+                checking:`CHECKING FOR ${name}`}[s.state] || `SEARCHING FOR ${name}`;
+  const bits = [];
+  if (s.state === 'found' && s.z) bits.push(s.z.toFixed(1) + ' m away');
+  if (s.matches > 1) bits.push(`${s.matches} people match`);
+  bits.push(`${s.ignored || 0} ignored`);
+  el.classList.toggle('found', s.state === 'found');
+  el.innerHTML = `<b>${head}</b><span class="d">${bits.join(' &middot; ')}</span>`;
+}
+
+/* ---------- confidence chart ---------- */
+// One line per person, the last 30 s, so the decision can be watched: the person
+// in the target vest climbs past the threshold while everyone else stays flat.
+// Colour follows the vest, not the line's rank, so a person keeps their colour
+// as others come and go. Checked against this panel's surface: all three pass
+// colour-blind separation and contrast. Yellow is lighter than the usual limit
+// for a chart line, on purpose. Dark enough to meet it, it turns olive and can
+// no longer be told from red with colour blindness.
+const VEST_LINE = {red:'#e5484d', yellow:'#dcb40a', blue:'#4c8dff'};
+const NO_VEST = '#6e7681';
+const INK = {fg:'#d8d2c6', muted:'#7d8694', grid:'#1b222c', rule:'#3a4452', surface:'#0c1016'};
+const CHART_S = 30, MAX_LINES = 5, GAP_S = 1.0;
+const METRIC = {match:{i:1, title:'Vest match', name:'vest match'},
+                person:{i:2, title:'Person confidence', name:'person'}};
+const chart = q('#chart'), cctx = chart.getContext('2d');
+const people = new Map();     // track id -> {id, vest, role, pts:[[t, match, person]]}
+let metric = 'match', chartNow = 0, crossX = null, legendKey = '', chartTarget = null;
+
+function recordConfidence(ev){
+  // A match is against one colour, so a new target makes the old lines meaningless.
+  if (ev.search.target !== chartTarget){ people.clear(); chartTarget = ev.search.target; }
+  chartNow = ev.t;
+  for (const d of ev.d || []){
+    if (d.c !== 'person' || d.match === undefined) continue;
+    let s = people.get(d.id);
+    if (!s){ s = {id:d.id, pts:[]}; people.set(d.id, s); }
+    s.vest = d.vest; s.role = d.role;
+    // A predicted box is not a reading, so it leaves a gap in the line.
+    if (d.st === 'TRACKED' || d.st === 'NEW') s.pts.push([ev.t, d.match, d.p]);
+  }
+  for (const [id, s] of people){
+    while (s.pts.length && s.pts[0][0] < chartNow - CHART_S) s.pts.shift();
+    if (!s.pts.length) people.delete(id);
+  }
+}
+const lineColour = s => VEST_LINE[s.vest] || NO_VEST;
+const ROLE_ORDER = {target:0, match:1, checking:2};
+function shownPeople(){
+  return [...people.values()].sort((a,b) =>
+    (ROLE_ORDER[a.role] ?? 3) - (ROLE_ORDER[b.role] ?? 3) || a.id - b.id);
+}
+function drawChart(){
+  if (!q('#conf').classList.contains('on')) return;
+  const r = chart.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (chart.width !== Math.round(r.width*dpr) || chart.height !== Math.round(r.height*dpr)){
+    chart.width = Math.round(r.width*dpr); chart.height = Math.round(r.height*dpr);
+  }
+  const c = cctx, W = r.width, H = r.height;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.fillStyle = INK.surface; c.fillRect(0, 0, W, H);
+  const L = 34, R = 62, T = 8, B = 18, PW = W - L - R, PH = H - T - B;
+  const X = t => L + (1 - (chartNow - t) / CHART_S) * PW, Y = v => T + (1 - v) * PH;
+  c.font = '11px ui-sans-serif,system-ui,sans-serif'; c.lineWidth = 1;
+  c.textBaseline = 'middle'; c.textAlign = 'right';
+  for (const v of [0, .5, 1]){
+    c.strokeStyle = INK.grid; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(L + PW, Y(v)); c.stroke();
+    c.fillStyle = INK.muted; c.fillText(Math.round(v*100) + '%', L - 6, Y(v));
+  }
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  c.fillText('30 s ago', L, H - 4);
+  c.textAlign = 'right'; c.fillText('now', L + PW, H - 4);
+  const need = metric === 'match' && lastSearch && lastSearch.min_share;
+  if (need){
+    c.strokeStyle = INK.rule; c.beginPath(); c.moveTo(L, Y(need)); c.lineTo(L + PW, Y(need)); c.stroke();
+    c.textAlign = 'left'; c.fillStyle = INK.muted;
+    c.fillText(`match line ${Math.round(need*100)}%`, L + 4, Y(need) - 4);
+  }
+  const m = METRIC[metric].i, shown = shownPeople().slice(0, MAX_LINES), ends = [];
+  c.lineWidth = 2; c.lineJoin = c.lineCap = 'round';
+  for (const s of shown){
+    c.strokeStyle = lineColour(s); c.beginPath();
+    let prev = null;
+    for (const p of s.pts){
+      if (prev && p[0] - prev[0] <= GAP_S) c.lineTo(X(p[0]), Y(p[m]));
+      else c.moveTo(X(p[0]), Y(p[m]));
+      prev = p;
+    }
+    c.stroke();
+    const last = s.pts[s.pts.length - 1];
+    ends.push({s, last, x:X(last[0]), y:Y(last[m]), v:last[m]});
+  }
+  // End dots carry a surface ring so they stay legible where they overlap.
+  for (const e of ends){
+    c.beginPath(); c.arc(e.x, e.y, 6, 0, 7); c.fillStyle = INK.surface; c.fill();
+    c.beginPath(); c.arc(e.x, e.y, 4, 0, 7); c.fillStyle = lineColour(e.s); c.fill();
+  }
+  // Decoys all sit near zero, so nudge their labels apart rather than overprint.
+  c.font = '600 11px ui-sans-serif,system-ui,sans-serif';
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  ends.sort((a,b) => a.y - b.y);
+  let floor = -Infinity;
+  for (const e of ends){ e.ly = Math.max(e.y, floor + 13); floor = e.ly; }
+  // Anything pushed off the bottom moves back up, and only as far as it has to,
+  // so a label near the top stays where its line is.
+  let ceiling = T + PH + 6;
+  for (const e of ends.slice().reverse()){
+    e.ly = Math.min(e.ly, ceiling); ceiling = e.ly - 13;
+  }
+  for (const e of ends){
+    c.fillStyle = e.s.role === 'target' ? INK.fg : INK.muted;
+    c.fillText(`#${e.s.id} ${Math.round(e.v*100)}%`, L + PW + 9, e.ly);
+  }
+  if (crossX !== null && crossX >= L && crossX <= L + PW){
+    c.strokeStyle = INK.rule; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(crossX, T); c.lineTo(crossX, T + PH); c.stroke();
+    showTip(chartNow - (1 - (crossX - L) / PW) * CHART_S, shown, m, W);
+  } else {
+    q('#ctip').style.display = 'none';
+  }
+  renderLegend(shown);
+}
+function showTip(t, shown, m, W){
+  const tip = q('#ctip');
+  tip.textContent = '';
+  for (const s of shown){
+    let best = null;
+    for (const p of s.pts) if (!best || Math.abs(p[0]-t) < Math.abs(best[0]-t)) best = p;
+    if (!best || Math.abs(best[0]-t) > GAP_S) continue;
+    const row = document.createElement('div'); row.className = 'row';
+    const key = document.createElement('i'); key.style.background = lineColour(s);
+    const val = document.createElement('b'); val.textContent = Math.round(best[m]*100) + '%';
+    const who = document.createElement('span');
+    who.textContent = `#${s.id} ${s.vest || 'no vest'}`;
+    row.append(key, val, who); tip.append(row);
+  }
+  tip.style.display = tip.childElementCount ? 'block' : 'none';
+  const left = crossX + 10 + tip.offsetWidth > W ? crossX - 10 - tip.offsetWidth : crossX + 10;
+  tip.style.left = Math.max(0, left) + 'px';
+}
+function renderLegend(shown){
+  const hidden = people.size - shown.length;
+  const k = shown.map(s => `${s.id}${s.vest}${s.role}`).join() + hidden;
+  if (k === legendKey) return;
+  legendKey = k;
+  const el = q('#legend');
+  el.textContent = '';
+  for (const s of shown){
+    const key = document.createElement('span'); key.className = 'key';
+    const line = document.createElement('i'); line.style.background = lineColour(s);
+    const name = document.createElement('span');
+    name.textContent = `#${s.id} ${s.vest || 'no vest'}` + (s.role === 'target' ? ' (target)' : '');
+    key.append(line, name); el.append(key);
+  }
+  if (hidden > 0){
+    const more = document.createElement('span'); more.className = 'key more';
+    more.textContent = `+${hidden} more in Tracks`; el.append(more);
+  }
+}
+const setCross = e => { crossX = e.clientX - chart.getBoundingClientRect().left; drawChart(); };
+chart.addEventListener('pointermove', setCross);
+chart.addEventListener('pointerdown', setCross);
+for (const end of ['pointerleave','pointercancel'])
+  chart.addEventListener(end, () => { crossX = null; drawChart(); });
+addEventListener('resize', drawChart);
+function setMetric(name){
+  metric = name;
+  q('#conf-ttl').textContent = METRIC[name].title;
+  q('#m-match').classList.toggle('on', name === 'match');
+  q('#m-person').classList.toggle('on', name === 'person');
+  drawChart();
+}
+q('#m-match').onclick = () => setMetric('match');
+q('#m-person').onclick = () => setMetric('person');
+
+/* ---------- confidence snapshots: this phone only, nothing goes to the drone ---------- */
+const snaps = [];
+const SNAP_COLUMNS = ['track','role','vest','vest match','person','distance'];
+q('#csnap').onclick = () => {
+  const s = lastSearch || {};
+  snaps.unshift({
+    t: chartNow, target: s.target, state: s.state, chart: chart.toDataURL('image/png'),
+    rows: dets.filter(d => d.c === 'person' && d.match !== undefined).map(d => ({
+      id: d.id, role: d.role || '', vest: d.vest || 'no vest', match: d.match, p: d.p,
+      z: d.xyz && d.xyz[2] > 0 ? d.xyz[2] : null})),
+  });
+  if (snaps.length > 20) snaps.pop();
+  renderSnaps();
+};
+const snapTime = t => new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function renderSnaps(){
+  const el = q('#snaps');
+  el.textContent = '';
+  if (!snaps.length) return;
+  const bar = document.createElement('div'); bar.className = 'bar';
+  const n = document.createElement('span');
+  n.textContent = `${snaps.length} snapshot${snaps.length > 1 ? 's' : ''} on this phone`;
+  const save = document.createElement('button'); save.textContent = 'save CSV'; save.onclick = saveSnaps;
+  bar.append(n, save); el.append(bar);
+  for (const s of snaps){
+    const card = document.createElement('div'); card.className = 'snap';
+    const when = document.createElement('div'); when.className = 'when';
+    when.textContent = `${snapTime(s.t)}, ${s.target} vest, ${s.state}`;
+    const img = document.createElement('img'); img.src = s.chart; img.alt = 'confidence chart at this moment';
+    const table = document.createElement('table');
+    const head = table.insertRow();
+    for (const name of SNAP_COLUMNS){
+      const th = document.createElement('th'); th.textContent = name; head.append(th);
+    }
+    for (const row of s.rows){
+      const tr = table.insertRow();
+      for (const v of [`#${row.id}`, row.role, row.vest, Math.round(row.match*100) + '%',
+                       Math.round(row.p*100) + '%', row.z ? row.z.toFixed(1) + ' m' : '--'])
+        tr.insertCell().textContent = v;
+    }
+    card.append(when, img, table); el.append(card);
+  }
+}
+function saveSnaps(){
+  const lines = ['time,target,state,track,role,vest,vest_match,person_confidence,distance_m'];
+  for (const s of snaps.slice().reverse())
+    for (const r of s.rows)
+      lines.push([new Date(s.t*1000).toISOString(), s.target, s.state, r.id, r.role, r.vest,
+                  r.match, r.p, r.z ?? ''].join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join(String.fromCharCode(10))], {type:'text/csv'}));
+  a.download = 'venator-confidence.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 /* ---------- chips ---------- */
@@ -327,8 +635,8 @@ let alerts = [];
 function renderAlerts(){
   q('#alerts').innerHTML = alerts.filter(a => !acked.has(a.id)).map(a => `
     <div class="alert"><b>${(a.kind||'alert').replace(/_/g,' ').toUpperCase()}</b>
-    <span class="meta">${Math.round((a.conf||0)*100)}% &middot;
-      ${a.dwell ? a.dwell.toFixed(0)+' s' : ''}
+    <span class="meta">${Math.round((a.conf||0)*100)}%
+      ${a.dwell ? '&middot; '+a.dwell.toFixed(0)+' s' : ''}
       ${a.rel ? '&middot; '+a.rel.rng+' m brg '+a.rel.brg+'°' : ''}
       ${a.ll ? '&middot; '+a.ll[0].toFixed(5)+', '+a.ll[1].toFixed(5) : '&middot; no GPS fix'}
     </span><button data-ack="${a.id}">ack</button></div>`).join('');
@@ -434,11 +742,11 @@ function drawShot(){
   lbCtx.clearRect(0, 0, ir.width, ir.height);
   if (!lbBoxes || lbIdx < 0) return;
   for (const d of (shots[lbIdx].detections || [])){
-    const c = COLOUR[d.c] || '#fff';
+    const c = boxColour(d);
     const x = d.b[0]*ir.width, y = d.b[1]*ir.height;
     const bw = (d.b[2]-d.b[0])*ir.width, bh = (d.b[3]-d.b[1])*ir.height;
     lbCtx.lineWidth = 3; lbCtx.strokeStyle = c; lbCtx.strokeRect(x, y, bw, bh);
-    const txt = `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
+    const txt = roleLabel(d) || `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
     lbCtx.font = '600 15px ui-sans-serif,system-ui,sans-serif';
     const tw = lbCtx.measureText(txt).width + 10, ty = y > 20 ? y - 20 : y + bh;
     lbCtx.fillStyle = 'rgba(2,3,5,.82)'; lbCtx.fillRect(x, ty, tw, 20);
@@ -504,7 +812,9 @@ function connect(){
   es.addEventListener('det', e => {
     const d = JSON.parse(e.data);
     dets = d.d || []; lastFrame = Date.now();
-    draw(); renderTracks();
+    renderSearch(d.search);
+    if (d.search && d.search.target) recordConfidence(d);
+    draw(); renderTracks(); drawChart();
   });
   es.addEventListener('status', e => renderChips(JSON.parse(e.data)));
   es.addEventListener('alert', e => {
@@ -548,7 +858,7 @@ def js_literal(value):
             .replace("&", "\\u0026"))
 
 
-def render(token, cfg, qualities):
+def render(token, cfg, qualities, view_only=False):
     """The page, with the token and quality rungs baked in.
 
     Both go through js_literal rather than bare interpolation: the token is hex
@@ -558,5 +868,6 @@ def render(token, cfg, qualities):
     """
     return (PAGE
             .replace("__TOKEN__", js_literal(token))
+            .replace("__VIEW_ONLY__", js_literal(bool(view_only)))
             .replace("__QUALITIES__", js_literal(
                 {k: [list(v[0]), v[1], v[2]] for k, v in qualities.items()})))

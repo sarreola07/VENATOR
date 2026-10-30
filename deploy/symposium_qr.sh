@@ -72,7 +72,9 @@ import qrcode, PIL
 CHK
 
 if [[ "${MODE}" == "live" ]]; then
-    tok="$(bash "${HERE}/field_mode.sh" url 2>/dev/null)"; tok="${tok##*k=}"
+    # The view-only token, because this sheet gets handed to the audience. The
+    # GUI token can change settings, and a printed QR code can't be recalled.
+    tok="$(bash "${HERE}/field_mode.sh" view-token 2>/dev/null)"
     if [[ -z "${tok}" || "${tok}" == *"/"* ]]; then
         echo "${R}could not read the camera token${Z} — is the GUI key present?"
         exit 1

@@ -61,6 +61,13 @@ jobs:
       - name: Object tracking and dwell
         run: python3 tests/test_tracking.py
 
+      # No camera: pixels are plain lists and detections are plain dicts, so
+      # this is the same logic the aircraft runs. The property that matters is
+      # that a decoy is never targeted, whatever else is in the frame: following
+      # the wrong person is the mistake the vest search exists to prevent.
+      - name: Vest search
+        run: python3 tests/test_vest.py
+
       # No camera and no sockets: the request handler is driven in-process.
       # Every captive-portal route sits ahead of the token check, because a
       # phone probing for a login page has never seen the token — so the exact

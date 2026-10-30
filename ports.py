@@ -50,6 +50,11 @@ CAMERA_COORDS_UDP = _port("CAMERA_UDP_PORT", 5005)
 #: _read_person() keeps only the latest of a drained batch, so an alert sharing
 #: CAMERA_COORDS_UDP could be dropped in the same tick. Separate port instead.
 ALERTS_UDP = _port("ALERTS_UDP_PORT", 5006)
+#: The vest search's report: who is the target, where, and how close anyone is.
+#: Not CAMERA_COORDS_UDP, whose readers take every packet as a person's position.
+SEARCH_REPORT_UDP = _port("SEARCH_REPORT_PORT", 5007)
+#: The vest search's target colour, from the flight code to the camera.
+SEARCH_TARGET_UDP = _port("SEARCH_TARGET_PORT", 5008)
 
 
 if __name__ == "__main__":
