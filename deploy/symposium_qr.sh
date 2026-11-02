@@ -35,8 +35,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "${HERE}/.." && pwd)"
 AP_IP="${AP_IP:-10.42.0.1}"
 CAM_PORT="${CAM_PORT:-8080}"
-WEB_PORT="${WEB_PORT:-5037}"
 CON="${CON:-venator-hotspot}"
+# The public product page. Unlike the other two codes this one is NOT on the
+# drone -- see the footer text for why that matters to anyone holding a phone.
+SITE_URL="${SITE_URL:-https://sarreola07.github.io/VENATOR/}"
 PY="${REPO}/venv/bin/python"
 
 G=$'\033[92m'; R=$'\033[91m'; Y=$'\033[93m'; Z=$'\033[0m'
@@ -94,19 +96,18 @@ fi
 mkdir -p "${OUT_DIR}"
 
 MODE="${MODE}" TOKEN="${tok}" SSID="${ssid}" PSK="${psk}" AP_IP="${AP_IP}" \
-CAM_PORT="${CAM_PORT}" WEB_PORT="${WEB_PORT}" OUT_DIR="${OUT_DIR}" \
+CAM_PORT="${CAM_PORT}" SITE_URL="${SITE_URL}" OUT_DIR="${OUT_DIR}" \
 "${PY}" - <<'PY' || { echo "${R}generation failed${Z}"; exit 1; }
-import html, io, os
+import glob, html, io, os
 import qrcode
 from qrcode.image.svg import SvgPathImage
 
 env = os.environ
-ap, cam, web = env["AP_IP"], env["CAM_PORT"], env["WEB_PORT"]
+ap, cam, site = env["AP_IP"], env["CAM_PORT"], env["SITE_URL"]
 ssid, psk, token = env["SSID"], env["PSK"], env["TOKEN"]
 out_dir, docs = env["OUT_DIR"], env["MODE"] == "docs"
 
 cam_url = f"http://{ap}:{cam}/?k={token}"
-web_url = f"http://{ap}:{web}/"
 
 
 def wifi_payload(s, p):
@@ -147,7 +148,7 @@ if ssid:
     cards.append(("wifi", "1", "Join the Wi-Fi", wifi_payload(ssid, psk),
                   f"{html.escape(ssid)} &middot; {html.escape(psk)}"))
 cards.append(("camera", "2", "Open the camera", cam_url, html.escape(cam_url)))
-cards.append(("dashboard", "3", "Mission dashboard", web_url, html.escape(web_url)))
+cards.append(("site", "3", "About the project", site, html.escape(site)))
 
 written = []
 blocks = []
@@ -195,24 +196,28 @@ page = f'''<!doctype html>
   @media print {{ body {{ padding: 0; }} figure {{ break-inside: avoid; }} }}
 </style>
 <h1>VENATOR</h1>
-<p class="sub">Scan 1 to join the drone's network, then 2 to watch the camera.</p>
+<p class="sub">Scan 1 to join the drone's network, then 2 to watch the camera.
+3 is the project page, on the web.</p>
 {note}
 <div class="row">
 {chr(10).join(blocks)}
 </div>
 <footer>
-  These addresses use no DNS and no firewall rule &mdash; they work even if the
-  captive portal does not. If a phone shows &ldquo;no internet&rdquo;, that is
-  expected: the drone is not a router. Stay on the network and scan 2.
+  <b>1 and 2 are on the drone. 3 is on the internet. They are opposites.</b>
   <br><br>
-  <b>Typing it on a laptop?</b> The camera needs the <code>?k=</code> key and
-  the dashboard does not, so the bare camera address returns
-  <code>403 Wrong or missing key</code> &mdash; that is the key missing, not the
-  camera being down. Copy the whole address under code 2.
+  Codes 1 and 2 use no DNS and no firewall rule, so they work even if the
+  captive portal does not &mdash; but only while the access point is up. A
+  phone will say &ldquo;no internet&rdquo; once it joins: that is correct, the
+  drone is not a router. Stay on the network and scan 2.
   <br><br>
-  <b>Code 3 only answers while the dashboard is running.</b> It is not a
-  service and does not come back after a reboot &mdash; start it from the
-  Symposium folder. Codes 1 and 2 need nothing but the access point.
+  <b>Code 3 will not load while you are joined to VenatorDrone</b>, for exactly
+  that reason &mdash; there is no route off the drone. Scan it on cellular, or
+  before you join, or after you leave.
+  <br><br>
+  <b>Typing code 2 on a laptop?</b> Copy the whole address including
+  <code>?k=</code>. Without the key the camera answers
+  <code>403 Wrong or missing key</code>, which reads like a dead camera and is
+  only a missing key.
 </footer>
 '''
 
@@ -224,11 +229,24 @@ for png, ver, _ in written:
     print(f"  png   {png}  (version {ver})")
 print(f"  html  {html_path}")
 
+# Remove codes from an earlier layout. A leftover PNG is not inert here: the
+# old dashboard code is a plausible-looking QR that now points at a port
+# nothing serves, and it would be scanned off the Desktop folder without
+# anyone noticing it is no longer part of the sheet.
+keep = {os.path.basename(p) for p, _, _ in written}
+for path in glob.glob(os.path.join(out_dir, "venator-qr-*.png")):
+    if os.path.basename(path) not in keep:
+        os.remove(path)
+        print(f"  removed stale {os.path.basename(path)}")
+
 # The same codes in the terminal, for when there is no printer and no second
 # screen -- a phone scans these off the Jetson's own display perfectly well.
 if not docs:
     for slug, n, title, payload, _ in cards:
-        if slug == "dashboard":
+        # Only the two codes that are actually on the drone. The product page
+        # is a public URL -- printing it as terminal art helps nobody, and it
+        # is the one code that will not work from a phone joined to the AP.
+        if slug == "site":
             continue
         print(f"\n  {n}. {title.lower()}\n")
         t = qrcode.QRCode(border=1)
@@ -244,10 +262,11 @@ if [[ "${MODE}" == "docs" ]]; then
 fi
 
 printf "  %ssheet written%s\n" "${G}" "${Z}"
-printf "  camera     %s\n" "http://${AP_IP}:${CAM_PORT}/?k=${tok}"
-printf "  dashboard  %s\n" "http://${AP_IP}:${WEB_PORT}/"
-[[ -n "${ssid}" ]] && printf "  wifi       %s / %s\n" "${ssid}" "${psk}"
-printf "\n  %sthese work only while the access point is up%s —  bash deploy/wifi_mode.sh on\n" "${Y}" "${Z}"
+[[ -n "${ssid}" ]] && printf "  1 wifi      %s / %s\n" "${ssid}" "${psk}"
+printf "  2 camera    %s\n" "http://${AP_IP}:${CAM_PORT}/?k=${tok}"
+printf "  3 product   %s\n" "${SITE_URL}"
+printf "\n  %s1 and 2 need the access point up%s —  bash deploy/wifi_mode.sh on\n" "${Y}" "${Z}"
+printf "  %s3 needs the internet, so it will NOT load from a phone on VenatorDrone%s\n" "${Y}" "${Z}"
 printf "  %sthe sheet contains the password and token — do not commit it%s\n\n" "${Y}" "${Z}"
 
 if [[ "${1:-}" == "--open" ]]; then
