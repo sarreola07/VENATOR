@@ -11,7 +11,9 @@ Dark is forced, and red/amber dominant. This gets read at night by someone who
 then has to look up and find a drone: blue and white light destroy scotopic
 adaptation for tens of minutes, deep red barely touches it. There is no
 prefers-color-scheme light branch on purpose - a white screen here is a
-usability fault, not a preference.
+usability fault, not a preference. The one exception is the confidence chart's
+poster button, for making a printable picture of the chart on the ground: it
+only whitens the chart, is never remembered, and is off on every page load.
 
 Boxes are drawn on a canvas over the video rather than burned into the frame.
 The Jetson has no hardware encoder, so burning them in would cost a decode and
@@ -74,6 +76,9 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 #conf .head button{padding:4px 10px;font-size:12px}
 #plot{position:relative}
 #chart{display:block;width:100%;height:150px;touch-action:pan-y}
+#conf.poster #plot{background:#fff;border-radius:4px}
+#conf.poster #chart{height:auto;aspect-ratio:2/1;max-width:1000px;margin:0 auto}
+#conf.poster #legend{display:none}
 #ctip{display:none;position:absolute;top:4px;background:rgba(2,3,5,.92);
   border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;
   pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -89,6 +94,7 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 .snap{border-top:1px solid var(--line);padding:8px 2px}
 .snap .when{font-size:12px;color:var(--muted);margin-bottom:4px}
 .snap img{display:block;width:100%;border-radius:4px;background:var(--bg)}
+.snap button{margin-top:6px;padding:4px 10px;font-size:12px}
 .snap table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;
   font-variant-numeric:tabular-nums}
 .snap th{color:var(--muted);font-weight:500;text-align:right;padding:2px 4px}
@@ -201,6 +207,7 @@ input[type=range]{width:88px;accent-color:var(--orange)}
     <span class="ttl" id="conf-ttl">Vest match</span>
     <button id="m-match" class="on">match</button>
     <button id="m-person">person</button>
+    <button id="cposter">poster</button>
     <button id="csnap">snapshot</button>
   </div>
   <div id="plot"><canvas id="chart" role="img"
@@ -383,12 +390,26 @@ function renderSearch(s){
 const VEST_LINE = {red:'#e5484d', yellow:'#dcb40a', blue:'#4c8dff'};
 const NO_VEST = '#6e7681';
 const INK = {fg:'#d8d2c6', muted:'#7d8694', grid:'#1b222c', rule:'#3a4452', surface:'#0c1016'};
+const FONT = 'ui-sans-serif,system-ui,sans-serif';
+const NIGHT = {...INK, line:VEST_LINE, none:NO_VEST,
+               L:34, R:62, T:8, B:18, font:11, axisW:1, lineW:2, dot:4, gap:13};
+// The poster button's look, for print on white rather than for the field. At
+// least 3:1 against white for lines and 4.5:1 for text. The red is darker than
+// the screen's too: that gap in lightness is what keeps it apart from this dark
+// yellow with colour blindness. Each line also has its own dash, for a poor
+// printer. 1000 x 500 at 3x is 10 x 5 inches at 300 pixels per inch.
+const POSTER = {w:1000, h:500, px:3, fg:'#111111', muted:'#111111', grid:'#bdbdbd',
+                rule:'#111111', surface:'#ffffff',
+                line:{red:'#9E0B25', yellow:'#A67C00', blue:'#0B4FB3'}, none:'#444444',
+                dash:{red:[], yellow:[8,7], blue:[20,9]}, noDash:[3,7],
+                L:84, R:250, T:56, B:108, font:23, axisW:2, lineW:5.6, dot:8, gap:30};
 const CHART_S = 30, MAX_LINES = 5, GAP_S = 1.0;
 const METRIC = {match:{i:1, title:'Vest match', name:'vest match'},
                 person:{i:2, title:'Person confidence', name:'person'}};
 const chart = q('#chart'), cctx = chart.getContext('2d');
 const people = new Map();     // track id -> {id, vest, role, pts:[[t, match, person]]}
 let metric = 'match', chartNow = 0, crossX = null, legendKey = '', chartTarget = null;
+let poster = false, chartModel = '';
 
 function recordConfidence(ev){
   // A match is against one colour, so a new target makes the old lines meaningless.
@@ -413,36 +434,36 @@ function shownPeople(){
   return [...people.values()].sort((a,b) =>
     (ROLE_ORDER[a.role] ?? 3) - (ROLE_ORDER[b.role] ?? 3) || a.id - b.id);
 }
-function drawChart(){
-  if (!q('#conf').classList.contains('on')) return;
-  const r = chart.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-  if (chart.width !== Math.round(r.width*dpr) || chart.height !== Math.round(r.height*dpr)){
-    chart.width = Math.round(r.width*dpr); chart.height = Math.round(r.height*dpr);
-  }
-  const c = cctx, W = r.width, H = r.height;
-  c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  c.fillStyle = INK.surface; c.fillRect(0, 0, W, H);
-  const L = 34, R = 62, T = 8, B = 18, PW = W - L - R, PH = H - T - B;
+// Draws the chart in either look, on the page or on a poster image.
+function paintChart(c, W, H, look){
+  const print = look === POSTER, {L, R, T, B} = look, PW = W - L - R, PH = H - T - B;
   const X = t => L + (1 - (chartNow - t) / CHART_S) * PW, Y = v => T + (1 - v) * PH;
-  c.font = '11px ui-sans-serif,system-ui,sans-serif'; c.lineWidth = 1;
+  const colour = s => look.line[s.vest] || look.none;
+  const dash = s => print ? look.dash[s.vest] || look.noDash : [];
+  c.fillStyle = look.surface; c.fillRect(0, 0, W, H);
+  c.font = `${look.font}px ${FONT}`; c.lineWidth = look.axisW;
   c.textBaseline = 'middle'; c.textAlign = 'right';
   for (const v of [0, .5, 1]){
-    c.strokeStyle = INK.grid; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(L + PW, Y(v)); c.stroke();
-    c.fillStyle = INK.muted; c.fillText(Math.round(v*100) + '%', L - 6, Y(v));
+    c.strokeStyle = look.grid; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(L + PW, Y(v)); c.stroke();
+    c.fillStyle = look.muted; c.fillText(Math.round(v*100) + '%', L - 6, Y(v));
   }
   c.textAlign = 'left'; c.textBaseline = 'alphabetic';
-  c.fillText('30 s ago', L, H - 4);
-  c.textAlign = 'right'; c.fillText('now', L + PW, H - 4);
+  const under = T + PH + look.font + 3;
+  c.fillText('30 s ago', L, under);
+  c.textAlign = 'right'; c.fillText('now', L + PW, under);
   const need = metric === 'match' && lastSearch && lastSearch.min_share;
   if (need){
-    c.strokeStyle = INK.rule; c.beginPath(); c.moveTo(L, Y(need)); c.lineTo(L + PW, Y(need)); c.stroke();
-    c.textAlign = 'left'; c.fillStyle = INK.muted;
-    c.fillText(`match line ${Math.round(need*100)}%`, L + 4, Y(need) - 4);
+    c.strokeStyle = look.rule; c.setLineDash(print ? [5,5] : []);
+    c.beginPath(); c.moveTo(L, Y(need)); c.lineTo(L + PW, Y(need)); c.stroke();
+    c.setLineDash([]);
+    c.textAlign = 'left'; c.fillStyle = look.muted;
+    c.fillText(`match line ${Math.round(need*100)}%`, L + 4, Y(need) - look.font / 3);
   }
   const m = METRIC[metric].i, shown = shownPeople().slice(0, MAX_LINES), ends = [];
-  c.lineWidth = 2; c.lineJoin = c.lineCap = 'round';
+  c.lineWidth = look.lineW; c.lineJoin = 'round';
   for (const s of shown){
-    c.strokeStyle = lineColour(s); c.beginPath();
+    c.strokeStyle = colour(s); c.setLineDash(dash(s));
+    c.lineCap = dash(s).length ? 'butt' : 'round'; c.beginPath();
     let prev = null;
     for (const p of s.pts){
       if (prev && p[0] - prev[0] <= GAP_S) c.lineTo(X(p[0]), Y(p[m]));
@@ -453,28 +474,66 @@ function drawChart(){
     const last = s.pts[s.pts.length - 1];
     ends.push({s, last, x:X(last[0]), y:Y(last[m]), v:last[m]});
   }
+  c.setLineDash([]);
   // End dots carry a surface ring so they stay legible where they overlap.
   for (const e of ends){
-    c.beginPath(); c.arc(e.x, e.y, 6, 0, 7); c.fillStyle = INK.surface; c.fill();
-    c.beginPath(); c.arc(e.x, e.y, 4, 0, 7); c.fillStyle = lineColour(e.s); c.fill();
+    c.beginPath(); c.arc(e.x, e.y, look.dot + 2, 0, 7); c.fillStyle = look.surface; c.fill();
+    c.beginPath(); c.arc(e.x, e.y, look.dot, 0, 7); c.fillStyle = colour(e.s); c.fill();
   }
   // Decoys all sit near zero, so nudge their labels apart rather than overprint.
-  c.font = '600 11px ui-sans-serif,system-ui,sans-serif';
+  c.font = `600 ${look.font}px ${FONT}`;
   c.textAlign = 'left'; c.textBaseline = 'middle';
   ends.sort((a,b) => a.y - b.y);
   let floor = -Infinity;
-  for (const e of ends){ e.ly = Math.max(e.y, floor + 13); floor = e.ly; }
+  for (const e of ends){ e.ly = Math.max(e.y, floor + look.gap); floor = e.ly; }
   // Anything pushed off the bottom moves back up, and only as far as it has to,
   // so a label near the top stays where its line is.
-  let ceiling = T + PH + 6;
+  let ceiling = T + PH + Math.ceil(look.font / 2);
   for (const e of ends.slice().reverse()){
-    e.ly = Math.min(e.ly, ceiling); ceiling = e.ly - 13;
+    e.ly = Math.min(e.ly, ceiling); ceiling = e.ly - look.gap;
   }
   for (const e of ends){
-    c.fillStyle = e.s.role === 'target' ? INK.fg : INK.muted;
-    c.fillText(`#${e.s.id} ${Math.round(e.v*100)}%`, L + PW + 9, e.ly);
+    let x = L + PW + look.dot + 5, label = `#${e.s.id} ${Math.round(e.v*100)}%`;
+    if (print){
+      // There is no legend under a poster image, so each label carries its line.
+      c.strokeStyle = colour(e.s); c.lineWidth = 4; c.setLineDash(dash(e.s));
+      c.beginPath(); c.moveTo(x, e.ly); c.lineTo(x + 36, e.ly); c.stroke();
+      c.setLineDash([]);
+      x += 42; label = `#${e.s.id} ${e.s.vest || 'no vest'} ${Math.round(e.v*100)}%`;
+    }
+    c.fillStyle = e.s.role === 'target' ? look.fg : look.muted;
+    c.fillText(label, x, e.ly, W - x - 2);
   }
-  if (crossX !== null && crossX >= L && crossX <= L + PW){
+  if (print) paintPosterNotes(c, W, H, shown);
+  return {L, T, PW, PH, m, shown};
+}
+// What the picture is, printed on it, so it cannot be mistaken once it leaves here.
+function paintPosterNotes(c, W, H, shown){
+  const look = POSTER, s = lastSearch || {}, target = shown.find(p => p.role === 'target');
+  c.textBaseline = 'alphabetic'; c.fillStyle = look.fg;
+  c.textAlign = 'left'; c.font = `700 29px ${FONT}`;
+  c.fillText(METRIC[metric].title, 24, 36);
+  c.textAlign = 'right'; c.font = `${look.font}px ${FONT}`;
+  c.fillText(target ? `Target: #${target.id}, ${s.target} vest` : `Searching for ${s.target} vest`, W - 24, 36);
+  c.textAlign = 'left'; c.font = `700 ${look.font}px ${FONT}`;
+  c.fillText(metric === 'match' ? `Share of chest pixels that are ${s.target}.`
+                                : 'How sure the detector is that it sees a person.', 24, H - 44, W - 48);
+  const when = new Date(chartNow*1000).toLocaleString([], {dateStyle:'medium', timeStyle:'medium'});
+  const who = `${shown.length} ${shown.length === 1 ? 'person' : 'people'} on this chart`;
+  c.font = `${look.font}px ${FONT}`;
+  c.fillText(`Live reading, ${chartModel || 'unknown detector'}, ${when}. ${who}.`, 24, H - 14, W - 48);
+}
+function drawChart(){
+  if (!q('#conf').classList.contains('on')) return;
+  const r = chart.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (chart.width !== Math.round(r.width*dpr) || chart.height !== Math.round(r.height*dpr)){
+    chart.width = Math.round(r.width*dpr); chart.height = Math.round(r.height*dpr);
+  }
+  // The poster view is the poster image itself, scaled to fit this screen.
+  const zoom = poster ? r.width / POSTER.w : 1, c = cctx, W = r.width / zoom;
+  c.setTransform(dpr*zoom, 0, 0, dpr*zoom, 0, 0);
+  const {L, T, PW, PH, m, shown} = paintChart(c, W, r.height / zoom, poster ? POSTER : NIGHT);
+  if (!poster && crossX !== null && crossX >= L && crossX <= L + PW){
     c.strokeStyle = INK.rule; c.lineWidth = 1;
     c.beginPath(); c.moveTo(crossX, T); c.lineTo(crossX, T + PH); c.stroke();
     showTip(chartNow - (1 - (crossX - L) / PW) * CHART_S, shown, m, W);
@@ -535,6 +594,20 @@ function setMetric(name){
 }
 q('#m-match').onclick = () => setMetric('match');
 q('#m-person').onclick = () => setMetric('person');
+q('#cposter').onclick = e => {
+  poster = !poster;
+  e.target.classList.toggle('on', poster);
+  q('#conf').classList.toggle('poster', poster);
+  drawChart();
+};
+function posterImage(){
+  const out = document.createElement('canvas');
+  out.width = POSTER.w * POSTER.px; out.height = POSTER.h * POSTER.px;
+  const c = out.getContext('2d');
+  c.scale(POSTER.px, POSTER.px);
+  paintChart(c, POSTER.w, POSTER.h, POSTER);
+  return out.toDataURL('image/png');
+}
 
 /* ---------- confidence snapshots: this phone only, nothing goes to the drone ---------- */
 const snaps = [];
@@ -542,7 +615,8 @@ const SNAP_COLUMNS = ['track','role','vest','vest match','person','distance'];
 q('#csnap').onclick = () => {
   const s = lastSearch || {};
   snaps.unshift({
-    t: chartNow, target: s.target, state: s.state, chart: chart.toDataURL('image/png'),
+    t: chartNow, target: s.target, state: s.state,
+    chart: poster ? posterImage() : chart.toDataURL('image/png'),
     rows: dets.filter(d => d.c === 'person' && d.match !== undefined).map(d => ({
       id: d.id, role: d.role || '', vest: d.vest || 'no vest', match: d.match, p: d.p,
       z: d.xyz && d.xyz[2] > 0 ? d.xyz[2] : null})),
@@ -576,8 +650,15 @@ function renderSnaps(){
                        Math.round(row.p*100) + '%', row.z ? row.z.toFixed(1) + ' m' : '--'])
         tr.insertCell().textContent = v;
     }
-    card.append(when, img, table); el.append(card);
+    const png = document.createElement('button'); png.textContent = 'save PNG'; png.onclick = () => savePng(s);
+    card.append(when, img, png, table); el.append(card);
   }
+}
+function savePng(s){
+  const a = document.createElement('a');
+  a.href = s.chart;
+  a.download = `venator-confidence-${new Date(s.t*1000).toISOString().replace(/[:.]/g, '-')}.png`;
+  a.click();
 }
 function saveSnaps(){
   const lines = ['time,target,state,track,role,vest,vest_match,person_confidence,distance_m'];
@@ -597,6 +678,7 @@ function chip(label, value, cls){
   return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
 }
 function renderChips(s){
+  chartModel = s.model || chartModel;
   const t = s.temp, w = s.watts, usb = s.usb, rssi = s.link && s.link.rssi;
   // The camera can be absent while the page is perfectly healthy - the OAK
   // has been seen to drop off the USB bus. Say so plainly instead of showing

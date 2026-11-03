@@ -21,6 +21,7 @@ Stdlib only, no camera, no sockets - runs on a laptop, the Jetson and in CI.
 """
 import io
 import os
+import re
 import sys
 import threading
 import time
@@ -248,6 +249,28 @@ check("the operator's page is not view-only",
 check("a view-only visitor still gets the confidence chart and snapshots",
       b'id="chart"' in page.body and b'id="csnap"' in page.body)
 check("evidence judging is hidden from them", b".viewonly .shot .v" in page.body)
+
+print("\nThe poster chart reads on a white poster, and stays off until asked for")
+
+
+def contrast_on_white(colour):
+    channels = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05)
+
+
+look = re.search(r"const POSTER = \{.*?\};", gui_page.PAGE, re.S).group(0)
+text = re.findall(r"(?:fg|muted):'(#\w{6})'", look)
+lines = re.findall(r"#\w{6}", re.search(r"line:\{.*?none:'#\w{6}'", look).group(0))
+check("it has a white background", "surface:'#ffffff'" in look)
+check("its text is readable on white", len(text) == 2 and min(map(contrast_on_white, text)) >= 4.5)
+check("and so is every line", len(lines) == 4 and min(map(contrast_on_white, lines)) >= 3.0)
+check("every vest has its own line style",
+      len({str(d) for d in re.findall(r"(?:red|yellow|blue):(\[.*?\])", look)}) == 3)
+check("it starts off, so the page opens dark", "let poster = false" in gui_page.PAGE)
+check("nothing remembers it being on",
+      not re.search(r"(localStorage|sessionStorage|cookie)[^\n]*poster", gui_page.PAGE))
+check("a view-only visitor can use it too", b'id="cposter"' in page.body)
 
 cfg = {"conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
 change = b'{"quality": "lo", "save": false, "classes": ["animal"]}'

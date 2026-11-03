@@ -254,8 +254,15 @@ python3 -c "import socket, json; socket.socket(socket.AF_INET, socket.SOCK_DGRAM
 
 The chart plots **vest match** (how much of the chest is the target colour, with
 a lock possible above the match line) or **person** (the detector's confidence).
-**snapshot** keeps the chart and readings on that phone, and **save CSV**
-downloads them for the results table. Nothing is sent back to the drone.
+**snapshot** keeps the chart and readings on that phone, **save PNG** downloads
+that chart, and **save CSV** downloads the readings for the results table. Nothing
+is sent back to the drone.
+
+For a printed poster, press **poster** first. The chart turns white and large, and
+a snapshot then saves as 3000 x 1500 pixels (10 x 5 inches at 300 pixels per inch),
+with what it measured, the detector and the time printed on it. It plots the last
+30 seconds of people only, and it is off every time the page opens, because the
+rest of this page stays dark for night use.
 
 Bright clothes in the target colour will fool it: it matches a description, and
 a red shirt looks the same as a red vest. Calibrate red in the room you test in:
