@@ -71,6 +71,22 @@ HOVER3_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
 # the air -- can never be launched later by a stray CONFIRM.
 PENDING_CONFIRM_S = 60.0
 
+# Error text sent over the radio is cut to this. The firmware carries at most 240
+# characters a line, a signed reply spends about 40 of them on its signature,
+# and a line that runs over is cut off and lost, not shortened.
+ERROR_TEXT_MAX = 80
+
+
+def short_error(exc, limit=ERROR_TEXT_MAX):
+    """An error as text that fits in one radio reply."""
+    text = str(exc) or type(exc).__name__
+    return text if len(text) <= limit else text[:limit - 3] + "..."
+
+
+def _is_number(v):
+    """A real int or float. The camera's packets are JSON, so never trust a type."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
 
 def find_fc_device(default="/dev/ttyACM0"):
     """Locate the Pixhawk robustly, so a USB replug (ttyACM0->ttyACM1) can't
@@ -225,6 +241,14 @@ class MockFC:
         pass
 
 
+def param_name(pid):
+    """A PARAM_VALUE's name as text. pymavlink hands it over as str or bytes,
+    depending on the version, padded with NULs to 16 characters."""
+    if isinstance(pid, (bytes, bytearray)):
+        pid = pid.decode("ascii", "replace")
+    return str(pid).split("\x00", 1)[0]
+
+
 class RealFC:
     """Real flight controller: connects the Pixhawk and runs missions.py logic."""
     name = "real"
@@ -296,7 +320,8 @@ class RealFC:
         return False
 
     def diagnostics(self):
-        """Compact pre-flight readout for the laptop (fits one LoRa packet)."""
+        """Compact pre-flight readout for the laptop. Capped at 150 characters so
+        the reply still fits one LoRa packet once signed (170 did not)."""
         bits = []
         g = self.master.recv_match(type="GPS_RAW_INT", blocking=True, timeout=3)
         if g:
@@ -314,7 +339,7 @@ class RealFC:
                     unhealthy.append(e.name.replace("MAV_SYS_STATUS_SENSOR_", "")
                                      .replace("MAV_SYS_STATUS_", "")[:12])
             bits.append("bad: " + ",".join(unhealthy[:3]) if unhealthy else "sensors OK")
-        return " | ".join(bits)[:170] or "no telemetry"
+        return " | ".join(bits)[:150] or "no telemetry"
 
     def disarm(self):
         self.master.mav.command_long_send(
@@ -339,14 +364,30 @@ class RealFC:
             0, 0, 0,            # acceleration (ignored)
             0, yaw_rate)        # yaw (ignored), yaw_rate
 
-    def set_takeoff_alt(self, alt_m):
-        """Tell PX4 what altitude AUTO.TAKEOFF should climb to."""
-        self.master.mav.param_set_send(
-            self.master.target_system, self.master.target_component,
-            b"MIS_TAKEOFF_ALT", float(alt_m),
-            mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
-        ack = self.master.recv_match(type="PARAM_VALUE", blocking=True, timeout=3)
-        return bool(ack)
+    def set_takeoff_alt(self, alt_m, tries=2):
+        """Tell PX4 what altitude AUTO.TAKEOFF should climb to, and confirm it.
+
+        PX4 answers a PARAM_SET with the parameter's new value, and only that
+        answer counts. Any other PARAM_VALUE, from a parameter list being sent
+        to a ground station say, says nothing about this one. Unconfirmed, PX4
+        may climb to whatever MIS_TAKEOFF_ALT it has stored (2.5 m by default)
+        instead of the height this flight intends."""
+        for _ in range(tries):
+            self.master.mav.param_set_send(
+                self.master.target_system, self.master.target_component,
+                b"MIS_TAKEOFF_ALT", float(alt_m),
+                mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
+            end = time.time() + 3
+            while time.time() < end:
+                ack = self.master.recv_match(type="PARAM_VALUE", blocking=True,
+                                             timeout=max(0.1, end - time.time()))
+                if ack is None:
+                    break
+                if param_name(ack.param_id) == "MIS_TAKEOFF_ALT":
+                    if abs(ack.param_value - float(alt_m)) < 0.01:
+                        return True
+                    break               # answered with another value: send it again
+        return False
 
     def flight_state(self):
         """Latest armed/alt/mode. NON-blocking: the flight loop must stay
@@ -369,12 +410,15 @@ class RealFC:
     def run_mission(self, mid, motors=4):
         # Pass a PX4 refusal on, so the operator never sees "done" while nothing
         # spun. The FC's own reason is printed in the server log.
+        #
+        # Motor tests only. Nothing that flies runs from here: a flight is
+        # prepared, launched by CONFIRM, and flown inside MonitoredFlight's
+        # failsafes. Menu item 3 used to fly missions.mission_3 straight from a
+        # RUN, with no CONFIRM and nothing listening for STOP or link loss.
         if mid in (1, 2):
             test = missions.mission_1 if mid == 1 else missions.mission_2
             if not test(self.master, motors):
                 return False, "PX4 refused the motor test (safety? battery? armed?)"
-        elif mid == 3:
-            missions.mission_3(self.master, require_confirm=False)
         else:
             return False, f"mission {mid} not runnable remotely"
         return True, "done"
@@ -563,6 +607,18 @@ class C2Server:
             ok, reason = self._validate_fly()
             self._prepare("waypoints" if ok else None)
             return [p.message(p.ACK, seq, accepted=ok, confirm_required=ok, reason=reason)]
+        if t in (p.STOP, p.ABORT) and self._armed_now():
+            # In flight, STOP and ABORT are MonitoredFlight's, so one arriving here
+            # means no flight loop is running, yet the aircraft is armed. That is
+            # what a restart mid-flight leaves behind: an error took the old
+            # server down and systemd started this one. Nothing else here will
+            # bring it down, so land in place, which is what STOP means in flight.
+            self._prepare(None)
+            self.log(f"{t} with no flight running, but the drone is armed -> LAND")
+            self.fc.set_flight_mode("LAND")
+            return [p.message(p.ACK, seq, accepted=True,
+                              reason="no flight running here, but the drone is armed"
+                                     " — landing in place")]
         if t == p.ABORT:
             # In flight, ABORT is MonitoredFlight's. Here it is a cancelled
             # confirm screen: drop the prepared flight so nothing can launch it.
@@ -577,6 +633,14 @@ class C2Server:
         """Arm the CONFIRM step for `kind` (or clear it with None)."""
         self._pending = kind
         self._pending_at = time.time()
+
+    def _armed_now(self):
+        """Whether the flight controller says it is armed. A failed read counts
+        as not armed: with the FC unreachable there is nothing to command."""
+        try:
+            return bool(self.fc.flight_state().get("armed"))
+        except Exception:
+            return False
 
     def confirm(self, link, send):
         """CONFIRM received: launch the prepared flight, unless it has lapsed."""
@@ -597,14 +661,30 @@ class C2Server:
                 self._pending = None
                 send(p.message(p.ACK, 0, accepted=False, reason=reason))
                 return
-        if self._pending == "mission1":
-            self.run_mission1(link, send)
-        elif self._pending == "mission2":
-            self.run_mission2(link, send)
-        elif self._pending == "hover":
-            self.run_hover(link, send)
-        else:
-            self.run_flight(link, send)     # declines unless "waypoints" is pending
+        kind = self._pending
+        flights = {"mission1": self.run_mission1, "mission2": self.run_mission2,
+                   "hover": self.run_hover}
+        try:
+            # run_flight declines unless "waypoints" is pending
+            flights.get(kind, self.run_flight)(link, send)
+        except Exception as exc:
+            self._flight_failed(kind, exc, send)
+
+    def _flight_failed(self, kind, exc, send):
+        """A flight raised. The aircraft may be in the air with nothing watching
+        it, since the link-loss failsafe lived in the loop that just died. Put it
+        in the failsafe that flight's ABORT uses, and say so."""
+        self._pending = None
+        mode = "LAND" if kind == "hover" else "RTL"
+        what = MonitoredFlight._FAILSAFE_TEXT[mode]
+        self.log(f"{kind}: error in flight: {exc!r} -> {mode}")
+        try:
+            self.fc.set_flight_mode(mode)
+        except Exception as exc2:
+            what = f"{mode} failed: {short_error(exc2, 30)}"   # still one radio packet
+            self.log(f"{kind}: {mode} failed too: {exc2!r}")
+        send(p.message(p.DONE, 0, id={"waypoints": "fly"}.get(kind, kind) or "fly",
+                       result=f"FAILED: {short_error(exc)} — {what}"))
 
     def _validate_pending(self):
         """The gates that must still hold at CONFIRM time, for any flight.
@@ -643,7 +723,7 @@ class C2Server:
             try:
                 text = self.fc.diagnostics()
             except Exception as exc:
-                text = f"error reading telemetry: {exc}"
+                text = f"error reading telemetry: {short_error(exc)}"
             self.log(f"diagnostics: {text}")
             send(p.message(p.ACK, seq, id=mid, accepted=True, reason="reading telemetry"))
             send(p.message(p.DONE, seq, id=mid, result=text))
@@ -681,12 +761,21 @@ class C2Server:
             send(p.message(p.ACK, seq, id=mid, accepted=True, confirm_required=True, reason=reason))
             self.log(f"{fly} prepared — awaiting CONFIRM")
             return
+        if item.get("needs") == "props_on":
+            # Nothing that flies starts from a RUN. Flights are prepared above and
+            # launched by CONFIRM, inside MonitoredFlight's failsafes. The waypoint
+            # flight (item 3) has its own path, upload then FLY_REQ then CONFIRM,
+            # which is how the laptop client flies it.
+            send(p.message(p.ACK, seq, id=mid, accepted=False,
+                           reason="send waypoints, then FLY_REQ and CONFIRM"))
+            self.log(f"RUN {mid} refused: it flies, and a RUN never flies")
+            return
         send(p.message(p.ACK, seq, id=mid, accepted=True, reason=reason))
         self.log(f"RUN {mid} accepted — executing")
         try:
             ok, result = self.fc.run_mission(mid, self.motors)
         except Exception as exc:
-            ok, result = False, f"error: {exc}"
+            ok, result = False, f"error: {short_error(exc)}"
         send(p.message(p.DONE, seq, id=mid, result=result if ok else f"FAILED: {result}"))
 
     # -- camera (person detection during Mission 1) --------------------------
@@ -712,30 +801,46 @@ class C2Server:
             except (BlockingIOError, OSError):
                 break
             try:
-                latest = json.loads(data.decode())
+                msg = json.loads(data.decode())
             except (ValueError, UnicodeDecodeError):
-                pass
+                continue
+            if isinstance(msg, dict):       # a person is an object; drop anything else
+                latest = msg
         return latest
 
+    @staticmethod
+    def _pz(person):
+        """The person's distance for STATUS, or None without a usable one (the
+        OAK says 0 m when it has no depth)."""
+        z = person.get("z") if person else None
+        return round(z, 2) if _is_number(z) and z > 0 else None
+
     def _arm_and_takeoff(self, send, mission_id, title, alt_m):
-        """Arm and start AUTO.TAKEOFF to alt_m. On a refusal, report it (DONE)
-        and return False -- with PX4's own words, since in the field nobody can
-        see the drone's console."""
-        send(p.message(p.LOG, 0, text=f"{title}: arming"))
-        self.log(f"{mission_id.upper()}: arming")
+        """Set the takeoff height, arm, and start AUTO.TAKEOFF to alt_m. On a
+        refusal, report it (DONE) and return False -- with PX4's own words, since
+        in the field nobody can see the drone's console.
+
+        AUTO.TAKEOFF climbs to MIS_TAKEOFF_ALT, so the height is set and
+        confirmed first. Unconfirmed, PX4 may use its own stored height instead
+        of the one this mission intends, and checking before arming means a
+        failure never leaves the drone armed on the pad."""
         try:
+            if not self.fc.set_takeoff_alt(alt_m):
+                self.log(f"{mission_id.upper()}: MIS_TAKEOFF_ALT not confirmed — not arming")
+                send(p.message(p.DONE, 0, id=mission_id,
+                               result="FAILED: takeoff height not confirmed by PX4"))
+                return False
+            send(p.message(p.LOG, 0, text=f"{title}: arming"))
+            self.log(f"{mission_id.upper()}: arming")
             if not self.fc.arm():
                 why = getattr(self.fc, "arm_detail", "") or "no reason reported"
                 send(p.message(p.LOG, 0, text="PX4 refused to arm: " + why))
                 send(p.message(p.DONE, 0, id=mission_id, result="FAILED: arm rejected — " + why))
                 return False
             send(p.message(p.LOG, 0, text="armed — takeoff to {:g} m".format(alt_m)))
-            # AUTO.TAKEOFF climbs to MIS_TAKEOFF_ALT, so set it or PX4 uses its
-            # own default height instead of the one this mission intends.
-            self.fc.set_takeoff_alt(alt_m)
             self.fc.set_flight_mode("TAKEOFF")
         except Exception as exc:
-            send(p.message(p.DONE, 0, id=mission_id, result=f"FAILED: {exc}"))
+            send(p.message(p.DONE, 0, id=mission_id, result=f"FAILED: {short_error(exc)}"))
             return False
         return True
 
@@ -794,7 +899,7 @@ class C2Server:
                     send(p.message(p.LOG, 0, text="hover complete — landing in place"))
 
             flight.extra = {"person": person_present, "seen": people_seen,
-                            "pz": round(person["z"], 2) if person else None}
+                            "pz": self._pz(person)}
 
         if flight.timed_out:
             send(p.message(p.DONE, 0, id="mission1", result="time cap -> RTL"))
@@ -806,9 +911,18 @@ class C2Server:
 
     @staticmethod
     def _follow_setpoint(person):
-        """person X (right+)/Z (forward dist) -> (vx forward, yaw_rate). vz=0 (hold alt)."""
-        z = person.get("z", FOLLOW_DIST_M)
-        x = person.get("x", 0.0)
+        """person X (right+)/Z (forward dist) -> (vx forward, yaw_rate). vz=0 (hold alt).
+
+        No depth, no setpoint. The OAK reports 0 m for a person it has no depth
+        for, and camera_publisher passes that on. Read as a distance, 0 m is
+        "too close", which sent the drone backwards, blind, for as long as the
+        depth stayed missing. x comes from the same depth reading, so it is no
+        use either: hold still, as with nobody in view."""
+        z, x = person.get("z"), person.get("x", 0.0)
+        if not _is_number(z) or not z > 0:
+            return 0.0, 0.0
+        if not _is_number(x):
+            x = 0.0
         vx = 0.0
         if z > FOLLOW_DIST_M + FOLLOW_DIST_DEAD:
             vx = FOLLOW_FWD_MPS
@@ -862,7 +976,7 @@ class C2Server:
 
             flight.phase = "follow" if offboard else "takeoff"
             flight.extra = {"person": person is not None, "following": following,
-                            "pz": round(person["z"], 2) if person else None}
+                            "pz": self._pz(person)}
 
         if flight.timed_out:
             send(p.message(p.DONE, 0, id="mission2", result="time cap -> RTL"))
@@ -935,7 +1049,7 @@ class C2Server:
             self.log("FLIGHT: armed, AUTO.MISSION")
             self.fc.set_flight_mode("MISSION")
         except Exception as exc:
-            send(p.message(p.DONE, 0, id="fly", result=f"FAILED: {exc}"))
+            send(p.message(p.DONE, 0, id="fly", result=f"FAILED: {short_error(exc)}"))
             return
 
         flight = MonitoredFlight(self, link, send, "fly", "FLIGHT")
@@ -1093,13 +1207,19 @@ def serve(server, link, log=print):
             time.sleep(0.02)
             continue
         t = msg.get("t")
-        if t == p.RUN:
-            server.run_and_report(msg, link.send)
-        elif t == p.CONFIRM:
-            server.confirm(link, link.send)
-        else:
-            for reply in server.handle(msg):
-                link.send(reply)
+        try:
+            if t == p.RUN:
+                server.run_and_report(msg, link.send)
+            elif t == p.CONFIRM:
+                server.confirm(link, link.send)
+            else:
+                for reply in server.handle(msg):
+                    link.send(reply)
+        except Exception as exc:
+            # One bad message must not take the server down. Exiting is a restart
+            # under systemd, and the new server knows nothing of a flight this
+            # one was running, so the failsafes would go with it.
+            log(f"error handling {t!r}: {exc!r}")
 
 
 def wait_for_fc(link, args):

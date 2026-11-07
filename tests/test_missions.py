@@ -11,6 +11,12 @@ Covers the paths that must not break before a field test:
   * Mission 2: takeoff -> OFFBOARD follow -> STOP -> land
   * link-loss -> RTL failsafe on both missions
   * Hover 3 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
+  * a RUN never flies; a 0 m (no depth) reading never moves the drone
+  * an error mid-flight triggers the failsafe and the server lives on; STOP
+    lands an armed drone no flight loop is watching
+  * the takeoff height is confirmed before arming
+  * every reply fits the radio's 240 characters once signed
+  * the old menu's radio listener cannot fly
   * client tolerates corrupted menu packets instead of crashing
 """
 import json
@@ -427,6 +433,416 @@ def test_motor_refusal():
         srv.missions = real
 
 
+# ---------------------------------------------------------------- nothing flies from a RUN
+class CountingFC(srv.MockFC):
+    """MockFC that remembers which missions run_mission was asked to run."""
+
+    def __init__(self, gps=True):
+        super().__init__(gps=gps)
+        self.ran = []
+
+    def run_mission(self, mid, motors=4):
+        self.ran.append(mid)
+        return super().run_mission(mid, motors)
+
+
+def test_run_never_flies():
+    print("\n[a RUN never flies: flights wait for CONFIRM]")
+    fc = CountingFC()
+    s = srv.C2Server(fc, props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=3), out.append)
+    ack = out[-1] if out else {}
+    check("RUN 3 (waypoints) refused, with props ON and a GPS fix",
+          ack.get("accepted") is False, ack.get("reason", ""))
+    check("  the operator is told the way that does fly", "FLY_REQ" in ack.get("reason", ""))
+    check("  nothing ran, nothing armed, nothing pending",
+          fc.ran == [] and not fc._armed and s._pending is None, str(fc.ran))
+
+    # Every flight item either waits for a CONFIRM or is refused. None executes.
+    for item in s.menu():
+        if item.get("needs") != "props_on":
+            continue
+        s._prepare(None)
+        out = []
+        s.run_and_report(c2.message(c2.RUN, 1, id=item["id"]), out.append)
+        ack = out[-1] if out else {}
+        check(f"  item {item['id']} waits for CONFIRM or is refused",
+              ack.get("confirm_required") is True or ack.get("accepted") is False,
+              str(ack)[:70])
+    check("  none of them reached run_mission", fc.ran == [], str(fc.ran))
+
+    fc = srv.RealFC.__new__(srv.RealFC)      # no Pixhawk: skip connecting
+    fc.master = None
+    ok, why = fc.run_mission(3, 4)
+    check("the real FC runs nothing for item 3 either", ok is False, why)
+
+    srv.STATUS_INTERVAL_S = 0.25
+    s = make_server(gps=True, props_off=False, mission=True)
+    r = s.handle(c2.message(c2.FLY_REQ, 1))[0]
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("waypoints still fly the way the laptop sends them: FLY_REQ, then CONFIRM",
+          r.get("confirm_required") is True and "landed" in (link.done() or ""), link.done())
+
+
+def test_no_depth():
+    print("\n[Mission 2: no depth means no movement]")
+    for person in ({"x": 0.0, "z": 0.0}, {"x": 0.6, "z": 0.0}, {"x": -0.6, "z": 0.0},
+                   {"x": 0.6}, {"x": 0.6, "z": None}, {"x": 0.6, "z": float("nan")},
+                   {"x": 0.6, "z": -1.0}, {"x": 0.6, "z": "2.0"}, {"x": 0.6, "z": True}):
+        vx, yaw = srv.C2Server._follow_setpoint(person)
+        check(f"{person} -> hold still", (vx, yaw) == (0.0, 0.0), f"vx={vx:+.2f} yaw={yaw:+.2f}")
+    vx, yaw = srv.C2Server._follow_setpoint({"x": "left", "z": 4.0})
+    check("a bad x with good depth still closes the distance, without turning",
+          vx > 0 and yaw == 0.0, f"vx={vx:+.2f} yaw={yaw:+.2f}")
+    check("STATUS shows no distance for a 0 m reading",
+          srv.C2Server._pz({"z": 0.0}) is None and srv.C2Server._pz({"x": 1}) is None
+          and srv.C2Server._pz({"z": 2.5}) == 2.5)
+
+    rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    rx.bind(("127.0.0.1", 0))
+    rx.setblocking(False)
+    tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        tx.sendto(b"[1, 2, 3]", rx.getsockname())
+        time.sleep(0.05)
+        check("a camera packet that isn't an object is dropped",
+              srv.C2Server._read_person(rx) is None)
+        tx.sendto(b'{"x": 0.1, "z": 2.0}', rx.getsockname())
+        tx.sendto(b'"noise"', rx.getsockname())
+        time.sleep(0.05)
+        check("  and doesn't hide the person before it",
+              srv.C2Server._read_person(rx) == {"x": 0.1, "z": 2.0})
+    finally:
+        rx.close()
+        tx.close()
+
+
+# ---------------------------------------------------------------- errors in flight
+class CrashingFC(ModeLogFC):
+    """Raises from flight_state once a flight is under way: a serial error, say,
+    or a bug in a mission loop. Optionally the failsafe command fails too."""
+
+    def __init__(self, after=5, text="serial port went away", failsafe_text=None):
+        super().__init__()
+        self.after, self.text, self.failsafe_text, self.reads = after, text, failsafe_text, 0
+
+    def flight_state(self):
+        st = super().flight_state()
+        if st["armed"] and self._t_land is None:
+            self.reads += 1
+            if self.reads > self.after:
+                raise OSError(self.text)
+        return st
+
+    def set_flight_mode(self, mode):
+        if self.failsafe_text and mode in ("LAND", "RTL"):
+            raise OSError(self.failsafe_text)
+        return super().set_flight_mode(mode)
+
+
+class StopServe(BaseException):
+    """Ends serve() from a test. A BaseException, so serve() can't swallow it."""
+
+
+class ScriptedLink(FakeLink):
+    """Feeds serve() a script of messages. With until_done, it then keeps the
+    link alive with PINGs until a DONE goes out, sends one last PING (seq 99),
+    and stops serve(); without, it stops serve() when the script runs out."""
+
+    def __init__(self, msgs, until_done=False):
+        super().__init__()
+        self.msgs, self.until_done, self.closing = list(msgs), until_done, False
+
+    def poll(self):
+        if self.msgs:
+            return self.msgs.pop(0)
+        if self.until_done and not any(m["t"] == c2.DONE for m in self.sent):
+            return c2.message(c2.PING, 0)
+        if self.until_done and not self.closing:
+            self.closing = True
+            return c2.message(c2.PING, 99)
+        raise StopServe
+
+
+def run_serve(server, link):
+    logs = []
+    try:
+        srv.serve(server, link, log=logs.append)
+    except StopServe:
+        pass
+    return logs
+
+
+def test_flight_errors():
+    print("\n[an error mid-flight triggers the failsafe, and the server lives on]")
+    srv.STATUS_INTERVAL_S = 0.25
+    for which, rid, mode, said in (("hover", 8, "LAND", "landing in place"),
+                                   ("mission2", 5, "RTL", "returning home")):
+        fc = CrashingFC()
+        s = srv.C2Server(fc, props_off=False)
+        s.run_and_report(c2.message(c2.RUN, 1, id=rid), [].append)
+        link = FakeLink()
+        try:
+            s.confirm(link, link.send)
+            raised = None
+        except Exception as exc:              # the old behaviour: it killed the server
+            raised = exc
+        check(f"{which}: the error doesn't escape the flight", raised is None, repr(raised))
+        check(f"  and puts the drone in its failsafe, {mode}", fc.modes[-1:] == [mode],
+              str(fc.modes))
+        check("  and tells the operator", link.done() == f"FAILED: serial port went away — {said}",
+              link.done())
+
+    fc = CrashingFC(failsafe_text="FC link down")
+    s = srv.C2Server(fc, props_off=False)
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), [].append)
+    link = FakeLink()
+    s.confirm(link, link.send)
+    check("a failsafe that can't be sent is reported, not hidden",
+          (link.done() or "").endswith("— LAND failed: FC link down"), link.done())
+
+    # Through serve() itself: crash mid-flight, then the next PING still answered.
+    fc = CrashingFC()
+    s = srv.C2Server(fc, props_off=False)
+    link = ScriptedLink([c2.message(c2.RUN, 1, id=8), c2.message(c2.CONFIRM, 2)],
+                        until_done=True)
+    run_serve(s, link)
+    after = link.sent[[m["t"] for m in link.sent].index(c2.DONE):] if link.done() else []
+    check("serve(): a crashed hover lands, and the server answers the next PING",
+          fc.modes[-1:] == ["LAND"] and any(m["t"] == c2.PONG and m["seq"] == 99 for m in after),
+          f"{fc.modes} {[m['t'] for m in after]}")
+
+    class BrokenUploadFC(srv.MockFC):
+        def upload_waypoints(self, wps):
+            raise RuntimeError("PX4 went quiet mid-upload")
+
+    s = srv.C2Server(BrokenUploadFC(gps=True), props_off=False)
+    link = ScriptedLink([c2.message(c2.WP_BEGIN, 1), c2.message(c2.WP_END, 2),
+                         c2.message(c2.PING, 3)])
+    logs = run_serve(s, link)
+    check("serve(): a message that raises is logged, not fatal",
+          any("PX4 went quiet" in line for line in logs), str(logs[-1:]))
+    check("  and the next message is still answered",
+          any(m["t"] == c2.PONG and m["seq"] == 3 for m in link.sent), str(link.sent[-1:]))
+
+
+def test_orphan_stop():
+    print("\n[STOP lands an armed drone that no flight loop is watching]")
+    fc = ModeLogFC()
+    s = srv.C2Server(fc, props_off=False)
+    check("STOP with the drone disarmed does nothing",
+          s.handle(c2.message(c2.STOP, 1)) == [] and fc.modes == [], str(fc.modes))
+    fc.arm()                       # armed, no flight loop: a server restarted mid-flight
+    r = s.handle(c2.message(c2.STOP, 2))
+    check("STOP while armed and idle -> LAND", fc.modes == ["LAND"], str(fc.modes))
+    check("  and says why", bool(r) and r[0].get("accepted") is True
+          and "armed" in r[0].get("reason", ""), str(r))
+
+    fc = ModeLogFC()
+    s = srv.C2Server(fc, props_off=False)
+    s._prepare("hover")
+    fc.arm()
+    s.handle(c2.message(c2.ABORT, 3))
+    check("ABORT while armed and idle -> LAND, and drops the prepared flight",
+          fc.modes == ["LAND"] and s._pending is None, f"{fc.modes} {s._pending}")
+
+
+# ---------------------------------------------------------------- takeoff height
+def test_takeoff_height():
+    print("\n[the takeoff height is confirmed before arming]")
+    import types
+
+    class Reply:
+        def __init__(self, pid, value):
+            self.param_id, self.param_value = pid, value
+
+    class FakeMaster:
+        target_system = target_component = 1
+
+        def __init__(self, replies):
+            self.replies, self.sets = list(replies), 0
+            self.mav = types.SimpleNamespace(param_set_send=self._set)
+
+        def _set(self, *args):
+            self.sets += 1
+
+        def recv_match(self, type=None, blocking=True, timeout=None):
+            return self.replies.pop(0) if self.replies else None
+
+    real = srv.mavutil
+    try:
+        try:   # the real library's decoding, where it's installed (not in CI)
+            from pymavlink.dialects.v20 import common as mav2
+            pkt = mav2.MAVLink_param_value_message(b"MIS_TAKEOFF_ALT", 0.91, 9, 1000, 5)
+            decoded = mav2.MAVLink(None).parse_char(pkt.pack(mav2.MAVLink(None)))
+        except ImportError:
+            decoded = None
+        srv.mavutil = types.SimpleNamespace(
+            mavlink=types.SimpleNamespace(MAV_PARAM_TYPE_REAL32=9))
+        fc = srv.RealFC.__new__(srv.RealFC)
+        cases = [([Reply("MIS_TAKEOFF_ALT", 0.91)], True, "PX4's reply confirms it"),
+                 ([Reply(b"MIS_TAKEOFF_ALT\x00", 0.9100000262)], True,
+                  "  as bytes padded with NULs too"),
+                 ([Reply("SYS_AUTOSTART", 4001.0)], False,
+                  "another parameter's PARAM_VALUE is not a reply"),
+                 ([Reply("SYS_AUTOSTART", 4001.0), Reply("MIS_TAKEOFF_ALT", 0.91)], True,
+                  "  and is skipped on the way to the real one"),
+                 ([Reply("MIS_TAKEOFF_ALT", 2.5)] * 2, False,
+                  "a different value is not a confirmation"),
+                 ([], False, "no reply is not a confirmation")]
+        if decoded is not None:
+            cases.append(([decoded], True, "pymavlink's own decoding of PX4's reply confirms it"))
+        for replies, want, label in cases:
+            fc.master = FakeMaster(replies)
+            check(label, fc.set_takeoff_alt(0.91) is want)
+        fc.master = FakeMaster([])
+        fc.set_takeoff_alt(0.91)
+        check("  an unanswered set is sent twice, then given up", fc.master.sets == 2,
+              f"{fc.master.sets} sends")
+    finally:
+        srv.mavutil = real
+
+    class HeightFC(ModeLogFC):
+        def __init__(self, confirms):
+            super().__init__()
+            self.confirms, self.calls = confirms, []
+
+        def set_takeoff_alt(self, alt_m):
+            self.calls.append("height")
+            super().set_takeoff_alt(alt_m)
+            return self.confirms
+
+        def arm(self, timeout=8):
+            self.calls.append("arm")
+            return super().arm(timeout)
+
+    hold_was = srv.HOVER3_TIME_S
+    try:
+        srv.HOVER3_TIME_S = 0.5
+        for confirms in (False, True):
+            fc = HeightFC(confirms)
+            s = srv.C2Server(fc, props_off=False)
+            s.run_and_report(c2.message(c2.RUN, 1, id=8), [].append)
+            link = FakeLink()
+            s.confirm(link, link.send)
+            if confirms:
+                check("a confirmed height is set before arming",
+                      fc.calls[:2] == ["height", "arm"] and link.done() == "landed & disarmed",
+                      f"{fc.calls} {link.done()}")
+            else:
+                check("an unconfirmed height stops the flight before arming",
+                      fc.calls == ["height"] and not fc._armed
+                      and "takeoff height" in (link.done() or ""), f"{fc.calls} {link.done()}")
+    finally:
+        srv.HOVER3_TIME_S = hold_was
+
+
+# ---------------------------------------------------------------- radio line budget
+def test_radio_line_budget():
+    """Both firmware sketches carry 240 characters a line (MAX_LINE) and cut the
+    rest, and a cut line is lost. Signing adds about 40. So every reply the
+    server can make, at its longest, must fit signed."""
+    print("\n[every reply fits the radio's 240 characters once signed]")
+    from radio import auth
+    key = b"k" * 32
+
+    def signed(m):
+        return len(c2.encode(auth.sign(m, key)).rstrip("\n"))
+
+    srv.STATUS_INTERVAL_S = 0.25
+    sent = []
+    s = srv.C2Server(srv.MockFC(gps=True), props_off=False)
+    for mid in (3, 4, 5, 8):
+        s._prepare(None)
+        s.run_and_report(c2.message(c2.RUN, 65535, id=mid), sent.append)
+    s._prepare(None)
+    s.fc.upload_waypoints([(37.42, -122.08, 5.0)])
+    sent += s.handle(c2.message(c2.FLY_REQ, 65535))
+    s._prepare(None)
+    s.fc.arm()
+    sent += s.handle(c2.message(c2.STOP, 65535))          # the armed-but-idle reply
+    sent += s.handle(c2.message(c2.GET_MENU, 65535))
+
+    class Worst(srv.MockFC):
+        """The longest texts the real FC can produce: arm_detail is capped at
+        120, diagnostics at 150, and an error can say anything."""
+        arm_detail = "x" * 120
+
+        def arm(self, timeout=8):
+            return False
+
+        def diagnostics(self):
+            return "d" * 150
+
+        def run_mission(self, mid, motors=4):
+            raise RuntimeError("e" * 500)
+
+    s = srv.C2Server(Worst(gps=True), props_off=False)
+    link = FakeLink()
+    s.run_and_report(c2.message(c2.RUN, 65535, id=5), sent.append)   # longest id: mission2
+    s.confirm(link, link.send)                                       # PX4 refuses to arm
+    s.run_and_report(c2.message(c2.RUN, 65535, id=7), sent.append)   # diagnostics
+    s.props_off = True
+    s.run_and_report(c2.message(c2.RUN, 65535, id=1), sent.append)   # a motor test that raises
+    sent += link.sent
+
+    for fc in (CrashingFC(text="c" * 500), CrashingFC(text="c" * 500, failsafe_text="f" * 500)):
+        for rid in (5, 8):
+            s = srv.C2Server(fc, props_off=False, log=lambda *_: None)   # 500-char log lines
+            fc._armed, fc._t_land, fc.reads = False, None, 0
+            s.run_and_report(c2.message(c2.RUN, 65535, id=rid), sent.append)
+            link = FakeLink()
+            s.confirm(link, link.send)
+            sent += link.sent
+
+    longest = max(sent, key=signed)
+    check(f"{len(sent)} replies, longest {signed(longest)} of 240 characters signed",
+          signed(longest) <= 240, c2.encode(longest)[:90])
+    check("  long errors are cut, not sent whole",
+          not any("c" * 81 in m.get("result", "") or "e" * 81 in m.get("result", "")
+                  for m in sent))
+
+
+# ---------------------------------------------------------------- the old menu's radio listener
+def test_lora_listener_cannot_fly():
+    print("\n[the old mission menu's radio listener cannot fly]")
+    import importlib
+    import inspect
+    import types
+    names = ("pymavlink", "pymavlink.mavutil", "serial", "drone.missions")
+    saved = {n: sys.modules.get(n) for n in names}
+    try:
+        # CI installs neither library, and missions.py exits at import without
+        # them. Stand-ins are enough: nothing here talks to a flight controller.
+        for name in ("pymavlink", "serial"):
+            try:
+                importlib.import_module(name)
+            except ImportError:
+                sys.modules[name] = types.ModuleType(name)
+        if not hasattr(sys.modules["pymavlink"], "mavutil"):
+            sys.modules["pymavlink"].mavutil = types.SimpleNamespace()
+            sys.modules["pymavlink.mavutil"] = sys.modules["pymavlink"].mavutil
+        sys.modules.pop("drone.missions", None)
+        missions = importlib.import_module("drone.missions")
+
+        check("mission 3 always asks for FLY at the keyboard (no require_confirm)",
+              list(inspect.signature(missions.mission_3).parameters) == ["master"],
+              str(inspect.signature(missions.mission_3)))
+        flown = []
+        missions.mission_3 = lambda *a, **k: flown.append(a)
+        for text in ("4", "4.0", " 4 "):
+            missions.handle_lora_msg(None, text, props_off=False, motors=4)
+        check("a radio '4' flies nothing", flown == [], f"{len(flown)} flights")
+    finally:
+        for name, mod in saved.items():
+            if mod is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = mod
+
+
 # ---------------------------------------------------------------- client robustness
 def test_client_robustness():
     print("\n[client survives corrupted LoRa packets]")
@@ -470,6 +886,13 @@ if __name__ == "__main__":
     test_mission2()
     test_hover()
     test_motor_refusal()
+    test_run_never_flies()
+    test_no_depth()
+    test_flight_errors()
+    test_orphan_stop()
+    test_takeoff_height()
+    test_radio_line_budget()
+    test_lora_listener_cannot_fly()
     test_client_robustness()
     print("\n" + "=" * 52)
     if FAILURES:
