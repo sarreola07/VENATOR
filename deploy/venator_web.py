@@ -155,10 +155,13 @@ class Handler(BaseHTTPRequestHandler):
     # -- static ------------------------------------------------------------
     def _static(self, path):
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
-        target = (self.wwwroot / rel).resolve()
+        root = self.wwwroot.resolve()
+        target = (root / rel).resolve()
         # Refuse anything that escapes wwwroot. The page is served to whatever
         # is on the network, so a traversal here would hand out the filesystem.
-        if not str(target).startswith(str(self.wwwroot.resolve())) or not target.is_file():
+        # A path test, not a text prefix: ".../wwwroot-old/x" starts with the
+        # text ".../wwwroot" but is outside it.
+        if not target.is_relative_to(root) or not target.is_file():
             self.send_error(404)
             return
         ctype = {".html": "text/html; charset=utf-8", ".js": "text/javascript",

@@ -61,6 +61,13 @@ jobs:
       - name: Object tracking and dwell
         run: python3 tests/test_tracking.py
 
+      # No camera: pixels are plain lists and detections are plain dicts, so
+      # this is the same logic the aircraft runs. The property that matters is
+      # that a decoy is never targeted, whatever else is in the frame: following
+      # the wrong person is the mistake the vest search exists to prevent.
+      - name: Vest search
+        run: python3 tests/test_vest.py
+
       # No camera and no sockets: the request handler is driven in-process.
       # Every captive-portal route sits ahead of the token check, because a
       # phone probing for a login page has never seen the token — so the exact
@@ -70,6 +77,13 @@ jobs:
       # body that would stop the popup from appearing.
       - name: Captive portal routes and boundary
         run: python3 tests/test_captive.py
+
+      # No Pixhawk: readings are plain numbers, so what the ARK Flow check calls
+      # OK, WARN or FAIL is pinned here. That verdict decides whether the indoor
+      # hover gets tried, so a working sensor must pass, and a covered lens, a
+      # missing setting or an estimator stuck in constant-position mode must not.
+      - name: ARK Flow check verdicts
+        run: python3 tests/test_check_flow.py
 
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests

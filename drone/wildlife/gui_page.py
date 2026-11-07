@@ -11,7 +11,9 @@ Dark is forced, and red/amber dominant. This gets read at night by someone who
 then has to look up and find a drone: blue and white light destroy scotopic
 adaptation for tens of minutes, deep red barely touches it. There is no
 prefers-color-scheme light branch on purpose - a white screen here is a
-usability fault, not a preference.
+usability fault, not a preference. The one exception is the confidence chart's
+poster button, for making a printable picture of the chart on the ground: it
+only whitens the chart, is never remembered, and is off on every page load.
 
 Boxes are drawn on a canvas over the video rather than burned into the frame.
 The Jetson has no hardware encoder, so burning them in would cost a decode and
@@ -47,9 +49,11 @@ PAGE = r"""<!doctype html>
 html,body{margin:0;background:var(--bg);color:var(--fg);
   font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
-#redfilter{position:fixed;inset:0;pointer-events:none;z-index:50;background:#f00;
+/* top/right/bottom/left rather than inset:0 throughout: Safari before 14.5
+   ignores inset, and these overlays then shrink to nothing. */
+#redfilter{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:50;background:#f00;
   opacity:0;mix-blend-mode:multiply;transition:opacity .2s}
-#dimmer{position:fixed;inset:0;pointer-events:none;z-index:51;background:#000;opacity:0}
+#dimmer{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:51;background:#000;opacity:0}
 
 /* --- alert banner: sticky, no auto-dismiss, explicit ack --- */
 #alerts{position:sticky;top:0;z-index:40}
@@ -57,6 +61,61 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
   display:flex;gap:10px;align-items:center;animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{background:#2a0a0a}50%{background:#3d0d0d}}
 @media (prefers-reduced-motion:reduce){.alert{animation:none}}
+/* --- vest search: what the aircraft is looking for, above everything else --- */
+#search{display:none;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+  padding:10px 14px;background:#11141a;font-variant-numeric:tabular-nums}
+#search.on{display:flex}
+#search b{letter-spacing:.04em}
+#search.found b{color:#ffe600}
+#search .d{color:var(--muted);font-size:12px}
+/* view-only visitors can look at everything and change nothing */
+.viewonly #snap,.viewonly #lb-foot,.viewonly .shot .v{display:none}
+/* --- the operator's vest search controls. Never on a view-only page: the server
+   refuses those writes anyway, and buttons that do nothing would only confuse. --- */
+#ops{display:flex;flex-direction:column;gap:6px;padding:8px 14px;
+  border-bottom:1px solid var(--line);background:var(--panel);font-size:13px}
+.viewonly #ops{display:none}
+.opsrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.opsrow .lbl{font-weight:600}
+#ops button{padding:4px 10px;font-size:12px;min-height:30px}
+#ops .d{color:var(--muted);font-size:12px}
+#ops .d.bad{color:var(--bad)}
+#ops.off #calrow,#ops.off #recrow{display:none}
+#recnote{flex:1;min-width:150px;background:var(--bg);color:var(--fg);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px}
+#trials a{color:var(--fg);font-size:12px;margin-right:12px;font-variant-numeric:tabular-nums}
+/* --- confidence chart: only shown during a search --- */
+#conf{display:none;border-bottom:1px solid var(--line);padding:0 8px 8px;background:var(--panel)}
+#conf.on{display:block}
+#conf .head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 2px 4px}
+#conf .ttl{font-weight:600;margin-right:auto}
+#conf .head button{padding:4px 10px;font-size:12px}
+#plot{position:relative}
+#chart{display:block;width:100%;height:150px;touch-action:pan-y}
+#conf.poster #plot{background:#fff;border-radius:4px}
+#conf.poster #chart{height:auto;aspect-ratio:2/1;max-width:1000px;margin:0 auto}
+#conf.poster #legend{display:none}
+#ctip{display:none;position:absolute;top:4px;background:rgba(2,3,5,.92);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;
+  pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+#ctip .row{display:flex;align-items:center;gap:6px}
+#ctip .row b{min-width:34px;text-align:right}
+#ctip .row span{color:var(--muted)}
+#legend{display:flex;flex-wrap:wrap;gap:3px 12px;padding:4px 2px 0;font-size:12px}
+.key{display:inline-flex;align-items:center;gap:5px}
+.key i,#ctip i{display:inline-block;width:14px;height:2px;border-radius:1px}
+.key.more{color:var(--muted)}
+#snaps .bar{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:12px;color:var(--muted)}
+#snaps .bar button{margin-left:auto;padding:4px 10px;font-size:12px}
+.snap{border-top:1px solid var(--line);padding:8px 2px}
+.snap .when{font-size:12px;color:var(--muted);margin-bottom:4px}
+.snap img{display:block;width:100%;border-radius:4px;background:var(--bg)}
+.snap button{margin-top:6px;padding:4px 10px;font-size:12px}
+.snap table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;
+  font-variant-numeric:tabular-nums}
+.snap th{color:var(--muted);font-weight:500;text-align:right;padding:2px 4px}
+.snap td{text-align:right;padding:2px 4px;border-top:1px solid var(--line)}
+.snap th:first-child,.snap td:first-child{text-align:left}
 .alert b{color:var(--bad);letter-spacing:.04em}
 .alert .meta{color:var(--muted);font-size:12px}
 .alert button{margin-left:auto}
@@ -64,8 +123,15 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 /* --- video --- */
 #stage{position:relative;background:#000;aspect-ratio:16/9;width:100%;overflow:hidden}
 #stage img{width:100%;height:100%;object-fit:contain;display:block}
-#stage canvas{position:absolute;inset:0;width:100%;height:100%}
-#nolink{position:absolute;inset:0;display:none;place-items:center;text-align:center;
+#stage canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+/* Safari before 15 (iOS 14 and older) has no aspect-ratio, so #stage would be
+   as tall as whatever is in it: nothing at all before the first frame, which
+   hides the no-link message. The classic padding box gives it 16:9 instead. */
+@supports not (aspect-ratio:1){
+  #stage{height:0;padding-top:56.25%}
+  #stage img{position:absolute;top:0;left:0}
+}
+#nolink{position:absolute;top:0;right:0;bottom:0;left:0;display:none;place-items:center;text-align:center;
   background:rgba(5,7,10,.72);color:var(--warn);padding:16px;font-size:13px}
 #nolink.on{display:grid}
 #stage.stale img{filter:grayscale(1) brightness(.45)}
@@ -106,7 +172,7 @@ h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted
 .shot.wrong img{border-color:var(--bad)}
 
 /* --- lightbox: one evidence frame, large, with its boxes drawn on --- */
-#lb-wrap{position:fixed;inset:0;z-index:60;display:none;
+#lb-wrap{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:none;
   background:rgba(2,3,5,.96);flex-direction:column}
 #lb-wrap.on{display:flex}
 #lb-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center}
@@ -147,6 +213,26 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 
 <div id="redfilter"></div><div id="dimmer"></div>
 <div id="alerts"></div>
+<div id="search"></div>
+
+<div id="ops" class="off">
+  <div class="opsrow">
+    <span class="lbl">Vest search</span>
+    <button data-v="off">off</button><button data-v="yellow">yellow</button>
+    <button data-v="red">red</button><button data-v="blue">blue</button>
+    <span class="d" id="opsmsg"></span>
+  </div>
+  <div class="opsrow" id="calrow">
+    <button id="calbtn">calibrate</button>
+    <span class="d" id="calmsg">Hold the vest about 1 m away, filling the middle of the view.</span>
+  </div>
+  <div class="opsrow" id="recrow">
+    <input id="recnote" maxlength="60" placeholder="trial note, e.g. 4 m daylight" aria-label="trial note">
+    <button id="recbtn">record</button>
+    <span class="d" id="recmsg"></span>
+  </div>
+  <div class="opsrow" id="trials"></div>
+</div>
 
 <div id="stage">
   <img id="vid" alt="">
@@ -156,6 +242,21 @@ input[type=range]{width:88px;accent-color:var(--orange)}
     <span style="color:var(--muted)">Status below is still live while the page is
     connected. Beyond ~100 m this is normal — fall back to the LoRa link.</span></div>
   </div>
+</div>
+
+<div id="conf">
+  <div class="head">
+    <span class="ttl" id="conf-ttl">Vest match</span>
+    <button id="m-match" class="on">match</button>
+    <button id="m-person">person</button>
+    <button id="cposter">poster</button>
+    <button id="csnap">snapshot</button>
+  </div>
+  <div id="plot"><canvas id="chart" role="img"
+    aria-label="Confidence for each person over the last 30 seconds. The same readings are in the Tracks list and in snapshots."></canvas>
+    <div id="ctip"></div></div>
+  <div id="legend"></div>
+  <div id="snaps"></div>
 </div>
 
 <div id="chips"></div>
@@ -192,16 +293,20 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 </div>
 
 <script>
-const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__;
+const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__, VIEW_ONLY = __VIEW_ONLY__;
 const q = s => document.querySelector(s);
+document.body.classList.toggle('viewonly', VIEW_ONLY);
 const auth = u => u + (u.includes('?') ? '&' : '?') + (TOKEN ? 'k=' + TOKEN : '');
-const api = (p, body) => fetch(auth(p), body ? {
+// A view-only visitor's writes would only earn a 403 and a growing delay. Quality
+// and alert dismissal still work for them, because both are also local.
+const api = (p, body) => (VIEW_ONLY && body) ? Promise.resolve() : fetch(auth(p), body ? {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)} : {});
 
 /* ---------- video ---------- */
 let quality = 'hi', lastFrame = 0;
 const vid = q('#vid'), stage = q('#stage');
+const NOLINK_TEXT = q('#nolink').innerHTML;
 function loadVideo(){
   quality = q('#q').value;
   // Cache-bust so a reconnect does not resume the old multipart response.
@@ -226,6 +331,19 @@ vid.onerror = () => setTimeout(loadVideo, 2000);
 /* ---------- box overlay ---------- */
 const ovl = q('#ovl'), ctx = ovl.getContext('2d');
 const COLOUR = {animal:'#ffcf4d', person:'#ff3fa4', vehicle:'#4fd6d6'};
+// The vest search. The target is the only loud thing on screen: everyone else
+// fading to grey is the point being demonstrated.
+const ROLE = {target:'#ffe600', match:'#ffb000', checking:'#e8edf2', ignored:'#7d8590'};
+const boxColour = d => ROLE[d.role] || COLOUR[d.c] || '#fff';
+let lastSearch = null;
+function roleLabel(d){
+  const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
+  const worn = d.vest ? ' ' + d.vest : '';
+  const need = lastSearch && lastSearch.vote_need;
+  return {target:`TARGET ${z}`, match:`also matches ${z}`,
+          checking:`checking ${d.votes||0}/${need||'?'}`,
+          ignored:`ignored${worn}`}[d.role];
+}
 let dets = [], showBox = true, showLab = true;
 function sizeCanvas(){
   // Back the canvas at device resolution, or the strokes blur on a phone.
@@ -244,16 +362,17 @@ function draw(){
   const ar = (vid.naturalWidth || 16) / (vid.naturalHeight || 9);
   let w = r.width, h = r.width / ar, ox = 0, oy = (r.height - h) / 2;
   if (h > r.height){ h = r.height; w = r.height * ar; oy = 0; ox = (r.width - w) / 2; }
-  ctx.lineWidth = 2; ctx.font = '600 12px ui-sans-serif,system-ui,sans-serif';
+  ctx.font = '600 12px ui-sans-serif,system-ui,sans-serif';
   for (const d of dets){
-    const c = COLOUR[d.c] || '#fff';
+    const c = boxColour(d);
     const x = ox + d.b[0]*w, y = oy + d.b[1]*h;
     const bw = (d.b[2]-d.b[0])*w, bh = (d.b[3]-d.b[1])*h;
+    ctx.lineWidth = d.role === 'target' ? 4 : 2;
     ctx.strokeStyle = c; ctx.strokeRect(x, y, bw, bh);
     if (!showLab) continue;
     const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
     const idtag = d.id !== undefined ? `#${d.id} ` : '';
-    const txt = `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
+    const txt = roleLabel(d) || `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
     const tw = ctx.measureText(txt).width + 8;
     const ty = y > 16 ? y - 16 : y + bh;
     ctx.fillStyle = 'rgba(5,7,10,.78)'; ctx.fillRect(x, ty, tw, 16);
@@ -274,25 +393,418 @@ function renderTracks(){
     .map(d => {
       const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '--';
       const len = d.len_m ? d.len_m.toFixed(1) + ' m' : '';
-      const raw = d.raw ? ` <span class="d">(${d.raw})</span>` : '';
+      const raw = (d.vest || d.raw) ? ` <span class="d">(${d.vest || d.raw})</span>` : '';
       const id = d.id !== undefined ? `<span class="d">#${d.id}</span>` : '';
       const dw = d.dwell ? `<span class="d">${d.dwell.toFixed(0)} s</span>` : '';
       const gone = d.st && d.st !== 'TRACKED' ? ' gone' : '';
-      return `<div class="trk${gone}">${id}<span class="cls ${d.c}">${d.c}</span>${raw}
+      const tone = d.role ? ` style="color:${boxColour(d)}"` : '';
+      return `<div class="trk${gone}">${id}<span class="cls ${d.c}"${tone}>${d.role || d.c}</span>${raw}
         <span class="d">${Math.round(d.p*100)}%</span>
         ${dw}<span class="d">${len}</span><span class="r">${z}</span></div>`;
     }).join('');
 }
+
+/* ---------- vest search ---------- */
+function renderSearch(s){
+  const el = q('#search'), on = !!(s && s.target);
+  lastSearch = s || null;
+  el.classList.toggle('on', on);
+  q('#conf').classList.toggle('on', on);
+  if (!on) return;
+  const name = s.target.toUpperCase() + ' VEST';
+  const head = {found:`FOUND: ${name}`, lost:`LOST SIGHT OF ${name}`,
+                checking:`CHECKING FOR ${name}`}[s.state] || `SEARCHING FOR ${name}`;
+  const bits = [];
+  if (s.state === 'found' && s.z) bits.push(s.z.toFixed(1) + ' m away');
+  if (s.matches > 1) bits.push(`${s.matches} people match`);
+  bits.push(`${s.ignored || 0} ignored`);
+  el.classList.toggle('found', s.state === 'found');
+  el.innerHTML = `<b>${head}</b><span class="d">${bits.join(' &middot; ')}</span>`;
+}
+
+/* ---------- confidence chart ---------- */
+// One line per person, the last 30 s, so the decision can be watched: the person
+// in the target vest climbs past the threshold while everyone else stays flat.
+// Colour follows the vest, not the line's rank, so a person keeps their colour
+// as others come and go. Checked against this panel's surface: all three pass
+// colour-blind separation and contrast. Yellow is lighter than the usual limit
+// for a chart line, on purpose. Dark enough to meet it, it turns olive and can
+// no longer be told from red with colour blindness.
+const VEST_LINE = {red:'#e5484d', yellow:'#dcb40a', blue:'#4c8dff'};
+const NO_VEST = '#6e7681';
+const INK = {fg:'#d8d2c6', muted:'#7d8694', grid:'#1b222c', rule:'#3a4452', surface:'#0c1016'};
+const FONT = 'ui-sans-serif,system-ui,sans-serif';
+const NIGHT = {...INK, line:VEST_LINE, none:NO_VEST,
+               L:34, R:62, T:8, B:18, font:11, axisW:1, lineW:2, dot:4, gap:13};
+// The poster button's look, for print on white rather than for the field. At
+// least 3:1 against white for lines and 4.5:1 for text. The red is darker than
+// the screen's too: that gap in lightness is what keeps it apart from this dark
+// yellow with colour blindness. Each line also has its own dash, for a poor
+// printer. 1000 x 500 at 3x is 10 x 5 inches at 300 pixels per inch.
+const POSTER = {w:1000, h:500, px:3, fg:'#111111', muted:'#111111', grid:'#bdbdbd',
+                rule:'#111111', surface:'#ffffff',
+                line:{red:'#9E0B25', yellow:'#A67C00', blue:'#0B4FB3'}, none:'#444444',
+                dash:{red:[], yellow:[8,7], blue:[20,9]}, noDash:[12,5,3,5],
+                L:84, R:250, T:56, B:108, font:23, axisW:2, lineW:5.6, dot:8, gap:30};
+const CHART_S = 30, MAX_LINES = 5, GAP_S = 1.0;
+const METRIC = {match:{i:1, title:'Vest match', name:'vest match'},
+                person:{i:2, title:'Person confidence', name:'person'}};
+const chart = q('#chart'), cctx = chart.getContext('2d');
+const people = new Map();     // track id -> {id, vest, role, pts:[[t, match, person]]}
+let metric = 'match', chartNow = 0, crossX = null, legendKey = '', chartTarget = null;
+let poster = false, chartModel = '';
+
+function recordConfidence(ev){
+  // A match is against one colour, so a new target makes the old lines meaningless.
+  if (ev.search.target !== chartTarget){ people.clear(); chartTarget = ev.search.target; }
+  chartNow = ev.t;
+  for (const d of ev.d || []){
+    if (d.c !== 'person' || d.match === undefined) continue;
+    let s = people.get(d.id);
+    if (!s){ s = {id:d.id, pts:[]}; people.set(d.id, s); }
+    s.vest = d.vest; s.role = d.role;
+    // A predicted box is not a reading, so it leaves a gap in the line.
+    if (d.st === 'TRACKED' || d.st === 'NEW') s.pts.push([ev.t, d.match, d.p]);
+  }
+  for (const [id, s] of people){
+    while (s.pts.length && s.pts[0][0] < chartNow - CHART_S) s.pts.shift();
+    if (!s.pts.length) people.delete(id);
+  }
+}
+const lineColour = s => VEST_LINE[s.vest] || NO_VEST;
+const ROLE_ORDER = {target:0, match:1, checking:2};
+function shownPeople(){
+  return [...people.values()].sort((a,b) =>
+    (ROLE_ORDER[a.role] ?? 3) - (ROLE_ORDER[b.role] ?? 3) || a.id - b.id);
+}
+// Draws the chart in either look, on the page or on a poster image.
+function paintChart(c, W, H, look){
+  const print = look === POSTER, {L, R, T, B} = look, PW = W - L - R, PH = H - T - B;
+  const X = t => L + (1 - (chartNow - t) / CHART_S) * PW, Y = v => T + (1 - v) * PH;
+  const colour = s => look.line[s.vest] || look.none;
+  const dash = s => print ? look.dash[s.vest] || look.noDash : [];
+  c.fillStyle = look.surface; c.fillRect(0, 0, W, H);
+  c.font = `${look.font}px ${FONT}`; c.lineWidth = look.axisW;
+  c.textBaseline = 'middle'; c.textAlign = 'right';
+  for (const v of [0, .5, 1]){
+    c.strokeStyle = look.grid; c.beginPath(); c.moveTo(L, Y(v)); c.lineTo(L + PW, Y(v)); c.stroke();
+    c.fillStyle = look.muted; c.fillText(Math.round(v*100) + '%', L - 6, Y(v));
+  }
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  const under = T + PH + look.font + 3;
+  c.fillText('30 s ago', L, under);
+  c.textAlign = 'right'; c.fillText('now', L + PW, under);
+  const need = metric === 'match' && lastSearch && lastSearch.min_share;
+  if (need){
+    c.strokeStyle = look.rule; c.setLineDash(print ? [5,5] : []);
+    c.beginPath(); c.moveTo(L, Y(need)); c.lineTo(L + PW, Y(need)); c.stroke();
+    c.setLineDash([]);
+    c.textAlign = 'left'; c.fillStyle = look.muted;
+    c.fillText(`match line ${Math.round(need*100)}%`, L + 4, Y(need) - look.font / 3);
+  }
+  const m = METRIC[metric].i, shown = shownPeople().slice(0, MAX_LINES), ends = [];
+  c.lineWidth = look.lineW; c.lineJoin = 'round';
+  for (const s of shown){
+    c.strokeStyle = colour(s); c.setLineDash(dash(s));
+    c.lineCap = dash(s).length ? 'butt' : 'round'; c.beginPath();
+    let prev = null;
+    for (const p of s.pts){
+      if (prev && p[0] - prev[0] <= GAP_S) c.lineTo(X(p[0]), Y(p[m]));
+      else c.moveTo(X(p[0]), Y(p[m]));
+      prev = p;
+    }
+    c.stroke();
+    const last = s.pts[s.pts.length - 1];
+    ends.push({s, last, x:X(last[0]), y:Y(last[m]), v:last[m]});
+  }
+  c.setLineDash([]);
+  // End dots carry a surface ring so they stay legible where they overlap.
+  for (const e of ends){
+    c.beginPath(); c.arc(e.x, e.y, look.dot + 2, 0, 7); c.fillStyle = look.surface; c.fill();
+    c.beginPath(); c.arc(e.x, e.y, look.dot, 0, 7); c.fillStyle = colour(e.s); c.fill();
+  }
+  // Decoys all sit near zero, so nudge their labels apart rather than overprint.
+  c.font = `600 ${look.font}px ${FONT}`;
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  ends.sort((a,b) => a.y - b.y);
+  let floor = -Infinity;
+  for (const e of ends){ e.ly = Math.max(e.y, floor + look.gap); floor = e.ly; }
+  // Anything pushed off the bottom moves back up, and only as far as it has to,
+  // so a label near the top stays where its line is.
+  let ceiling = T + PH + Math.ceil(look.font / 2);
+  for (const e of ends.slice().reverse()){
+    e.ly = Math.min(e.ly, ceiling); ceiling = e.ly - look.gap;
+  }
+  for (const e of ends){
+    let x = L + PW + look.dot + 5, label = `#${e.s.id} ${Math.round(e.v*100)}%`;
+    if (print){
+      // There is no legend under a poster image, so each label carries its line.
+      c.strokeStyle = colour(e.s); c.lineWidth = 4; c.setLineDash(dash(e.s));
+      c.beginPath(); c.moveTo(x, e.ly); c.lineTo(x + 36, e.ly); c.stroke();
+      c.setLineDash([]);
+      x += 42; label = `#${e.s.id} ${e.s.vest || 'no vest'} ${Math.round(e.v*100)}%`;
+    }
+    c.fillStyle = e.s.role === 'target' ? look.fg : look.muted;
+    c.fillText(label, x, e.ly, W - x - 2);
+  }
+  if (print) paintPosterNotes(c, W, H, shown);
+  return {L, T, PW, PH, m, shown};
+}
+// What the picture is, printed on it, so it cannot be mistaken once it leaves here.
+function paintPosterNotes(c, W, H, shown){
+  const look = POSTER, s = lastSearch || {}, target = shown.find(p => p.role === 'target');
+  c.textBaseline = 'alphabetic'; c.fillStyle = look.fg;
+  c.textAlign = 'left'; c.font = `700 29px ${FONT}`;
+  c.fillText(METRIC[metric].title, 24, 36);
+  c.textAlign = 'right'; c.font = `${look.font}px ${FONT}`;
+  c.fillText(target ? `Target: #${target.id}, ${s.target} vest` : `Searching for ${s.target} vest`, W - 24, 36);
+  c.textAlign = 'left'; c.font = `700 ${look.font}px ${FONT}`;
+  c.fillText(metric === 'match' ? `Share of chest pixels that are ${s.target}.`
+                                : 'How sure the detector is that it sees a person.', 24, H - 44, W - 48);
+  const when = new Date(chartNow*1000).toLocaleString([], {dateStyle:'medium', timeStyle:'medium'});
+  const who = `${shown.length} ${shown.length === 1 ? 'person' : 'people'} on this chart`;
+  c.font = `${look.font}px ${FONT}`;
+  c.fillText(`Live reading, ${chartModel || 'unknown detector'}, ${when}. ${who}.`, 24, H - 14, W - 48);
+}
+function drawChart(){
+  if (!q('#conf').classList.contains('on')) return;
+  const r = chart.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (chart.width !== Math.round(r.width*dpr) || chart.height !== Math.round(r.height*dpr)){
+    chart.width = Math.round(r.width*dpr); chart.height = Math.round(r.height*dpr);
+  }
+  // The poster view is the poster image itself, scaled to fit this screen.
+  const zoom = poster ? r.width / POSTER.w : 1, c = cctx, W = r.width / zoom;
+  c.setTransform(dpr*zoom, 0, 0, dpr*zoom, 0, 0);
+  const {L, T, PW, PH, m, shown} = paintChart(c, W, r.height / zoom, poster ? POSTER : NIGHT);
+  if (!poster && crossX !== null && crossX >= L && crossX <= L + PW){
+    c.strokeStyle = INK.rule; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(crossX, T); c.lineTo(crossX, T + PH); c.stroke();
+    showTip(chartNow - (1 - (crossX - L) / PW) * CHART_S, shown, m, W);
+  } else {
+    q('#ctip').style.display = 'none';
+  }
+  renderLegend(shown);
+}
+function showTip(t, shown, m, W){
+  const tip = q('#ctip');
+  tip.textContent = '';
+  for (const s of shown){
+    let best = null;
+    for (const p of s.pts) if (!best || Math.abs(p[0]-t) < Math.abs(best[0]-t)) best = p;
+    if (!best || Math.abs(best[0]-t) > GAP_S) continue;
+    const row = document.createElement('div'); row.className = 'row';
+    const key = document.createElement('i'); key.style.background = lineColour(s);
+    const val = document.createElement('b'); val.textContent = Math.round(best[m]*100) + '%';
+    const who = document.createElement('span');
+    who.textContent = `#${s.id} ${s.vest || 'no vest'}`;
+    row.append(key, val, who); tip.append(row);
+  }
+  tip.style.display = tip.childElementCount ? 'block' : 'none';
+  const left = crossX + 10 + tip.offsetWidth > W ? crossX - 10 - tip.offsetWidth : crossX + 10;
+  tip.style.left = Math.max(0, left) + 'px';
+}
+function renderLegend(shown){
+  const hidden = people.size - shown.length;
+  const k = shown.map(s => `${s.id}${s.vest}${s.role}`).join() + hidden;
+  if (k === legendKey) return;
+  legendKey = k;
+  const el = q('#legend');
+  el.textContent = '';
+  for (const s of shown){
+    const key = document.createElement('span'); key.className = 'key';
+    const line = document.createElement('i'); line.style.background = lineColour(s);
+    const name = document.createElement('span');
+    name.textContent = `#${s.id} ${s.vest || 'no vest'}` + (s.role === 'target' ? ' (target)' : '');
+    key.append(line, name); el.append(key);
+  }
+  if (hidden > 0){
+    const more = document.createElement('span'); more.className = 'key more';
+    more.textContent = `+${hidden} more in Tracks`; el.append(more);
+  }
+}
+const setCross = e => { crossX = e.clientX - chart.getBoundingClientRect().left; drawChart(); };
+chart.addEventListener('pointermove', setCross);
+chart.addEventListener('pointerdown', setCross);
+for (const end of ['pointerleave','pointercancel'])
+  chart.addEventListener(end, () => { crossX = null; drawChart(); });
+addEventListener('resize', drawChart);
+function setMetric(name){
+  metric = name;
+  q('#conf-ttl').textContent = METRIC[name].title;
+  q('#m-match').classList.toggle('on', name === 'match');
+  q('#m-person').classList.toggle('on', name === 'person');
+  drawChart();
+}
+q('#m-match').onclick = () => setMetric('match');
+q('#m-person').onclick = () => setMetric('person');
+q('#cposter').onclick = e => {
+  poster = !poster;
+  e.target.classList.toggle('on', poster);
+  q('#conf').classList.toggle('poster', poster);
+  drawChart();
+};
+function posterImage(){
+  const out = document.createElement('canvas');
+  out.width = POSTER.w * POSTER.px; out.height = POSTER.h * POSTER.px;
+  const c = out.getContext('2d');
+  c.scale(POSTER.px, POSTER.px);
+  paintChart(c, POSTER.w, POSTER.h, POSTER);
+  return out.toDataURL('image/png');
+}
+
+/* ---------- confidence snapshots: this phone only, nothing goes to the drone ---------- */
+const snaps = [];
+const SNAP_COLUMNS = ['track','role','vest','vest match','person','distance'];
+q('#csnap').onclick = () => {
+  const s = lastSearch || {};
+  snaps.unshift({
+    t: chartNow, target: s.target, state: s.state,
+    chart: poster ? posterImage() : chart.toDataURL('image/png'),
+    rows: dets.filter(d => d.c === 'person' && d.match !== undefined).map(d => ({
+      id: d.id, role: d.role || '', vest: d.vest || 'no vest', match: d.match, p: d.p,
+      z: d.xyz && d.xyz[2] > 0 ? d.xyz[2] : null})),
+  });
+  if (snaps.length > 20) snaps.pop();
+  renderSnaps();
+};
+const snapTime = t => new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function renderSnaps(){
+  const el = q('#snaps');
+  el.textContent = '';
+  if (!snaps.length) return;
+  const bar = document.createElement('div'); bar.className = 'bar';
+  const n = document.createElement('span');
+  n.textContent = `${snaps.length} snapshot${snaps.length > 1 ? 's' : ''} on this phone`;
+  const save = document.createElement('button'); save.textContent = 'save CSV'; save.onclick = saveSnaps;
+  bar.append(n, save); el.append(bar);
+  for (const s of snaps){
+    const card = document.createElement('div'); card.className = 'snap';
+    const when = document.createElement('div'); when.className = 'when';
+    when.textContent = `${snapTime(s.t)}, ${s.target} vest, ${s.state}`;
+    const img = document.createElement('img'); img.src = s.chart; img.alt = 'confidence chart at this moment';
+    const table = document.createElement('table');
+    const head = table.insertRow();
+    for (const name of SNAP_COLUMNS){
+      const th = document.createElement('th'); th.textContent = name; head.append(th);
+    }
+    for (const row of s.rows){
+      const tr = table.insertRow();
+      for (const v of [`#${row.id}`, row.role, row.vest, Math.round(row.match*100) + '%',
+                       Math.round(row.p*100) + '%', row.z ? row.z.toFixed(1) + ' m' : '--'])
+        tr.insertCell().textContent = v;
+    }
+    const png = document.createElement('button'); png.textContent = 'save PNG'; png.onclick = () => savePng(s);
+    card.append(when, img, png, table); el.append(card);
+  }
+}
+function savePng(s){
+  const a = document.createElement('a');
+  a.href = s.chart;
+  a.download = `venator-confidence-${new Date(s.t*1000).toISOString().replace(/[:.]/g, '-')}.png`;
+  a.click();
+}
+function saveSnaps(){
+  const lines = ['time,target,state,track,role,vest,vest_match,person_confidence,distance_m'];
+  for (const s of snaps.slice().reverse())
+    for (const r of s.rows)
+      lines.push([new Date(s.t*1000).toISOString(), s.target, s.state, r.id, r.role, r.vest,
+                  r.match, r.p, r.z ?? ''].join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join(String.fromCharCode(10))], {type:'text/csv'}));
+  a.download = 'venator-confidence.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------- vest search controls: the operator's page only ---------- */
+let searchNow = null, recordingNow = null, restartAt = 0;
+function renderOps(s){
+  if (VIEW_ONLY || !s || !('search' in s)) return;
+  const wasRecording = recordingNow;
+  searchNow = s.search; recordingNow = s.recording;
+  // A recording also ends when the search is turned off, so refresh the list
+  // whenever one stops, not only when stop is pressed.
+  if (wasRecording && !recordingNow) loadTrials();
+  q('#ops').classList.toggle('off', !searchNow);
+  for (const b of document.querySelectorAll('#ops button[data-v]'))
+    b.classList.toggle('on', b.dataset.v === (searchNow || 'off'));
+  q('#calbtn').textContent = searchNow ? `calibrate ${searchNow}` : 'calibrate';
+  if (s.calibrating) setMsg('#calmsg', `Reading the ${s.calibrating} vest. Hold it still...`);
+  q('#recbtn').textContent = recordingNow ? 'stop' : 'record';
+  q('#recbtn').classList.toggle('on', !!recordingNow);
+  q('#recmsg').textContent = recordingNow ? `${recordingNow.name}, ${recordingNow.rows} rows` : '';
+  // "Restarting" stays up until the camera is really back: a status with frames,
+  // from after the restart. The reply to the click itself comes before it.
+  if (restartAt && s.fps > 0 && s.camera !== 'restarting' && Date.now() - restartAt > 1500){
+    restartAt = 0;
+    setMsg('#opsmsg', '');
+  }
+}
+function setMsg(sel, text, bad){
+  const el = q(sel); el.textContent = text; el.classList.toggle('bad', !!bad);
+}
+function ops(body){
+  return api('/api/config', body).then(r => r && r.json()).then(o => {
+    if (!o) return o;
+    renderOps(o);
+    if (o.problem) setMsg('#opsmsg', o.problem, true);
+    return o;
+  }).catch(() => setMsg('#opsmsg', 'The camera did not answer.', true));
+}
+for (const b of document.querySelectorAll('#ops button[data-v]')) b.onclick = () => {
+  const v = b.dataset.v, turning = (v === 'off') !== !searchNow;
+  if (turning){
+    restartAt = Date.now();
+    setMsg('#opsmsg', 'Restarting the camera for the search, a few seconds...');
+  }
+  ops({search: v});
+};
+q('#calbtn').onclick = () => {
+  if (!searchNow) return;
+  setMsg('#calmsg', `Reading the ${searchNow} vest. Hold it still...`);
+  ops({calibrate: searchNow});
+};
+q('#recbtn').onclick = () => {
+  const body = recordingNow ? {record: false} : {record: {note: q('#recnote').value}};
+  ops(body);
+};
+function loadTrials(){
+  if (VIEW_ONLY) return;
+  fetch(auth('/api/trials')).then(r => r.json()).then(o => {
+    const el = q('#trials');
+    el.textContent = '';
+    const list = (o.trials || []).slice(0, 6);
+    if (!list.length) return;
+    const head = document.createElement('span'); head.className = 'd'; head.textContent = 'Trials:';
+    el.append(head);
+    for (const t of list){
+      const a = document.createElement('a');
+      a.href = auth('/api/trials/' + encodeURIComponent(t.name)); a.download = t.name;
+      a.textContent = t.name.replace(/\.csv$/, '');
+      el.append(a);
+    }
+  }).catch(() => {});
+}
+loadTrials();
 
 /* ---------- chips ---------- */
 function chip(label, value, cls){
   return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
 }
 function renderChips(s){
+  chartModel = s.model || chartModel;
   const t = s.temp, w = s.watts, usb = s.usb, rssi = s.link && s.link.rssi;
   // The camera can be absent while the page is perfectly healthy - the OAK
   // has been seen to drop off the USB bus. Say so plainly instead of showing
   // 0 fps and letting the operator guess which half is broken.
+  // A healthy status puts the banner's own wording back, so a later loss of the
+  // video link doesn't still say "restarting" or "offline" from before.
+  if (!s.camera) q('#nolink').innerHTML = NOLINK_TEXT;
+  if (s.camera === 'restarting'){
+    q('#nolink').innerHTML = '<div><b>camera restarting</b><br>'
+      + '<span style="color:var(--muted)">For the vest search. Back in a few seconds.</span></div>';
+    q('#nolink').classList.add('on');
+  }
   if (s.camera === 'offline'){
     q('#nolink').innerHTML = '<div><b>camera offline</b><br>'
       + '<span style="color:var(--muted)">' + (s.error || '')
@@ -301,8 +813,8 @@ function renderChips(s){
     stage.classList.add('stale');
   }
   const out = [
-    s.camera === 'offline'
-      ? chip('camera', 'offline', 'bad')
+    s.camera === 'offline' || s.camera === 'restarting'
+      ? chip('camera', s.camera, s.camera === 'offline' ? 'bad' : 'warn')
       : chip('fps', (s.fps ?? 0).toFixed(1), s.fps >= 8 ? 'ok' : 'warn'),
     chip('model', s.model || '--'),
     chip('mode', s.pm || '--', (s.pm||'').startsWith('7W') ? 'ok' : 'warn'),
@@ -327,8 +839,8 @@ let alerts = [];
 function renderAlerts(){
   q('#alerts').innerHTML = alerts.filter(a => !acked.has(a.id)).map(a => `
     <div class="alert"><b>${(a.kind||'alert').replace(/_/g,' ').toUpperCase()}</b>
-    <span class="meta">${Math.round((a.conf||0)*100)}% &middot;
-      ${a.dwell ? a.dwell.toFixed(0)+' s' : ''}
+    <span class="meta">${Math.round((a.conf||0)*100)}%
+      ${a.dwell ? '&middot; '+a.dwell.toFixed(0)+' s' : ''}
       ${a.rel ? '&middot; '+a.rel.rng+' m brg '+a.rel.brg+'°' : ''}
       ${a.ll ? '&middot; '+a.ll[0].toFixed(5)+', '+a.ll[1].toFixed(5) : '&middot; no GPS fix'}
     </span><button data-ack="${a.id}">ack</button></div>`).join('');
@@ -339,16 +851,47 @@ q('#alerts').onclick = e => {
   acked.add(id); sessionStorage.setItem('acked', JSON.stringify([...acked]));
   api('/api/ack', {alert_id:id}); renderAlerts();
 };
-let beepOk = false;
-addEventListener('pointerdown', () => { beepOk = true; }, {once:true});
+/* The FOUND beep. Safari on iPhone only plays Web Audio from a context created
+   or resumed during a tap: one made when the alert arrives, as this used to,
+   stays silent. So the first tap makes the context, and later taps wake it if
+   iOS has suspended it (it does, in the background). A phone on silent still
+   mutes it, and iPhones have no vibrate. Taps, not pointerdown: on a touch
+   screen only the end of a tap counts as one. */
+let audio = null;
+function wakeAudio(){
+  if (audio && audio.state !== 'running' && audio.resume) {
+    const r = audio.resume();
+    if (r && r.catch) r.catch(() => {});
+  }
+}
+function unlockAudio(){
+  try {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audio = new AC();
+      // a silent blip inside the tap is what unlocks older iOS
+      const o = audio.createOscillator(), g = audio.createGain();
+      g.gain.value = 0; o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + .02);
+    }
+    wakeAudio();
+  } catch(_){}
+}
+['pointerup', 'touchend', 'click', 'keydown'].forEach(e =>
+  addEventListener(e, unlockAudio, {capture:true, passive:true}));
+function beep(){
+  const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+  o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+  g.gain.value = .25; o.start(t); o.stop(t + .42);
+}
 function notify(){
   if (navigator.vibrate) navigator.vibrate([200,100,200]);
-  if (!beepOk) return;            // iOS refuses audio before a user gesture
+  if (!audio) return;             // no tap yet: browsers refuse sound before one
   try {
-    const a = new (window.AudioContext||window.webkitAudioContext)();
-    const o = a.createOscillator(), g = a.createGain();
-    o.frequency.value = 880; o.connect(g); g.connect(a.destination);
-    g.gain.value = .25; o.start(); setTimeout(() => { o.stop(); a.close(); }, 420);
+    if (audio.state === 'running') { beep(); return; }
+    const r = audio.resume && audio.resume();
+    if (r && r.then) r.then(beep, () => {});
   } catch(_){}
 }
 
@@ -434,11 +977,11 @@ function drawShot(){
   lbCtx.clearRect(0, 0, ir.width, ir.height);
   if (!lbBoxes || lbIdx < 0) return;
   for (const d of (shots[lbIdx].detections || [])){
-    const c = COLOUR[d.c] || '#fff';
+    const c = boxColour(d);
     const x = d.b[0]*ir.width, y = d.b[1]*ir.height;
     const bw = (d.b[2]-d.b[0])*ir.width, bh = (d.b[3]-d.b[1])*ir.height;
     lbCtx.lineWidth = 3; lbCtx.strokeStyle = c; lbCtx.strokeRect(x, y, bw, bh);
-    const txt = `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
+    const txt = roleLabel(d) || `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
     lbCtx.font = '600 15px ui-sans-serif,system-ui,sans-serif';
     const tw = lbCtx.measureText(txt).width + 10, ty = y > 20 ? y - 20 : y + bh;
     lbCtx.fillStyle = 'rgba(2,3,5,.82)'; lbCtx.fillRect(x, ty, tw, 20);
@@ -504,9 +1047,15 @@ function connect(){
   es.addEventListener('det', e => {
     const d = JSON.parse(e.data);
     dets = d.d || []; lastFrame = Date.now();
-    draw(); renderTracks();
+    renderSearch(d.search);
+    if (d.search && d.search.target) recordConfidence(d);
+    draw(); renderTracks(); drawChart();
   });
-  es.addEventListener('status', e => renderChips(JSON.parse(e.data)));
+  es.addEventListener('status', e => { const s = JSON.parse(e.data); renderChips(s); renderOps(s); });
+  es.addEventListener('calibration', e => {
+    const c = JSON.parse(e.data);
+    setMsg('#calmsg', c.message, !c.ok);
+  });
   es.addEventListener('alert', e => {
     const a = JSON.parse(e.data);
     if (!alerts.some(x => x.id === a.id)) { alerts.unshift(a); notify(); }
@@ -548,7 +1097,7 @@ def js_literal(value):
             .replace("&", "\\u0026"))
 
 
-def render(token, cfg, qualities):
+def render(token, cfg, qualities, view_only=False):
     """The page, with the token and quality rungs baked in.
 
     Both go through js_literal rather than bare interpolation: the token is hex
@@ -558,5 +1107,6 @@ def render(token, cfg, qualities):
     """
     return (PAGE
             .replace("__TOKEN__", js_literal(token))
+            .replace("__VIEW_ONLY__", js_literal(bool(view_only)))
             .replace("__QUALITIES__", js_literal(
                 {k: [list(v[0]), v[1], v[2]] for k, v in qualities.items()})))

@@ -45,6 +45,7 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | 🔵 units, key split and crash-loop guards done; **not yet verified across a reboot with hardware attached** |
 | 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
 | — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first; true 3 ft needs the downward lidar, since `EKF2_HGT_REF=2` currently falls back to the baro |
+| — | Vest search: find the person in the yellow construction vest, ignore the decoys (`drone/wildlife/vest.py`) | 🔵 colour check, vote and lock, switched on, calibrated and recorded from the operator's page; tested in simulation and on a laptop webcam, **not yet on the real OAK-D or Jetson**, and nothing commands the aircraft from it yet. A yellow shirt fools it: it matches a description |
 | — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock only); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
 | 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
@@ -84,11 +85,14 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   props and GPS at launch time, not just when the flight was prepared — props can
   be toggled inside the 60 s confirm window, and on an unauthenticated link
   anything in radio range can inject that toggle.
-  **One exception, still open:** menu id 3 ("Fly to waypoints") carries no `fly`
-  key, so it is not routed through `_prepare`/`CONFIRM` — it goes straight to
-  `missions.mission_3(..., require_confirm=False)`, which arms after a 3 s sleep.
-  It is still gated on props ON plus a GPS fix, so it cannot fire on the bench,
-  but it is the only flight path in the system without a second step.
+  **The one exception is closed (2026-11-06):** a RUN for menu id 3 ("Fly to
+  waypoints") used to skip `_prepare`/`CONFIRM` and go straight to
+  `missions.mission_3(..., require_confirm=False)`, arming after a 3 s sleep. It
+  is now refused: the waypoint flight goes upload → `FLY_REQ` → `CONFIRM`, as the
+  laptop client always sent it, and `mission_3` always asks for FLY at the
+  keyboard. The same change made an error mid-flight trigger that flight's
+  failsafe (it used to kill the server), and made STOP land an armed drone the
+  server isn't flying, as after a restart mid-flight.
 - **5 — Waypoint flight:** ⚠️ **blocked on GPS hardware.** The Holybro M10 is
   fitted and `GPS_1_CONFIG=201` is set, but PX4 reports `fix_type 0` with 0
   satellites and `XY_POSITION_CONTROL` unhealthy — an M10 cable or port fault,

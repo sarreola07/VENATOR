@@ -15,7 +15,8 @@ Missions:
   4) RC manual flight: Stabilized mode, arm, you fly with the
      transmitter while this script monitors (props on — REAL FLIGHT)
   5) Camera tracking display: show the OAK-D person X/Y/Z (no flight)
-  6) LoRa remote: run missions from LoRa commands (respects props gate)
+  6) LoRa remote: run motor tests and the camera display from LoRa commands
+     (respects props gate; nothing that flies)
 
 Usage:
     ./venv/bin/python missions.py
@@ -228,16 +229,16 @@ def wait_altitude(master, target_m, timeout=30):
     return best
 
 
-def mission_3(master, require_confirm=True):
+def mission_3(master):
     print(f"\n{INFO} Mission 3: arm → take off to {TAKEOFF_ALT_M:.2f} m (3 ft) → land → disarm.")
     print(f"{WARN} THIS FLIES THE DRONE. Clear the area. Be ready to cut power.")
-    if require_confirm:
-        if input("Type FLY to continue, anything else to abort: ").strip().lower() != "fly":
-            print(f"{INFO} Aborted.")
-            return
-    else:
-        print(f"{WARN} Triggered remotely by LoRa — no local confirmation. Arming in 3 s.")
-        time.sleep(3)
+    # Always asked here, at the keyboard. This used to take require_confirm=False
+    # for radio triggers (the C2 server's menu item 3 and the listener's "4"),
+    # which armed after a 3 s sleep with nothing listening for STOP or link loss.
+    # Flights over the radio go through the C2 server: CONFIRM, then failsafes.
+    if input("Type FLY to continue, anything else to abort: ").strip().lower() != "fly":
+        print(f"{INFO} Aborted.")
+        return
 
     # AUTO.TAKEOFF needs a position estimate (GPS/optical flow); check before arming
     print(f"{INFO} Checking position estimate ...")
@@ -415,11 +416,13 @@ def handle_lora_msg(master, msg, props_off, motors):
     """Dispatch one LoRa command under the same props interlock as the menu."""
     msg = normalize_lora_msg(msg)
     # command -> (label, handler, needs_props_off, needs_props_on)
+    #
+    # No flight. "4" used to fly mission 3 on one plain-text line, from anything
+    # in radio range, with no confirmation and no failsafes while it flew.
     table = {
         "1": ("sequential motor test", lambda: mission_1(master, motors), True, False),
         "2": ("all-motor test", lambda: mission_2(master, motors), True, False),
         "3": ("camera display (30 s)", lambda: listen_camera_coordinates(seconds=30), False, False),
-        "4": ("flight: arm/takeoff/land", lambda: mission_3(master, require_confirm=False), False, True),
     }
     if msg not in table:
         print(f"{WARN} LoRa: unknown command {msg!r} — ignored")
@@ -442,12 +445,13 @@ def handle_lora_msg(master, msg, props_off, motors):
 def run_lora_listener(master, props_off, motors):
     """Menu option 6: turn LoRa packets into mission commands."""
     print(f"\n{INFO} LoRa remote listener on {LORA_PORT} @ {LORA_BAUD}.")
-    print(f"{INFO} Command map: 1=seq motors, 2=all motors, 3=camera, 4=flight.")
+    print(f"{INFO} Command map: 1=seq motors, 2=all motors, 3=camera.")
+    print(f"{INFO} Nothing here flies. Flights over the radio go through the C2")
+    print(f"{INFO} service (drone/c2_server.py), which asks for CONFIRM and has failsafes.")
     if props_off:
-        print(f"{PASS} Props OFF — LoRa may run 1, 2, 3. Flight (4) is blocked.")
+        print(f"{PASS} Props OFF — LoRa may run 1, 2, 3.")
     else:
-        print(f"{WARN} Props ON — LoRa may run 3, 4. Motor tests (1, 2) are blocked.")
-        print(f"{WARN} LoRa command 4 will FLY the drone with no local confirmation.")
+        print(f"{WARN} Props ON — LoRa may run 3. Motor tests (1, 2) are blocked.")
     listen_lora(port=LORA_PORT, baud=LORA_BAUD,
                 on_msg=lambda m: handle_lora_msg(master, m, props_off, motors))
 

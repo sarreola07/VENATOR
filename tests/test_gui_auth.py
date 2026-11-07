@@ -13,11 +13,17 @@ replaced it, pinned so they cannot quietly regress:
     traversal and arbitrary reads are refused;
   * the viewer cap holds, because one thread per stream on a box with zero swap
     is a resource limit and not a nicety;
-  * alerts are delivered at least once while detections are allowed to drop.
+  * alerts are delivered at least once while detections are allowed to drop;
+  * a view-only token can watch and change nothing, because a QR code handed
+    round a room should not let any phone reconfigure a live demonstration.
 
 Stdlib only, no camera, no sockets - runs on a laptop, the Jetson and in CI.
 """
+import io
+import json
 import os
+import re
+import tempfile
 import sys
 import threading
 import time
@@ -30,6 +36,8 @@ sys.path.insert(0, str(ROOT / "drone" / "wildlife"))
 import gui_server            # noqa: E402
 import gui_page              # noqa: E402
 import ports                 # noqa: E402
+import trial_log             # noqa: E402
+import vest                  # noqa: E402
 from radio import auth       # noqa: E402
 
 PASS = FAIL = 0
@@ -182,6 +190,165 @@ check("reserves the iOS home-bar area", "safe-area-inset-bottom" in html)
 null_tok = gui_page.render(None, {"quality": "hi"}, gui_server.QUALITIES)
 check("a missing token renders as null, not the string 'None'",
       "null" in null_tok and "None" not in null_tok)
+
+print("\nView-only token: an audience can watch and change nothing")
+view = gui_server.make_view_token(KEY)
+check("a key yields a view token", bool(view))
+check("it is not the GUI token", view != tok)
+check("it does not reveal the GUI token", tok not in view and view not in tok)
+check("no key means no view token", gui_server.make_view_token(None), None)
+
+
+class Sent:
+    def __init__(self):
+        self.code = None
+        self.headers = {}
+        self.body = b""
+
+
+def drive(method, path, cfg=None, body=b"", hub=None, save_dir="/tmp"):
+    """Run one request through the real handler, with no socket."""
+    cfg = cfg if cfg is not None else {
+        "conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
+    Handler = gui_server.make_handler(hub or gui_server.Hub(), tok, save_dir, cfg, view)
+    sent = Sent()
+
+    class H(Handler):
+        def __init__(self):          # bypass BaseHTTPRequestHandler's socket setup
+            self.path = path
+            self.headers = {"Host": "10.42.0.1", "Content-Length": str(len(body))}
+            self.rfile = io.BytesIO(body)
+            self.wfile = io.BytesIO()
+            self.connection = type("C", (), {"settimeout": lambda *a: None})()
+
+        def send_response(self, code, *a):
+            sent.code = code
+
+        def send_header(self, k, v):
+            sent.headers[k] = v
+
+        def end_headers(self):
+            pass
+
+        def log_message(self, *a):
+            pass
+
+    h = H()
+    getattr(h, "do_" + method)()
+    sent.body = h.wfile.getvalue()
+    return sent
+
+
+check("it can load the page", drive("GET", f"/?k={view}").code, 200)
+check("and read the status", drive("GET", f"/api/status?k={view}").code, 200)
+check("a wrong token still cannot", drive("GET", "/api/status?k=wrong").code, 403)
+page = drive("GET", f"/?k={view}")
+check("the page it gets is marked view-only", b"VIEW_ONLY = true" in page.body)
+check("the GUI token is nowhere in that page", tok.encode() not in page.body)
+check("and is not what its cookie stores", f"vt={view}" in page.headers["Set-Cookie"])
+check("the operator's page is not view-only",
+      b"VIEW_ONLY = false" in drive("GET", f"/?k={tok}").body)
+check("a view-only visitor still gets the confidence chart and snapshots",
+      b'id="chart"' in page.body and b'id="csnap"' in page.body)
+check("evidence judging is hidden from them", b".viewonly .shot .v" in page.body)
+
+print("\nThe poster chart reads on a white poster, and stays off until asked for")
+
+
+def contrast_on_white(colour):
+    channels = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05)
+
+
+look = re.search(r"const POSTER = \{.*?\};", gui_page.PAGE, re.S).group(0)
+text = re.findall(r"(?:fg|muted):'(#\w{6})'", look)
+lines = re.findall(r"#\w{6}", re.search(r"line:\{.*?none:'#\w{6}'", look).group(0))
+check("it has a white background", "surface:'#ffffff'" in look)
+check("its text is readable on white", len(text) == 2 and min(map(contrast_on_white, text)) >= 4.5)
+check("and so is every line", len(lines) == 4 and min(map(contrast_on_white, lines)) >= 3.0)
+check("every vest has its own line style",
+      len({str(d) for d in re.findall(r"(?:red|yellow|blue):(\[.*?\])", look)}) == 3)
+check("it starts off, so the page opens dark", "let poster = false" in gui_page.PAGE)
+check("nothing remembers it being on",
+      not re.search(r"(localStorage|sessionStorage|cookie)[^\n]*poster", gui_page.PAGE))
+check("a view-only visitor can use it too", b'id="cposter"' in page.body)
+
+cfg = {"conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
+change = b'{"quality": "lo", "save": false, "classes": ["animal"]}'
+check("it cannot change settings", drive("POST", f"/api/config?k={view}", cfg, change).code, 403)
+check("and the settings did not change", (cfg["quality"], cfg["save"], cfg["classes"]),
+      ("hi", True, []))
+check("it cannot judge evidence", drive("POST", f"/api/verdict?k={view}", cfg, b"{}").code, 403)
+check("it cannot ack alerts for everyone", drive("POST", f"/api/ack?k={view}", cfg, b"{}").code, 403)
+check("the GUI token still can", drive("POST", f"/api/config?k={tok}", cfg, change).code, 200)
+check("and it took effect", cfg["quality"], "lo")
+
+print("\nDuring a search, joining the hotspot only grants view-only")
+searching = dict(cfg, search=vest.VestSearch("red"))
+r = drive("GET", "/generate_204", searching)
+check("the portal redirect carries the view token", f"k={view}" in r.headers["Location"])
+check("and not the GUI token", tok in r.headers["Location"], False)
+r = drive("GET", "/portal", searching)
+check("the landing page has no GUI token in it", tok.encode() in r.body, False)
+check("and neither does its cookie", tok in r.headers["Set-Cookie"], False)
+r = drive("GET", "/generate_204")
+check("with the search off the portal behaves as before", f"k={tok}" in r.headers["Location"])
+
+print("\nOnly the operator can change the search")
+with tempfile.TemporaryDirectory() as tmp:
+    os.environ["VENATOR_VEST_FILE"] = os.path.join(tmp, "vest-colours.json")
+    trials = trial_log.TrialLog(os.path.join(tmp, "trials"), log=lambda *_: None)
+    search_cfg = dict(cfg, search=vest.VestSearch("yellow"), trials=trials)
+    post = lambda body, k=tok: drive("POST", f"/api/config?k={k}", search_cfg,
+                                     json.dumps(body).encode(), save_dir=tmp)
+    for body, what in (({"search": "blue"}, "change the colour"), ({"search": "off"}, "turn it off"),
+                       ({"calibrate": "yellow"}, "calibrate"), ({"record": {"note": "x"}}, "record")):
+        check(f"a view-only phone can't {what}", post(body, view).code, 403)
+    check("and nothing changed", (search_cfg["search"].target, search_cfg.get("calibrating"),
+                                  trials.recording), ("yellow", None, False))
+    r = post({"search": "blue"})
+    check("the operator can change the colour", search_cfg["search"].target, "blue")
+    check("which needs no camera restart", search_cfg.get("rebuild"), None)
+    check("and the page is told the new state", json.loads(r.body)["search"], "blue")
+    r = post({"search": "green"})
+    check("a colour that isn't a vest is refused", json.loads(r.body).get("problem") is not None)
+    check("and changes nothing", search_cfg["search"].target, "blue")
+
+    r = drive("GET", "/generate_204", search_cfg)
+    check("during a search, joining the hotspot only grants view-only", f"k={view}" in r.headers["Location"])
+    check("and never the GUI token", tok in r.headers["Location"], False)
+
+    post({"record": {"note": "4 m daylight"}})
+    check("the operator can record a trial", trials.recording)
+    name = trials.name
+    post({"record": False})
+    check("and stop it", trials.recording, False)
+    r = drive("GET", f"/api/trials?k={view}", search_cfg, save_dir=tmp)
+    check("view-only phones can list trials", [t["name"] for t in json.loads(r.body)["trials"]], [name])
+    r = drive("GET", f"/api/trials/{name}?k={view}", search_cfg, save_dir=tmp)
+    check("and download one", (r.code, r.body.startswith(b"time,note,target")), (200, True))
+    check("as a file", "attachment" in r.headers.get("Content-Disposition", ""))
+    for bad in ("..%2F..%2Fetc%2Fpasswd", "../../etc/passwd", "x.csv", "vest-colours.json"):
+        check(f"a bad trial name gets nothing: {bad!r}",
+              drive("GET", f"/api/trials/{bad}?k={tok}", search_cfg, save_dir=tmp).code, 404)
+
+    r = post({"calibrate": "blue"})
+    check("the operator can start a calibration", search_cfg["calibrating"].colour, "blue")
+
+    post({"search": "off"})
+    check("the operator can turn the search off", search_cfg["search"], None)
+    check("which restarts the camera, to stop pulling colour frames", search_cfg.get("rebuild"), True)
+    check("and ends a calibration in progress", search_cfg["calibrating"], None)
+    r = post({"record": {"note": "x"}})
+    check("with the search off there's nothing to record", json.loads(r.body).get("problem") is not None)
+    r = drive("GET", "/generate_204", search_cfg)
+    check("and the hotspot hands out the GUI token again", f"k={tok}" in r.headers["Location"])
+    search_cfg.pop("rebuild")
+    post({"search": "red"})
+    check("the operator can turn it back on", search_cfg["search"].target, "red")
+    check("which restarts the camera to pull colour frames", search_cfg.get("rebuild"), True)
+    del os.environ["VENATOR_VEST_FILE"]
 
 print("\nPorts are distinct and overridable")
 check("GUI and relay no longer collide", ports.GUI_HTTP != ports.PHONE_RELAY_HTTP)
