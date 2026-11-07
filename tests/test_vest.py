@@ -19,6 +19,7 @@ so this is the same logic the aircraft runs.
 """
 import argparse
 import json
+import os
 import random
 import socket
 import sys
@@ -620,6 +621,70 @@ taken = vest.SearchLink(target_port, report_port, log=lambda m: None)
 taken.poll_target(s)
 check("a taken port leaves the search running, not crashed", s.target, None)
 
+print("\nRecording a trial")
+import trial_log  # noqa: E402
+
+with tempfile.TemporaryDirectory() as tmp:
+    said = []
+    trials = trial_log.TrialLog(Path(tmp) / "trials", log=said.append)
+    check("nothing is recorded until it is started", trials.status(), None)
+    trials.write({"target": "red", "state": "searching"}, [person(1)])
+    check("and writing while stopped does nothing", trials.rows, 0)
+    name = trials.start("4 m, Daylight! Sam in red")
+    check("a recording is named by time and note",
+          bool(trial_log.NAME.match(name)) and name.endswith("-4-m-daylight-sam-in-red.csv"))
+    s = vest.VestSearch("red")
+    dets = [dict(person(1), role="target", vest="red", match=0.8, votes=8),
+            dict(person(2, z=0.0), role="ignored", vest="blue", match=0.0, votes=0),
+            dict(person(3, cls="animal"))]
+    trials.write({"target": "red", "state": "found", "id": 1, "z": 4.0, "conf": 0.8,
+                  "found_now": True}, dets)
+    check("one row per person, plus one for the find", trials.rows, 3)
+    check("the page sees it recording", trials.status(), {"name": name, "rows": 3})
+    check("stopping returns its name", trials.stop(), name)
+    check("and stopping again is harmless", trials.stop(), None)
+    import csv  # noqa: E402
+    rows = list(csv.DictReader(open(Path(tmp) / "trials" / name)))
+    check("the columns are the documented ones", list(rows[0]), list(trial_log.COLUMNS))
+    check("the note is on every row", {r["note"] for r in rows}, {"4 m, Daylight! Sam in red"})
+    check("an animal is not a row", [r["track"] for r in rows[:2]], ["1", "2"])
+    check("a missing depth is blank, not 0", rows[1]["distance_m"], "")
+    check("the find is its own row", (rows[2]["event"], rows[2]["track"]), ("found", "1"))
+    check("it is listed", [t["name"] for t in trials.list()], [name])
+    check("and can be found by name", trials.path(name) is not None)
+    for bad in ("../" + name, "x.csv", name + ".bak", "", "/etc/passwd", "20261106-120000.CSV"):
+        check(f"refuses {bad!r}", trials.path(bad), None)
+    trials.start("")
+    trials._file.close()           # a write that fails, like a full disk
+    trials.write({"target": "red", "state": "found"}, [dict(person(1), role="target")])
+    check("a failed write stops the recording", trials.recording, False)
+    check("and says so", any("could not write" in m for m in said))
+    blocked = trial_log.TrialLog(Path(tmp) / "trials" / name / "nested", log=said.append)
+    check("a folder that can't be made refuses to start", blocked.start("x"), None)
+    first = trials.start("retake")
+    trials.stop()
+    second = trials.start("retake")
+    trials.stop()
+    check("two recordings in one second with one note don't overwrite each other",
+          first != second and all(trials.path(n) for n in (first, second)))
+    check("and both can be listed", {first, second} <= {t["name"] for t in trials.list()})
+
+print("\nA calibration that gets no picture gives up")
+import gui_server  # noqa: E402
+cal_cfg = {"search": vest.VestSearch("red")}
+check("it starts", gui_server.start_calibration(cal_cfg, "red"), None)
+for t in (0.0, 1.0, vest.CALIBRATION_TIMEOUT_S - 0.5):
+    gui_server.search_step(gui_server.Hub(), cal_cfg, [], None, t)
+check("it waits while frames may still come", cal_cfg["calibrating"] is not None)
+gui_server.search_step(gui_server.Hub(), cal_cfg, [], None, vest.CALIBRATION_TIMEOUT_S + 0.5)
+check("then gives up instead of reading forever", cal_cfg["calibrating"], None)
+
+print("\nA camera started with --conf can't run the search")
+conf_cfg = {"device_conf": 0.8}
+check("turning it on is refused", gui_server.set_search(conf_cfg, "red"), False)
+check("and nothing starts", conf_cfg.get("search"), None)
+check("turning it off is still fine", gui_server.set_search(conf_cfg, None), True)
+
 print("\nThe pixel step, with numpy when it is available")
 try:
     import numpy as np
@@ -658,21 +723,52 @@ else:
             return self._h
 
     s = vest.VestSearch("yellow")
+    step_cfg = {"search": s}
     report = None
     for i in range(12):
         det = person(1)
         det["b"] = box
-        report = gui_server.search_frame(s, None, [det], Frame(frame), i * 0.1)
+        frames = gui_server.ColourFrames()
+        frames.offer(Frame(frame), i * 0.1)
+        report = gui_server.search_step(gui_server.Hub(), step_cfg, [det],
+                                        frames.take(step_cfg, [det], i * 0.1), i * 0.1)
     check("a planar camera frame reaches a lock", report["state"], "found")
     check("the detection comes back labelled", (det["role"], det["vest"]), ("target", "yellow"))
+
+    print("\nEach colour frame votes once")
+    frames = gui_server.ColourFrames()
+    one = Frame(frame)
+    frames.offer(one, 1.0)
     check("no people means the frame is not even converted",
-          gui_server.search_frame(s, None, [], object(), 2.0)["people"], 0)
+          frames.take(step_cfg, [], 1.0), None)
+    check("but it is still there for the next batch that has someone",
+          frames.take(step_cfg, [person(1)], 1.0) is not None)
+    check("and the same frame is never read twice",
+          frames.take(step_cfg, [person(1)], 1.05), None)
+    frames.offer(one, 1.1)
+    check("not even when the queue hands the same frame back",
+          frames.take(step_cfg, [person(1)], 1.1), None)
+    frames.offer(Frame(frame), 1.2)
+    check("a stale frame is never read",
+          frames.take(step_cfg, [person(1)], 1.2 + gui_server.FRAME_MAX_AGE_S + 0.01), None)
+    s2 = vest.VestSearch("yellow")
+    det = person(1)
+    det["b"] = box
+    stuck = gui_server.ColourFrames()
+    stuck.offer(Frame(frame), 0.0)
+    for i in range(10):     # ten batches of tracklets, one stalled colour frame
+        gui_server.search_step(gui_server.Hub(), {"search": s2}, [det],
+                               stuck.take({"search": s2}, [det], i * 0.04), i * 0.04)
+    check("ten batches on one stalled frame are one vote, not ten",
+          s2._tracks[1].vote.count("yellow"), 1)
 
     # The camera loop itself, on a fake camera. Everything above tests pieces;
     # this is what catches a mistake in how run() joins them, which otherwise
     # would only surface on the aircraft.
-    def fake_camera_run(cfg, frames, save_dir):
-        """gui_server.run() with depthai replaced. Returns (hub, passthrough queue)."""
+    def fake_camera_run(cfg, frames, save_dir, on_batch=None, result=None):
+        """gui_server.run() with depthai replaced. Returns (hub, passthrough queue).
+        on_batch(n, cfg) runs before the nth tracklet batch, like a page request.
+        run()'s return value goes in result["value"]."""
         dai = mock.MagicMock()
         dai.NNArchive.return_value.getInputSize.return_value = (512, 288)
         nn, tracker = mock.MagicMock(), mock.MagicMock()
@@ -699,8 +795,18 @@ else:
             t.roi.x, t.roi.y, t.roi.width, t.roi.height = box[0], box[1], 0.25, 0.8
             return t
 
-        tq.tryGet.side_effect = lambda: mock.Mock(tracklets=[tracklet(1)])
-        fq.tryGet.return_value = Frame(frame)
+        batches = {"n": 0}
+
+        def next_batch():
+            batches["n"] += 1
+            if on_batch is not None:
+                on_batch(batches["n"], cfg)
+            return mock.Mock(tracklets=[tracklet(1)])
+
+        tq.tryGet.side_effect = next_batch
+        # A new frame object each time, as a real queue gives: the search reads
+        # each frame once, so one object handed back forever would vote once.
+        fq.tryGet.side_effect = lambda: Frame(frame)
         hub = gui_server.Hub()
         hub.publish_frame("hi", b"\xff\xd8jpeg\xff\xd9")
         args = argparse.Namespace(model="m", shaves=None, conf=None, fps=10.0,
@@ -709,7 +815,9 @@ else:
         with mock.patch.dict(sys.modules, {"depthai": dai}), \
                 mock.patch.object(gui_server, "resolve_model", return_value="m"), \
                 mock.patch.object(gui_server.time, "sleep"):
-            gui_server.run(args, hub, cfg)
+            value = gui_server.run(args, hub, cfg)
+        if result is not None:
+            result["value"] = value
         return hub, nn.passthrough.createOutputQueue
 
     def camera_cfg(**extra):
@@ -773,6 +881,64 @@ else:
         hub, _ = fake_camera_run(camera_cfg(search=BrokenSearch("yellow")), 3, tmp)
         check("a fault in the search does not stop the video or the boxes",
               len(hub._dets["d"]), 1)
+
+    print("\nThe operator turns the search on and off from the page")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.environ["VENATOR_VEST_FILE"] = str(Path(tmp) / "vest-colours.json")
+        cfg = camera_cfg()
+        result = {}
+        hub, queue = fake_camera_run(
+            cfg, 30, tmp, result=result,
+            on_batch=lambda n, c: n == 3 and gui_server.set_search(c, "yellow"))
+        check("turning it on stops the loop to rebuild the camera", result["value"], "rebuild")
+        check("the first build pulled no colour frames", queue.called, False)
+        check("phones were told the camera is restarting",
+              hub.snapshot().get("camera"), "restarting")
+        hub, queue = fake_camera_run(cfg, 30, tmp, result=result)
+        check("the rebuilt camera pulls colour frames", queue.called)
+        check("and the search finds the target", hub._dets["search"]["state"], "found")
+        check("a finished run is not a rebuild", result["value"] != "rebuild")
+        check("changing colour needs no rebuild",
+              (gui_server.set_search(cfg, "blue"), cfg.get("rebuild")), (True, None))
+        check("turning it off does", (gui_server.set_search(cfg, None), cfg.get("rebuild")),
+              (True, True))
+        hub, queue = fake_camera_run(cfg, 3, tmp, result=result)
+        check("and then the colour frames stop", queue.called, False)
+        check("a colour that isn't a vest is refused", gui_server.set_search(cfg, "green"), False)
+
+    print("\nCalibrating a vest from the page")
+    with tempfile.TemporaryDirectory() as tmp:
+        os.environ["VENATOR_VEST_FILE"] = str(Path(tmp) / "vest-colours.json")
+        cfg = {"search": vest.VestSearch("blue")}
+        check("it needs the search on",
+              gui_server.start_calibration({"search": None}, "blue") is not None)
+        check("and a vest colour", gui_server.start_calibration(cfg, "green") is not None)
+        middle = np.zeros((288, 512, 3), dtype=np.uint8)
+        middle[:, :] = GREY
+        middle[90:200, 170:345] = BLUE
+        check("a calibration starts", gui_server.start_calibration(cfg, "blue"), None)
+        hub = gui_server.Hub()
+        for i in range(vest.CALIBRATION_FRAMES):
+            gui_server.search_step(hub, cfg, [], middle, i * 0.1)
+        check("it finishes after about a second of frames", cfg["calibrating"], None)
+        check("the new range is used straight away", cfg["search"].ranges["blue"] != R["blue"])
+        check("the defaults themselves are untouched", vest.DEFAULT_RANGES["blue"], R["blue"])
+        saved, _, source = vest.load_calibration()
+        check("and it is saved for the next start", saved["blue"], cfg["search"].ranges["blue"])
+        check("a blue vest still reads blue", vest.pick(vest.shares(chest(BLUE), saved)), "blue")
+        done = gui_server.finish_calibration(cfg, cfg["search"],
+                                             {"colour": "red", "fit": vest.fit_range(chest(YELLOW))})
+        check("a range that overlaps another vest is flagged", done["ok"], False)
+        check("and the warning names both", "red and yellow" in done["message"])
+        grey = np.zeros((288, 512, 3), dtype=np.uint8)
+        grey[:, :] = GREY
+        reading = vest.Calibration("yellow")
+        out = [reading.feed(grey) for _ in range(vest.CALIBRATION_FRAMES)]
+        check("a grey wall gives an answer, but no range",
+              (out[-2], out[-1]["fit"]), (None, None))
+        check("which the page explains",
+              "didn't read as one color" in gui_server.finish_calibration(cfg, cfg["search"], out[-1])["message"])
+        del os.environ["VENATOR_VEST_FILE"]
 
     start = time.perf_counter()
     for _ in range(100):

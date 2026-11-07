@@ -576,6 +576,68 @@ def save_calibration(ranges, wb_k=None, path=None):
     return path
 
 
+#: The middle of the frame. Whoever is holding a vest can't see a preview, so the
+#: instruction is simply to fill the middle of the view from about a metre away.
+CENTRE = (0.35, 0.35, 0.65, 0.65)
+#: Frames to read one vest from: about a second at 10 fps.
+CALIBRATION_FRAMES = 12
+#: A calibration that hasn't had its frames by then gives up and says so, rather
+#: than leaving the page on "Reading the vest..." for good.
+CALIBRATION_TIMEOUT_S = 6.0
+
+
+def centre_pixels(rgb, region=CENTRE):
+    """About 625 (r, g, b) values from the middle of a frame, for calibration.
+
+    Like chest_pixels, slicing is the only thing asked of `rgb`.
+    """
+    h, w = rgb.shape[:2]
+    x1, y1, x2, y2 = region
+    step = max(1, (int(y2 * h) - int(y1 * h)) // 25)
+    crop = rgb[int(y1 * h):int(y2 * h):step, int(x1 * w):int(x2 * w):step]
+    return crop.reshape(-1, 3).tolist()
+
+
+class Calibration:
+    """Learns one vest's colour from the middle of the view, a frame at a time.
+
+    Shared by vest_calibrate.py and the camera page, so a vest calibrated either
+    way reads the same. feed() returns None until it has enough frames, then the
+    fitted range, or None in "fit" if they didn't read as one colour.
+    """
+
+    def __init__(self, colour, frames=CALIBRATION_FRAMES):
+        if colour not in COLOURS:
+            raise ValueError(f"not a vest colour: {colour!r}")
+        self.colour = colour
+        self._left = frames
+        self._pixels = []
+        #: Set by the first frame loop that sees it, on that loop's clock.
+        self.started = None
+
+    def feed(self, rgb):
+        self._pixels.extend(centre_pixels(rgb))
+        self._left -= 1
+        if self._left > 0:
+            return None
+        return {"colour": self.colour, "fit": fit_range(self._pixels)}
+
+
+def apply_calibration(search, colour, fit, wb_k=None, path=None):
+    """Use a newly fitted range now, and save it for the next start.
+
+    Returns the pairs of colours that now overlap, which the caller has to show:
+    two vests reading as the same colour is exactly the mistake to stop before a
+    demonstration. The search's ranges are replaced, never edited in place,
+    because they may still be DEFAULT_RANGES.
+    """
+    ranges = dict(search.ranges)
+    ranges[colour] = fit
+    search.ranges = ranges
+    save_calibration(ranges, wb_k, path)
+    return overlaps(ranges)
+
+
 # --- the link to the flight code --------------------------------------------
 
 class SearchLink:

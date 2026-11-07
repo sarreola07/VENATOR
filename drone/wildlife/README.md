@@ -221,36 +221,53 @@ passive sensor and still needs some light.
 ## Vest search
 
 The search-and-rescue simulation: a missing person was last seen in a red vest.
-`gui_server.py --search` marks that person TARGET and everyone else
-ignored, shows a confidence chart on the phone page, and sends a report over
-loopback UDP for the flight code to read.
+The camera service marks that person TARGET and everyone else ignored, shows a
+confidence chart on the phone page, and sends a report over loopback UDP for the
+flight code to read.
 
 This is a bench test, with the props off. **Nothing here commands the aircraft
 yet.** The flight side is not built. It needs the ARK Flow hover working first.
 
-Only one process can own the OAK, so stop the service first, and calibrate once
-in the room you are testing in:
+### From the operator's page
+
+Everything is on the page the normal `venator-gui` service already serves, so
+there is nothing to stop or restart. Open it with the GUI token (the address
+`bash deploy/field_mode.sh url` prints). The **Vest search** row is only on that
+page: view-only phones never see it, and the server refuses their writes anyway.
+
+1. **Turn it on:** press **red**, **yellow** or **blue**. The camera restarts for a
+   few seconds, because only the search pulls colour frames over USB (about
+   35 Mbps). Switching colour after that is instant. **off** stops it.
+2. **Calibrate, once per room:** with the search on, press **calibrate red**, and
+   hold the red vest about 1 m away, filling the middle of the view, for a
+   second. The page says what it learned, or warns if two vests now overlap.
+   Do each vest. It's saved to `~/.venator/vest-colours.json` and used straight away.
+3. **Record trials:** type a note, such as `4 m, daylight, Sam in red`, press
+   **record**, run the trial, and press **stop**. Each one is a CSV in
+   `<save dir>/trials/`, and the links under the row download them. One row per
+   person per frame, and one for each FOUND.
+
+While a search is on, phones joining the hotspot are handed the view-only token,
+so turn it on before the audience joins. `bash deploy/symposium_qr.sh` prints the
+view-only address as a QR code.
+
+White balance can only be locked from the terminal tool, because measuring it
+needs camera controls the service doesn't open:
 
 ```bash
 sudo systemctl stop venator-gui
 ~/oak-venv/bin/python drone/wildlife/vest_calibrate.py
-VENATOR_KEY_FILE=~/.venator/gui-key GUI_MAX_VIEWERS=16 \
-    ~/oak-venv/bin/python drone/wildlife/gui_server.py --search --save-dir ~/Pictures/venator-search
+sudo systemctl start venator-gui
 ```
 
-`VENATOR_KEY_FILE` matters: without it the server finds no GUI key and stays on
-loopback, so no phone can reach it. The startup log prints a `view-only` address
-for an audience, and phones joining the hotspot get the same view-only access.
-`bash deploy/symposium_qr.sh` prints it as a QR code. The separate save folder
-keeps older field photos out of the filmstrip the audience can browse. Press
-Ctrl+C when done, then `sudo systemctl start venator-gui` to go back to normal.
-
-To search for another colour, send the target over loopback. Phones can't do
-this, by design:
+`gui_server.py --search red` still starts with the search on, for running by hand.
+The flight code can also set the colour over loopback:
 
 ```bash
 python3 -c "import socket, json; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(json.dumps({'target': 'blue'}).encode(), ('127.0.0.1', 5008))"
 ```
+
+### The chart
 
 The chart plots **vest match** (how much of the chest is the target colour, with
 a lock possible above the match line) or **person** (the detector's confidence).

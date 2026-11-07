@@ -96,6 +96,51 @@ else
     fail "GUI not answering on http://127.0.0.1:8080/healthz"
 fi
 
+# ---------------------------------------------------------------- vest search
+#
+# The search runs inside venator-gui and is switched on from the operator's page,
+# so this only checks what the page depends on. Still read-only.
+head_ "Vest search"
+OAK_PY="${OAK_PY:-${HOME}/oak-venv/bin/python}"
+if grep -q "def set_search" "${REPO}/drone/wildlife/gui_server.py" 2>/dev/null; then
+    ok "this checkout has the vest search controls"
+else
+    fail "this checkout has no vest search controls — git pull"
+fi
+if "${OAK_PY}" -c "import numpy" 2>/dev/null; then
+    ok "numpy is installed, so the search can read colours"
+else
+    fail "numpy missing — the search can't read colours"
+    fail "      fix: ${OAK_PY%/python}/pip install numpy"
+fi
+# A service started before the last pull is still running the code from before it.
+# Every camera file counts: a pull often changes only the page or the vest logic.
+started="$(systemctl show venator-gui -p ActiveEnterTimestamp --value 2>/dev/null)"
+started_s="$(date -d "${started}" +%s 2>/dev/null || echo 0)"
+code_s="$(stat -c %Y "${REPO}"/drone/wildlife/*.py 2>/dev/null | sort -n | tail -1)"
+code_s="${code_s:-0}"
+if (( started_s > 0 && code_s > started_s )); then
+    fail "venator-gui is running older code than this checkout"
+    fail "      fix: sudo systemctl restart venator-gui"
+fi
+VEST_FILE="${VENATOR_VEST_FILE:-${HOME}/.venator/vest-colours.json}"
+if [[ -f "${VEST_FILE}" ]]; then
+    days=$(( ( $(date +%s) - $(stat -c %Y "${VEST_FILE}") ) / 86400 ))
+    if (( days == 0 )); then
+        ok "vests calibrated today"
+    else
+        warn "vests last calibrated ${days} day(s) ago — calibrate again in this room"
+    fi
+else
+    warn "vests not calibrated, so it uses built-in colours"
+    warn "      calibrate each vest from the operator's page"
+fi
+if ss -uln 2>/dev/null | grep -q "127.0.0.1:5008"; then
+    ok "listening for the flight code's target on UDP 5008"
+else
+    warn "nothing on UDP 5008, so the flight code can't set the target"
+fi
+
 # ---------------------------------------------------------------- dashboard
 #
 # The QR sheet advertises :5037, but unlike the camera this is NOT a systemd
@@ -271,7 +316,8 @@ fi
 head_ "QR sheet"
 QR_HTML="${QR_HTML:-${HOME}/Desktop/Symposium/venator-qr.html}"
 QR_PNG="${QR_PNG:-${HOME}/Desktop/Symposium/venator-qr-camera.png}"
-live_tok="$(bash "${HERE}/field_mode.sh" url 2>/dev/null)"; live_tok="${live_tok##*k=}"
+# The sheet carries the view-only token, because it gets handed to the audience.
+live_tok="$(bash "${HERE}/field_mode.sh" view-token 2>/dev/null)"
 if [[ ! -f "${QR_HTML}" || ! -f "${QR_PNG}" ]]; then
     warn "no QR sheet yet — bash deploy/symposium_qr.sh"
 elif [[ -n "${live_tok}" ]] && grep -q "${live_tok}" "${QR_HTML}" 2>/dev/null; then

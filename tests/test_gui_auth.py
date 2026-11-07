@@ -20,8 +20,10 @@ replaced it, pinned so they cannot quietly regress:
 Stdlib only, no camera, no sockets - runs on a laptop, the Jetson and in CI.
 """
 import io
+import json
 import os
 import re
+import tempfile
 import sys
 import threading
 import time
@@ -34,6 +36,7 @@ sys.path.insert(0, str(ROOT / "drone" / "wildlife"))
 import gui_server            # noqa: E402
 import gui_page              # noqa: E402
 import ports                 # noqa: E402
+import trial_log             # noqa: E402
 import vest                  # noqa: E402
 from radio import auth       # noqa: E402
 
@@ -203,12 +206,11 @@ class Sent:
         self.body = b""
 
 
-def drive(method, path, cfg=None, body=b"", hub=None, audience=False):
+def drive(method, path, cfg=None, body=b"", hub=None, save_dir="/tmp"):
     """Run one request through the real handler, with no socket."""
     cfg = cfg if cfg is not None else {
         "conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
-    Handler = gui_server.make_handler(hub or gui_server.Hub(), tok, "/tmp", cfg,
-                                      view, audience)
+    Handler = gui_server.make_handler(hub or gui_server.Hub(), tok, save_dir, cfg, view)
     sent = Sent()
 
     class H(Handler):
@@ -282,20 +284,71 @@ check("it cannot ack alerts for everyone", drive("POST", f"/api/ack?k={view}", c
 check("the GUI token still can", drive("POST", f"/api/config?k={tok}", cfg, change).code, 200)
 check("and it took effect", cfg["quality"], "lo")
 
-print("\nWith an audience, joining the hotspot only grants view-only")
-r = drive("GET", "/generate_204", audience=True)
+print("\nDuring a search, joining the hotspot only grants view-only")
+searching = dict(cfg, search=vest.VestSearch("red"))
+r = drive("GET", "/generate_204", searching)
 check("the portal redirect carries the view token", f"k={view}" in r.headers["Location"])
 check("and not the GUI token", tok in r.headers["Location"], False)
-r = drive("GET", "/portal", audience=True)
+r = drive("GET", "/portal", searching)
 check("the landing page has no GUI token in it", tok.encode() in r.body, False)
 check("and neither does its cookie", tok in r.headers["Set-Cookie"], False)
 r = drive("GET", "/generate_204")
-check("with no audience the portal behaves as before", f"k={tok}" in r.headers["Location"])
+check("with the search off the portal behaves as before", f"k={tok}" in r.headers["Location"])
 
-print("\nThe target can't be set from a phone")
-search_cfg = dict(cfg, search=vest.VestSearch("yellow"))
-drive("POST", f"/api/config?k={tok}", search_cfg, b'{"target": "blue", "search": "blue"}')
-check("not even with the GUI token", search_cfg["search"].target, "yellow")
+print("\nOnly the operator can change the search")
+with tempfile.TemporaryDirectory() as tmp:
+    os.environ["VENATOR_VEST_FILE"] = os.path.join(tmp, "vest-colours.json")
+    trials = trial_log.TrialLog(os.path.join(tmp, "trials"), log=lambda *_: None)
+    search_cfg = dict(cfg, search=vest.VestSearch("yellow"), trials=trials)
+    post = lambda body, k=tok: drive("POST", f"/api/config?k={k}", search_cfg,
+                                     json.dumps(body).encode(), save_dir=tmp)
+    for body, what in (({"search": "blue"}, "change the colour"), ({"search": "off"}, "turn it off"),
+                       ({"calibrate": "yellow"}, "calibrate"), ({"record": {"note": "x"}}, "record")):
+        check(f"a view-only phone can't {what}", post(body, view).code, 403)
+    check("and nothing changed", (search_cfg["search"].target, search_cfg.get("calibrating"),
+                                  trials.recording), ("yellow", None, False))
+    r = post({"search": "blue"})
+    check("the operator can change the colour", search_cfg["search"].target, "blue")
+    check("which needs no camera restart", search_cfg.get("rebuild"), None)
+    check("and the page is told the new state", json.loads(r.body)["search"], "blue")
+    r = post({"search": "green"})
+    check("a colour that isn't a vest is refused", json.loads(r.body).get("problem") is not None)
+    check("and changes nothing", search_cfg["search"].target, "blue")
+
+    r = drive("GET", "/generate_204", search_cfg)
+    check("during a search, joining the hotspot only grants view-only", f"k={view}" in r.headers["Location"])
+    check("and never the GUI token", tok in r.headers["Location"], False)
+
+    post({"record": {"note": "4 m daylight"}})
+    check("the operator can record a trial", trials.recording)
+    name = trials.name
+    post({"record": False})
+    check("and stop it", trials.recording, False)
+    r = drive("GET", f"/api/trials?k={view}", search_cfg, save_dir=tmp)
+    check("view-only phones can list trials", [t["name"] for t in json.loads(r.body)["trials"]], [name])
+    r = drive("GET", f"/api/trials/{name}?k={view}", search_cfg, save_dir=tmp)
+    check("and download one", (r.code, r.body.startswith(b"time,note,target")), (200, True))
+    check("as a file", "attachment" in r.headers.get("Content-Disposition", ""))
+    for bad in ("..%2F..%2Fetc%2Fpasswd", "../../etc/passwd", "x.csv", "vest-colours.json"):
+        check(f"a bad trial name gets nothing: {bad!r}",
+              drive("GET", f"/api/trials/{bad}?k={tok}", search_cfg, save_dir=tmp).code, 404)
+
+    r = post({"calibrate": "blue"})
+    check("the operator can start a calibration", search_cfg["calibrating"].colour, "blue")
+
+    post({"search": "off"})
+    check("the operator can turn the search off", search_cfg["search"], None)
+    check("which restarts the camera, to stop pulling colour frames", search_cfg.get("rebuild"), True)
+    check("and ends a calibration in progress", search_cfg["calibrating"], None)
+    r = post({"record": {"note": "x"}})
+    check("with the search off there's nothing to record", json.loads(r.body).get("problem") is not None)
+    r = drive("GET", "/generate_204", search_cfg)
+    check("and the hotspot hands out the GUI token again", f"k={tok}" in r.headers["Location"])
+    search_cfg.pop("rebuild")
+    post({"search": "red"})
+    check("the operator can turn it back on", search_cfg["search"].target, "red")
+    check("which restarts the camera to pull colour frames", search_cfg.get("rebuild"), True)
+    del os.environ["VENATOR_VEST_FILE"]
 
 print("\nPorts are distinct and overridable")
 check("GUI and relay no longer collide", ports.GUI_HTTP != ports.PHONE_RELAY_HTTP)

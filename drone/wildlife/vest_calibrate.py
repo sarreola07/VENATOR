@@ -21,19 +21,7 @@ import time
 import oak_wildlife
 import vest
 
-#: The middle of the frame. Whoever is holding a vest can't see a preview, so the
-#: instruction is simply to fill the middle of the view from about a metre away.
-CENTRE = (0.35, 0.35, 0.65, 0.65)
 SIZE = (640, 360)
-FRAMES = 12
-
-
-def centre_pixels(rgb):
-    h, w = rgb.shape[:2]
-    x1, y1, x2, y2 = CENTRE
-    step = max(1, (int(y2 * h) - int(y1 * h)) // 25)
-    crop = rgb[int(y1 * h):int(y2 * h):step, int(x1 * w):int(x2 * w):step]
-    return crop.reshape(-1, 3).tolist()
 
 
 def grab(q, count):
@@ -71,10 +59,10 @@ def measure_vest(q, name):
     while True:
         input(f"\nHold the {name.upper()} vest about 1 m away, filling the middle of "
               "the view, then press Enter ")
-        pixels = []
-        for msg in grab(q, FRAMES):
-            pixels.extend(centre_pixels(oak_wildlife.to_rgb(msg)))
-        fit = vest.fit_range(pixels)
+        reading, result = vest.Calibration(name), None
+        for msg in grab(q, vest.CALIBRATION_FRAMES):
+            result = reading.feed(oak_wildlife.to_rgb(msg))
+        fit = result and result["fit"]
         if fit is not None:
             print(f"  hue {fit['hue'][0]}-{fit['hue'][1]}, "
                   f"saturation from {fit['sat']}, brightness from {fit['val']}")

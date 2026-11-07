@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import gui_server
 import ports
 import tracking
+import trial_log
 import vest
 
 #: What the vote's "about a second" assumes, and what the OAK's detector runs at.
@@ -207,7 +208,6 @@ def run(args, hub, cfg, stop):
     index, name = (args.camera, f"camera {args.camera}") if args.camera is not None else builtin_camera()
     cam, frame = open_camera(cv2, index)
     gui_server.log(f"webcam open: {name} at {frame.shape[1]}x{frame.shape[0]}")
-    search, link = cfg["search"], cfg["search_link"]
     people, tracker, book = VisionPeople(), BoxTracker(), tracking.TrackBook()
     fps_window = collections.deque(maxlen=20)
     seq = hits = saved = detector_faults = 0
@@ -253,25 +253,23 @@ def run(args, hub, cfg, stop):
             for d in dets:
                 d["dwell"] = dwell.get(d["id"], 0.0)
 
-            link.poll_target(search)
-            rgb = frame[:, :, ::-1]
-            report = search.process(dets, lambda box: vest.chest_pixels(rgb, box), now)
-            link.send(report)
+            # Every webcam frame is new, so it is always read. A webcam needs no
+            # pipeline rebuild to turn the search on: it always has the pixels.
+            cfg.pop("rebuild", None)
+            report = gui_server.search_step(hub, cfg, dets, frame[:, :, ::-1], now)
 
             seq += 1
             hits += bool(dets)
             fps_window.append(now)
-            hub.publish("det", {"seq": seq, "t": round(time.time(), 2),
-                                "w": frame.shape[1], "h": frame.shape[0], "d": dets,
-                                "tracks": len(book),
-                                "search": {k: v for k, v in report.items() if k != "found_now"}})
-            if report.get("found_now"):
-                gui_server.log(f"FOUND {report['target']} vest: track {report['id']}, "
-                               f"{report['ignored']} ignored")
-                hub.publish("alert", vest.found_alert(report, time.time()), reliable=True)
-                if cfg["save"]:
-                    saved += 1
-                    gui_server.save_evidence(hub, args.save_dir, saved, dets)
+            det_event = {"seq": seq, "t": round(time.time(), 2),
+                         "w": frame.shape[1], "h": frame.shape[0], "d": dets,
+                         "tracks": len(book)}
+            if report is not None:
+                det_event["search"] = {k: v for k, v in report.items() if k != "found_now"}
+            hub.publish("det", det_event)
+            if report is not None and report.get("found_now") and cfg["save"]:
+                saved += 1
+                gui_server.save_evidence(hub, args.save_dir, saved, dets)
 
             if now - last_status >= 1.0:
                 last_status = now
@@ -285,6 +283,7 @@ def run(args, hub, cfg, stop):
                     "model": "Apple Vision", "pm": "webcam", "quality": cfg["quality"],
                     # No depth and no GPS here, and the page must not imply otherwise.
                     "gps": {"fix": "none on a webcam"},
+                    **gui_server.search_state(cfg),
                 })
 
             spare = 1.0 / DETECT_FPS - (time.monotonic() - started)
@@ -307,11 +306,16 @@ def main():
     ap.add_argument("--no-save", action="store_true")
     args = ap.parse_args()
 
-    ranges, _, source = vest.load_calibration()
+    ranges, wb_k, source = vest.load_calibration()
     cfg = {"conf": None, "classes": [], "quality": "hi", "save": not args.no_save, "pm": "webcam",
+           # No depth on a webcam, so the range and size gates can't apply.
+           "use_depth": False,
+           # Kept so calibrating from the page doesn't erase a saved white balance.
+           "search_wb": wb_k,
            "search": vest.VestSearch(args.search, ranges, use_depth=False),
            "search_link": vest.SearchLink(ports.SEARCH_TARGET_UDP, ports.SEARCH_REPORT_UDP,
-                                          log=gui_server.log)}
+                                          log=gui_server.log),
+           "trials": trial_log.TrialLog(Path(args.save_dir) / "trials", log=gui_server.log)}
     if cfg["save"]:
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 

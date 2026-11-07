@@ -68,6 +68,20 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 #search .d{color:var(--muted);font-size:12px}
 /* view-only visitors can look at everything and change nothing */
 .viewonly #snap,.viewonly #lb-foot,.viewonly .shot .v{display:none}
+/* --- the operator's vest search controls. Never on a view-only page: the server
+   refuses those writes anyway, and buttons that do nothing would only confuse. --- */
+#ops{display:flex;flex-direction:column;gap:6px;padding:8px 14px;
+  border-bottom:1px solid var(--line);background:var(--panel);font-size:13px}
+.viewonly #ops{display:none}
+.opsrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.opsrow .lbl{font-weight:600}
+#ops button{padding:4px 10px;font-size:12px;min-height:30px}
+#ops .d{color:var(--muted);font-size:12px}
+#ops .d.bad{color:var(--bad)}
+#ops.off #calrow,#ops.off #recrow{display:none}
+#recnote{flex:1;min-width:150px;background:var(--bg);color:var(--fg);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px}
+#trials a{color:var(--fg);font-size:12px;margin-right:12px;font-variant-numeric:tabular-nums}
 /* --- confidence chart: only shown during a search --- */
 #conf{display:none;border-bottom:1px solid var(--line);padding:0 8px 8px;background:var(--panel)}
 #conf.on{display:block}
@@ -192,6 +206,25 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 <div id="alerts"></div>
 <div id="search"></div>
 
+<div id="ops" class="off">
+  <div class="opsrow">
+    <span class="lbl">Vest search</span>
+    <button data-v="off">off</button><button data-v="red">red</button>
+    <button data-v="yellow">yellow</button><button data-v="blue">blue</button>
+    <span class="d" id="opsmsg"></span>
+  </div>
+  <div class="opsrow" id="calrow">
+    <button id="calbtn">calibrate</button>
+    <span class="d" id="calmsg">Hold the vest about 1 m away, filling the middle of the view.</span>
+  </div>
+  <div class="opsrow" id="recrow">
+    <input id="recnote" maxlength="60" placeholder="trial note, e.g. 4 m daylight" aria-label="trial note">
+    <button id="recbtn">record</button>
+    <span class="d" id="recmsg"></span>
+  </div>
+  <div class="opsrow" id="trials"></div>
+</div>
+
 <div id="stage">
   <img id="vid" alt="">
   <canvas id="ovl"></canvas>
@@ -264,6 +297,7 @@ const api = (p, body) => (VIEW_ONLY && body) ? Promise.resolve() : fetch(auth(p)
 /* ---------- video ---------- */
 let quality = 'hi', lastFrame = 0;
 const vid = q('#vid'), stage = q('#stage');
+const NOLINK_TEXT = q('#nolink').innerHTML;
 function loadVideo(){
   quality = q('#q').value;
   // Cache-bust so a reconnect does not resume the old multipart response.
@@ -401,7 +435,7 @@ const NIGHT = {...INK, line:VEST_LINE, none:NO_VEST,
 const POSTER = {w:1000, h:500, px:3, fg:'#111111', muted:'#111111', grid:'#bdbdbd',
                 rule:'#111111', surface:'#ffffff',
                 line:{red:'#9E0B25', yellow:'#A67C00', blue:'#0B4FB3'}, none:'#444444',
-                dash:{red:[], yellow:[8,7], blue:[20,9]}, noDash:[3,7],
+                dash:{red:[], yellow:[8,7], blue:[20,9]}, noDash:[12,5,3,5],
                 L:84, R:250, T:56, B:108, font:23, axisW:2, lineW:5.6, dot:8, gap:30};
 const CHART_S = 30, MAX_LINES = 5, GAP_S = 1.0;
 const METRIC = {match:{i:1, title:'Vest match', name:'vest match'},
@@ -673,6 +707,77 @@ function saveSnaps(){
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+/* ---------- vest search controls: the operator's page only ---------- */
+let searchNow = null, recordingNow = null, restartAt = 0;
+function renderOps(s){
+  if (VIEW_ONLY || !s || !('search' in s)) return;
+  const wasRecording = recordingNow;
+  searchNow = s.search; recordingNow = s.recording;
+  // A recording also ends when the search is turned off, so refresh the list
+  // whenever one stops, not only when stop is pressed.
+  if (wasRecording && !recordingNow) loadTrials();
+  q('#ops').classList.toggle('off', !searchNow);
+  for (const b of document.querySelectorAll('#ops button[data-v]'))
+    b.classList.toggle('on', b.dataset.v === (searchNow || 'off'));
+  q('#calbtn').textContent = searchNow ? `calibrate ${searchNow}` : 'calibrate';
+  if (s.calibrating) setMsg('#calmsg', `Reading the ${s.calibrating} vest. Hold it still...`);
+  q('#recbtn').textContent = recordingNow ? 'stop' : 'record';
+  q('#recbtn').classList.toggle('on', !!recordingNow);
+  q('#recmsg').textContent = recordingNow ? `${recordingNow.name}, ${recordingNow.rows} rows` : '';
+  // "Restarting" stays up until the camera is really back: a status with frames,
+  // from after the restart. The reply to the click itself comes before it.
+  if (restartAt && s.fps > 0 && s.camera !== 'restarting' && Date.now() - restartAt > 1500){
+    restartAt = 0;
+    setMsg('#opsmsg', '');
+  }
+}
+function setMsg(sel, text, bad){
+  const el = q(sel); el.textContent = text; el.classList.toggle('bad', !!bad);
+}
+function ops(body){
+  return api('/api/config', body).then(r => r && r.json()).then(o => {
+    if (!o) return o;
+    renderOps(o);
+    if (o.problem) setMsg('#opsmsg', o.problem, true);
+    return o;
+  }).catch(() => setMsg('#opsmsg', 'The camera did not answer.', true));
+}
+for (const b of document.querySelectorAll('#ops button[data-v]')) b.onclick = () => {
+  const v = b.dataset.v, turning = (v === 'off') !== !searchNow;
+  if (turning){
+    restartAt = Date.now();
+    setMsg('#opsmsg', 'Restarting the camera for the search, a few seconds...');
+  }
+  ops({search: v});
+};
+q('#calbtn').onclick = () => {
+  if (!searchNow) return;
+  setMsg('#calmsg', `Reading the ${searchNow} vest. Hold it still...`);
+  ops({calibrate: searchNow});
+};
+q('#recbtn').onclick = () => {
+  const body = recordingNow ? {record: false} : {record: {note: q('#recnote').value}};
+  ops(body);
+};
+function loadTrials(){
+  if (VIEW_ONLY) return;
+  fetch(auth('/api/trials')).then(r => r.json()).then(o => {
+    const el = q('#trials');
+    el.textContent = '';
+    const list = (o.trials || []).slice(0, 6);
+    if (!list.length) return;
+    const head = document.createElement('span'); head.className = 'd'; head.textContent = 'Trials:';
+    el.append(head);
+    for (const t of list){
+      const a = document.createElement('a');
+      a.href = auth('/api/trials/' + encodeURIComponent(t.name)); a.download = t.name;
+      a.textContent = t.name.replace(/\.csv$/, '');
+      el.append(a);
+    }
+  }).catch(() => {});
+}
+loadTrials();
+
 /* ---------- chips ---------- */
 function chip(label, value, cls){
   return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
@@ -683,6 +788,14 @@ function renderChips(s){
   // The camera can be absent while the page is perfectly healthy - the OAK
   // has been seen to drop off the USB bus. Say so plainly instead of showing
   // 0 fps and letting the operator guess which half is broken.
+  // A healthy status puts the banner's own wording back, so a later loss of the
+  // video link doesn't still say "restarting" or "offline" from before.
+  if (!s.camera) q('#nolink').innerHTML = NOLINK_TEXT;
+  if (s.camera === 'restarting'){
+    q('#nolink').innerHTML = '<div><b>camera restarting</b><br>'
+      + '<span style="color:var(--muted)">For the vest search. Back in a few seconds.</span></div>';
+    q('#nolink').classList.add('on');
+  }
   if (s.camera === 'offline'){
     q('#nolink').innerHTML = '<div><b>camera offline</b><br>'
       + '<span style="color:var(--muted)">' + (s.error || '')
@@ -691,8 +804,8 @@ function renderChips(s){
     stage.classList.add('stale');
   }
   const out = [
-    s.camera === 'offline'
-      ? chip('camera', 'offline', 'bad')
+    s.camera === 'offline' || s.camera === 'restarting'
+      ? chip('camera', s.camera, s.camera === 'offline' ? 'bad' : 'warn')
       : chip('fps', (s.fps ?? 0).toFixed(1), s.fps >= 8 ? 'ok' : 'warn'),
     chip('model', s.model || '--'),
     chip('mode', s.pm || '--', (s.pm||'').startsWith('7W') ? 'ok' : 'warn'),
@@ -898,7 +1011,11 @@ function connect(){
     if (d.search && d.search.target) recordConfidence(d);
     draw(); renderTracks(); drawChart();
   });
-  es.addEventListener('status', e => renderChips(JSON.parse(e.data)));
+  es.addEventListener('status', e => { const s = JSON.parse(e.data); renderChips(s); renderOps(s); });
+  es.addEventListener('calibration', e => {
+    const c = JSON.parse(e.data);
+    setMsg('#calmsg', c.message, !c.ok);
+  });
   es.addEventListener('alert', e => {
     const a = JSON.parse(e.data);
     if (!alerts.some(x => x.id === a.id)) { alerts.unshift(a); notify(); }

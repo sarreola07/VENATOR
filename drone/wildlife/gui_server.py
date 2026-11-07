@@ -74,6 +74,7 @@ import oak_wildlife
 import portal_page
 import ports
 import tracking
+import trial_log
 import vest
 from radio import auth
 
@@ -494,13 +495,20 @@ class Hub:
 
 # --- HTTP -------------------------------------------------------------------
 
-def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
+def make_handler(hub, token, save_dir, cfg, view_token=None):
     wrong = {"count": 0}
     wrong_lock = threading.Lock()
-    # What a phone joining the hotspot is handed. With an audience on the
-    # network the portal can't give out the GUI token, or the view-only QR code
-    # would protect nothing: joining the Wi-Fi would be enough to change settings.
-    portal_token = view_token if audience and view_token else token
+    def portal_token():
+        """What a phone joining the hotspot is handed.
+
+        During a search there is an audience on the network, so the portal can't
+        give out the GUI token, or the view-only QR code would protect nothing:
+        joining the Wi-Fi would be enough to change the search. Asked per
+        request, because the operator turns the search on and off from the page.
+        """
+        if view_token and cfg.get("search") is not None:
+            return view_token
+        return token
 
     class Handler(BaseHTTPRequestHandler):
         # BaseHTTPRequestHandler speaks HTTP/1.0 by default, under which a
@@ -555,7 +563,8 @@ def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
             network, the Wi-Fi password is the access control. See
             docs/SECURITY.md.
             """
-            q = f"?k={portal_token}" if portal_token else ""
+            given = portal_token()
+            q = f"?k={given}" if given else ""
             return f"http://{PORTAL_HOST}{path}{q}"
 
         def _redirect(self, location, code=302):
@@ -616,14 +625,15 @@ def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
                     }, separators=(",", ":")).encode())
 
             if path == "/portal":
-                page = portal_page.render(portal_token, hub.snapshot()).encode()
+                given = portal_token()
+                page = portal_page.render(given, hub.snapshot()).encode()
                 extra = []
-                if portal_token:
+                if given:
                     # Same mechanism as "/" below. Of limited use inside the
                     # iOS captive sheet, whose cookies never reach Safari, but
                     # it helps every other browser.
                     extra.append(("Set-Cookie",
-                                  f"vt={portal_token}; Path=/; HttpOnly; "
+                                  f"vt={given}; Path=/; HttpOnly; "
                                   f"SameSite=Strict; Max-Age=86400"))
                 return self._body(200, "text/html; charset=utf-8", page, extra)
 
@@ -673,6 +683,12 @@ def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
                 return self._json(self._evidence_list(min(max(n, 1), 200)))
             if path.startswith("/api/evidence/"):
                 return self._evidence_file(path[len("/api/evidence/"):])
+            if path == "/api/trials":
+                trials = cfg.get("trials")
+                return self._json({"recording": trials.status() if trials else None,
+                                   "trials": trials.list() if trials else []})
+            if path.startswith("/api/trials/"):
+                return self._trial_file(path[len("/api/trials/"):])
             if path == "/live.mjpg":
                 q = parse_qs(url.query).get("q", ["hi"])[0]
                 return self._mjpeg(q if q in QUALITIES else "hi")
@@ -734,9 +750,54 @@ def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
                 cfg["quality"] = payload["quality"]
             if "save" in payload:
                 cfg["save"] = bool(payload["save"])
-            return {k: cfg[k] for k in
-                    ("conf", "conf_requested", "device_floor", "classes",
-                     "quality", "save") if k in cfg}
+            # The vest search, from the operator's page. This handler only runs
+            # for the GUI token: view-only phones get 403 in do_POST.
+            problem = None
+            if "search" in payload:
+                want = payload["search"]
+                if not set_search(cfg, None if want in (None, "off") else want):
+                    problem = ("Not a vest color." if want not in vest.COLOURS else
+                               "This camera was started with --conf, which would hide "
+                               "people from the search. Restart it without --conf.")
+            if "calibrate" in payload:
+                problem = start_calibration(cfg, payload["calibrate"])
+            if "record" in payload:
+                problem = self._record(payload["record"])
+            out = {k: cfg[k] for k in
+                   ("conf", "conf_requested", "device_floor", "classes",
+                    "quality", "save") if k in cfg}
+            out.update(search_state(cfg))
+            if problem:
+                out["problem"] = problem
+            return out
+
+        def _record(self, want):
+            """Start a trial recording ({"note": ...}) or stop one (false)."""
+            trials = cfg.get("trials")
+            if trials is None:
+                return "Trial recording isn't available here."
+            if not want:
+                trials.stop()
+                return None
+            if cfg.get("search") is None:
+                return "Turn the search on first."
+            note = want.get("note", "") if isinstance(want, dict) else ""
+            if trials.start(note) is None:
+                return "Couldn't start a recording. Is the disk full?"
+            return None
+
+        def _trial_file(self, name):
+            trials = cfg.get("trials")
+            found = trials.path(os.path.basename(name)) if trials is not None else None
+            if found is None:
+                return self._body(404, "text/plain; charset=utf-8", b"not found\n")
+            try:
+                data = found.read_bytes()
+            except OSError:
+                return self._body(404, "text/plain; charset=utf-8", b"not found\n")
+            return self._body(200, "text/csv; charset=utf-8", data,
+                              [("Content-Disposition", f'attachment; filename="{found.name}"'),
+                               ("Cache-Control", "no-store")])
 
         # -- evidence --
 
@@ -887,8 +948,8 @@ def make_handler(hub, token, save_dir, cfg, view_token=None, audience=False):
     return Handler
 
 
-def start_server(hub, token, host, port, save_dir, cfg, view_token=None, audience=False):
-    handler = make_handler(hub, token, save_dir, cfg, view_token, audience)
+def start_server(hub, token, host, port, save_dir, cfg, view_token=None):
+    handler = make_handler(hub, token, save_dir, cfg, view_token)
     try:
         server = ThreadingHTTPServer((host, port), handler)
     except OSError as exc:
@@ -958,17 +1019,160 @@ def long_axis_m(width, height, z_m):
     return round(max(width * FRAME_WIDTH_PER_M, height * FRAME_WIDTH_PER_M * 9 / 16) * z_m, 2)
 
 
-def search_frame(search, link, dets, frame_msg, now):
-    """One detection frame through the vest search. Adds "vest" and "role" to dets."""
+class ColourFrames:
+    """Hands the vest search each colour frame once.
+
+    Tracklets and colour frames arrive on separate queues. A frame reused for a
+    second batch of tracklets would vote a second time, so one bad frame, a decoy's
+    chest catching red light, could count as several readings and beat the vote it
+    exists to pass. So each frame is read at most once, and only while it is still
+    fresh: an older frame says nothing about where a person is now.
+    """
+
+    def __init__(self):
+        self._msg = None
+        self._at = 0.0
+        self._used = None
+
+    def offer(self, msg, now):
+        self._msg, self._at = msg, now
+
+    def take(self, cfg, dets, now):
+        """The newest frame as RGB, or None if it is stale, already read, or
+        nobody needs it. Not converting when nobody needs it saves the Jetson a
+        512x288 conversion per frame of an empty room."""
+        if self._msg is None or self._msg is self._used or now - self._at > FRAME_MAX_AGE_S:
+            return None
+        if cfg.get("calibrating") is None and not any(d.get("c") == "person" for d in dets):
+            return None
+        self._used = self._msg
+        return oak_wildlife.to_rgb(self._msg)
+
+
+def search_state(cfg):
+    """The search's state for the page: what it is looking for, a calibration
+    in progress, and the trial being recorded."""
+    search, cal, trials = cfg.get("search"), cfg.get("calibrating"), cfg.get("trials")
+    return {"search": search.target if search is not None else None,
+            "calibrating": cal.colour if cal is not None else None,
+            "recording": trials.status() if trials is not None else None}
+
+
+def set_search(cfg, colour):
+    """Turn the search on, change its colour, or turn it off with None.
+
+    Returns False for anything that isn't a vest colour. Turning it on or off asks
+    the camera loop to rebuild its pipeline, because only the search needs the
+    colour frames and they cost about 35 Mbps of USB. Changing colour doesn't.
+    """
+    if colour is not None and colour not in vest.COLOURS:
+        return False
+    search = cfg.get("search")
+    if colour is not None and search is None and cfg.get("device_conf") is not None:
+        # --conf programs the device's own filter, so people below it would never
+        # reach the search. main() refuses the pair; so does this.
+        log("can't start the vest search: this camera was started with --conf")
+        return False
+    if colour is None:
+        if search is not None:
+            cfg["search"] = None
+            cfg["calibrating"] = None
+            if cfg.get("trials") is not None:
+                cfg["trials"].stop()
+            cfg["rebuild"] = True
+            log("vest search off")
+    elif search is None:
+        ranges, wb_k, source = vest.load_calibration()
+        cfg["search"] = vest.VestSearch(colour, ranges, use_depth=cfg.get("use_depth", True))
+        cfg["search_wb"] = wb_k
+        cfg["rebuild"] = True
+        log(f"vest search: looking for {colour}, colours from {source}")
+    elif search.target != colour:
+        search.set_target(colour)
+        log(f"vest search: now looking for {colour}")
+    return True
+
+
+def start_calibration(cfg, colour):
+    """Read one vest from the middle of the view over the next second.
+
+    Returns None once started, or why not. It needs the search on, because only
+    then does the camera loop have colour frames to read.
+    """
+    if cfg.get("search") is None:
+        return "Turn the search on first."
+    if colour not in vest.COLOURS:
+        return "Not a vest color."
+    cfg["calibrating"] = vest.Calibration(colour)
+    log(f"calibrating {colour}: hold the vest about 1 m away, in the middle of the view")
+    return None
+
+
+def finish_calibration(cfg, search, done):
+    """Apply and save a finished calibration. Returns what the page shows."""
+    colour, fit = done["colour"], done["fit"]
+    if fit is None:
+        log(f"calibrating {colour}: it did not read as one colour")
+        return {"colour": colour, "ok": False,
+                "message": f"The {colour} vest didn't read as one color. "
+                           "Move it closer, fill the middle of the view, or check the lighting."}
+    try:
+        clashes = vest.apply_calibration(search, colour, fit, cfg.get("search_wb"))
+        saved = True
+    except OSError as exc:
+        log(f"calibrating {colour}: in use now, but could not save it ({exc})")
+        clashes, saved = vest.overlaps(search.ranges), False
+    lo, hi = fit["hue"]
+    message = f"{colour.title()} calibrated: hue {lo:g} to {hi:g}."
+    if not saved:
+        message += " It's in use now, but couldn't be saved for the next start."
+    for a, b in clashes:
+        message += (f" Warning: {a} and {b} now overlap, so the search could confuse them."
+                    " Recalibrate one of them, or use a different vest.")
+    log(f"calibrating {colour}: hue {lo:g}-{hi:g}, saturation from {fit['sat']}, "
+        f"brightness from {fit['val']}" + (f", overlaps {clashes}" if clashes else ""))
+    return {"colour": colour, "ok": saved and not clashes, "message": message, "fit": fit}
+
+
+def search_step(hub, cfg, dets, rgb, now):
+    """One detection frame of the vest search, shared by the OAK and the webcam.
+
+    `rgb` is the colour frame the boxes came from, or None when there is no new one,
+    so each frame votes once. Adds "vest" and "role" to dets. Also feeds a
+    calibration in progress and the trial recording, and raises the FOUND alert.
+    Returns the report, or None with the search off.
+    """
+    search, link = cfg.get("search"), cfg.get("search_link")
+    if search is None:
+        return None
     if link is not None:
         link.poll_target(search)
-    sample = None
-    if frame_msg is not None and any(d.get("c") == "person" for d in dets):
-        rgb = oak_wildlife.to_rgb(frame_msg)
-        sample = lambda box: vest.chest_pixels(rgb, box)
+    sample = (lambda box: vest.chest_pixels(rgb, box)) if rgb is not None else None
     report = search.process(dets, sample, now)
     if link is not None:
         link.send(report)
+    cal = cfg.get("calibrating")
+    if cal is not None:
+        if cal.started is None:
+            cal.started = now
+        done = cal.feed(rgb) if rgb is not None else None
+        if done is not None:
+            cfg["calibrating"] = None
+            hub.publish("calibration", finish_calibration(cfg, search, done), reliable=True)
+        elif now - cal.started > vest.CALIBRATION_TIMEOUT_S:
+            cfg["calibrating"] = None
+            log(f"calibrating {cal.colour}: no colour frames arrived, so it gave up")
+            hub.publish("calibration", {"colour": cal.colour, "ok": False,
+                                        "message": "No picture arrived to calibrate from. Try again."},
+                        reliable=True)
+    if cfg.get("trials") is not None:
+        cfg["trials"].write(report, dets)
+    if report.get("found_now"):
+        z = report.get("z")
+        where = f" at {z:.1f} m" if z is not None else ""
+        log(f"FOUND {report['target']} vest: track {report['id']}{where}, "
+            f"{report['ignored']} ignored")
+        hub.publish("alert", vest.found_alert(report, time.time()), reliable=True)
     return report
 
 
@@ -1058,9 +1262,11 @@ def run(args, hub, cfg):
         # host. The network passthrough is the frame the boxes were computed on,
         # at about 35 Mbps of USB bandwidth, which save_evidence() deliberately
         # stopped paying for. So it is only pulled with --search on.
-        search = cfg.get("search")
+        # Built with whatever the search is now. Turning it on or off from the
+        # page sets "rebuild", and the loop below returns to come back here.
+        cfg.pop("rebuild", None)
         frame_q = None
-        if search is not None:
+        if cfg.get("search") is not None:
             frame_q = nn.passthrough.createOutputQueue(maxSize=1, blocking=False)
             if cfg.get("search_wb"):
                 # Auto white balance shifts with whatever fills the frame, and
@@ -1086,11 +1292,15 @@ def run(args, hub, cfg):
         fps_window = collections.deque(maxlen=40)
         last_status = 0.0
         counts = {}
-        frame_msg = None
-        frame_at = 0.0
+        colour_frames = ColourFrames()
         search_faults = 0
 
         while not STOP["flag"] and pipeline.isRunning():
+            if cfg.get("rebuild"):
+                log("restarting the camera for the vest search")
+                hub.publish("status", {"t": round(time.time(), 2), "camera": "restarting",
+                                       "fps": 0.0, "pm": cfg["pm"], **search_state(cfg)})
+                return "rebuild"
             size = QUALITIES[cfg["quality"]][0]
             for name, q in queues.items():
                 enc = q.tryGet()
@@ -1102,7 +1312,7 @@ def run(args, hub, cfg):
                 # below. That is close enough for the chest of a walking person.
                 newest = frame_q.tryGet()
                 if newest is not None:
-                    frame_msg, frame_at = newest, time.monotonic()
+                    colour_frames.offer(newest, time.monotonic())
 
             # Read tracklets rather than raw detections: same boxes, plus a
             # stable id, an age and a status. Everything downstream - dwell
@@ -1113,6 +1323,7 @@ def run(args, hub, cfg):
                 seq += 1
                 now = time.monotonic()
                 fps_window.append(now)
+                searching = cfg.get("search") is not None
                 dets, raw_tracklets = [], []
                 for t in msg.tracklets:
                     src = t.srcImgDetection
@@ -1121,7 +1332,7 @@ def run(args, hub, cfg):
                     # The live overrides don't apply during a search. They could
                     # hide people from it, and the search is also what reports
                     # how close anyone is to the aircraft.
-                    if cfg["conf"] is not None and search is None:
+                    if cfg["conf"] is not None and not searching:
                         # A live override from /api/config. It can only tighten:
                         # the device filter was programmed at build time to the
                         # policy's lowest threshold, so anything below that was
@@ -1137,7 +1348,7 @@ def run(args, hub, cfg):
                     if verdict is None:
                         continue
                     reported, raw = verdict
-                    if cfg["classes"] and search is None and reported not in cfg["classes"]:
+                    if cfg["classes"] and not searching and reported not in cfg["classes"]:
                         continue
 
                     status = t.status.name
@@ -1183,13 +1394,12 @@ def run(args, hub, cfg):
                     hits += 1
 
                 report = None
-                if search is not None:
+                if searching:
                     # A colour fault must not take the video down with it. The
                     # reports stop, and the flight code must treat that as stale.
                     try:
-                        fresh = frame_msg if now - frame_at <= FRAME_MAX_AGE_S else None
-                        report = search_frame(search, cfg.get("search_link"),
-                                              dets, fresh, now)
+                        report = search_step(hub, cfg, dets,
+                                             colour_frames.take(cfg, dets, now), now)
                     except Exception as exc:   # noqa: BLE001 - keep the feed up
                         search_faults += 1
                         if search_faults == 1 or search_faults % 100 == 0:
@@ -1203,19 +1413,14 @@ def run(args, hub, cfg):
                                            if k != "found_now"}
                 hub.publish("det", det_event)
 
-                if report is not None and report.get("found_now"):
-                    log(f"FOUND {report['target']} vest: track {report['id']} "
-                        f"at {report['z']:.1f} m, {report['ignored']} ignored")
-                    hub.publish("alert", vest.found_alert(report, time.time()),
-                                reliable=True)
-                    if cfg["save"]:
-                        hits_saved += 1
-                        save_evidence(hub, args.save_dir, hits_saved, dets)
+                if report is not None and report.get("found_now") and cfg["save"]:
+                    hits_saved += 1
+                    save_evidence(hub, args.save_dir, hits_saved, dets)
 
                 # During a search the only frame worth keeping is the find. The
                 # general rule below would photograph every decoy, and the
                 # decoys at a demonstration are the audience.
-                if search is None and dets and cfg["save"]:
+                if not searching and dets and cfg["save"]:
                     # A genuinely new object always earns a frame; otherwise the
                     # interval floor applies. So a creature walking in is never
                     # missed, and one standing still cannot flood the disk.
@@ -1263,6 +1468,7 @@ def run(args, hub, cfg):
                     # No GPS is fitted, and the GUI must not imply otherwise.
                     "gps": {"fix": "not fitted"},
                     "fc": "not connected",
+                    **search_state(cfg),
                 })
             if msg is None:
                 time.sleep(0.004)
@@ -1341,21 +1547,22 @@ def main():
     host = args.host or ("0.0.0.0" if token else "127.0.0.1")
 
     cfg = {"conf": args.conf, "classes": [], "quality": args.quality,
-           "save": not args.no_save, "pm": power_mode()}
+           "save": not args.no_save, "pm": power_mode(),
+           # The device filter --conf programs. The search can't run under it.
+           "device_conf": args.conf}
 
+    # Always there, search or not, so the flight code can reach the camera and
+    # the operator can start a search from the page. Made here rather than in
+    # run(), which reopens with the camera and would fail to bind the port it
+    # already holds.
+    cfg["search_link"] = vest.SearchLink(
+        ports.SEARCH_TARGET_UDP, ports.SEARCH_REPORT_UDP, log=log)
+    cfg["trials"] = trial_log.TrialLog(Path(args.save_dir) / "trials", log=log)
     if args.search:
-        ranges, wb_k, source = vest.load_calibration()
-        cfg["search"] = vest.VestSearch(args.search, ranges)
-        cfg["search_wb"] = wb_k
-        # Made here rather than in run(), which reopens with the camera and
-        # would fail to bind the port it already holds.
-        cfg["search_link"] = vest.SearchLink(
-            ports.SEARCH_TARGET_UDP, ports.SEARCH_REPORT_UDP, log=log)
-        log(f"vest search: looking for {args.search}, colours from {source}")
+        set_search(cfg, args.search)
 
     hub = Hub()
-    server = start_server(hub, token, host, args.port, args.save_dir, cfg,
-                          view_token, audience=bool(args.search))
+    server = start_server(hub, token, host, args.port, args.save_dir, cfg, view_token)
     if server is None:
         return 1
 
@@ -1363,9 +1570,8 @@ def main():
         log(f"GUI token {token}")
         for url, label in reachable_urls(args.port, token):
             log(f"  reachable: {url}   ({label})")
-        if args.search:
-            for url, label in reachable_urls(args.port, view_token):
-                log(f"  view-only: {url}   ({label})")
+        for url, label in reachable_urls(args.port, view_token):
+            log(f"  view-only: {url}   ({label})")
     else:
         log("NO KEY FILE - the GUI is bound to 127.0.0.1 only.")
         # Name the GUI's own path explicitly. A bare `auth.py --init` writes to
@@ -1388,7 +1594,8 @@ def main():
     attempts = 0
     while not STOP["flag"]:
         try:
-            run(args, hub, cfg)
+            if run(args, hub, cfg) == "rebuild":
+                continue               # the search was turned on or off
             break                      # clean exit: Ctrl+C or pipeline stopped
         except KeyboardInterrupt:
             break
