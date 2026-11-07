@@ -220,7 +220,8 @@ passive sensor and still needs some light.
 
 ## Vest search
 
-The search-and-rescue simulation: a missing person was last seen in a red vest.
+The search-and-rescue simulation: a missing person was last seen in a yellow
+construction vest.
 The camera service marks that person TARGET and everyone else ignored, shows a
 confidence chart on the phone page, and sends a report over loopback UDP for the
 flight code to read.
@@ -235,14 +236,18 @@ there is nothing to stop or restart. Open it with the GUI token (the address
 `bash deploy/field_mode.sh url` prints). The **Vest search** row is only on that
 page: view-only phones never see it, and the server refuses their writes anyway.
 
-1. **Turn it on:** press **red**, **yellow** or **blue**. The camera restarts for a
-   few seconds, because only the search pulls colour frames over USB (about
+1. **Turn it on:** press **yellow** for the construction vest, or **red** or
+   **blue** to show the colour isn't built in. The camera restarts for a few
+   seconds, because only the search pulls colour frames over USB (about
    35 Mbps). Switching colour after that is instant. **off** stops it.
-2. **Calibrate, once per room:** with the search on, press **calibrate red**, and
-   hold the red vest about 1 m away, filling the middle of the view, for a
-   second. The page says what it learned, or warns if two vests now overlap.
-   Do each vest. It's saved to `~/.venator/vest-colours.json` and used straight away.
-3. **Record trials:** type a note, such as `4 m, daylight, Sam in red`, press
+2. **Calibrate, once per room:** with the search on, press **calibrate yellow**,
+   and hold the yellow vest about 1 m away, filling the middle of the view, for
+   a second. The silver reflective tape doesn't matter, because grey and white
+   are left out of the fit, but most of the middle should be the yellow fabric.
+   The page says what it learned, or warns if two vests now overlap. Do the
+   decoys' vests too. It's saved to `~/.venator/vest-colours.json` and used
+   straight away.
+3. **Record trials:** type a note, such as `4 m, daylight, Sam in yellow`, press
    **record**, run the trial, and press **stop**. Each one is a CSV in
    `<save dir>/trials/`, and the links under the row download them. One row per
    person per frame, and one for each FOUND.
@@ -260,7 +265,8 @@ sudo systemctl stop venator-gui
 sudo systemctl start venator-gui
 ```
 
-`gui_server.py --search red` still starts with the search on, for running by hand.
+`gui_server.py --search` still starts with the search on, for running by hand. On
+its own it looks for yellow; name a colour (`--search blue`) for another.
 The flight code can also set the colour over loopback:
 
 ```bash
@@ -282,8 +288,12 @@ with what it measured, the detector and the time printed on it. It plots the las
 rest of this page stays dark for night use.
 
 Bright clothes in the target colour will fool it: it matches a description, and
-a red shirt looks the same as a red vest. Calibrate red in the room you test in:
-skin under warm light and orange safety vests sit just past the edge of its range.
+a yellow shirt looks the same as a yellow vest. Hi-vis "yellow" is really a
+fluorescent yellow-green, so the built-in yellow runs from 40 to 90 degrees of
+hue to take in every vest the ANSI standard allows, and olive and lime clothes
+fall inside that too. An orange hi-vis vest is not taken for the yellow one.
+Calibrate yellow with the real vest in the room you test in, and the range
+narrows to that vest.
 
 ### On a Mac's webcam, with no camera hardware
 

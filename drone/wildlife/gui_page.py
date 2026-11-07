@@ -49,9 +49,11 @@ PAGE = r"""<!doctype html>
 html,body{margin:0;background:var(--bg);color:var(--fg);
   font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
-#redfilter{position:fixed;inset:0;pointer-events:none;z-index:50;background:#f00;
+/* top/right/bottom/left rather than inset:0 throughout: Safari before 14.5
+   ignores inset, and these overlays then shrink to nothing. */
+#redfilter{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:50;background:#f00;
   opacity:0;mix-blend-mode:multiply;transition:opacity .2s}
-#dimmer{position:fixed;inset:0;pointer-events:none;z-index:51;background:#000;opacity:0}
+#dimmer{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:51;background:#000;opacity:0}
 
 /* --- alert banner: sticky, no auto-dismiss, explicit ack --- */
 #alerts{position:sticky;top:0;z-index:40}
@@ -121,8 +123,15 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 /* --- video --- */
 #stage{position:relative;background:#000;aspect-ratio:16/9;width:100%;overflow:hidden}
 #stage img{width:100%;height:100%;object-fit:contain;display:block}
-#stage canvas{position:absolute;inset:0;width:100%;height:100%}
-#nolink{position:absolute;inset:0;display:none;place-items:center;text-align:center;
+#stage canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+/* Safari before 15 (iOS 14 and older) has no aspect-ratio, so #stage would be
+   as tall as whatever is in it: nothing at all before the first frame, which
+   hides the no-link message. The classic padding box gives it 16:9 instead. */
+@supports not (aspect-ratio:1){
+  #stage{height:0;padding-top:56.25%}
+  #stage img{position:absolute;top:0;left:0}
+}
+#nolink{position:absolute;top:0;right:0;bottom:0;left:0;display:none;place-items:center;text-align:center;
   background:rgba(5,7,10,.72);color:var(--warn);padding:16px;font-size:13px}
 #nolink.on{display:grid}
 #stage.stale img{filter:grayscale(1) brightness(.45)}
@@ -163,7 +172,7 @@ h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted
 .shot.wrong img{border-color:var(--bad)}
 
 /* --- lightbox: one evidence frame, large, with its boxes drawn on --- */
-#lb-wrap{position:fixed;inset:0;z-index:60;display:none;
+#lb-wrap{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:none;
   background:rgba(2,3,5,.96);flex-direction:column}
 #lb-wrap.on{display:flex}
 #lb-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center}
@@ -209,8 +218,8 @@ input[type=range]{width:88px;accent-color:var(--orange)}
 <div id="ops" class="off">
   <div class="opsrow">
     <span class="lbl">Vest search</span>
-    <button data-v="off">off</button><button data-v="red">red</button>
-    <button data-v="yellow">yellow</button><button data-v="blue">blue</button>
+    <button data-v="off">off</button><button data-v="yellow">yellow</button>
+    <button data-v="red">red</button><button data-v="blue">blue</button>
     <span class="d" id="opsmsg"></span>
   </div>
   <div class="opsrow" id="calrow">
@@ -842,16 +851,47 @@ q('#alerts').onclick = e => {
   acked.add(id); sessionStorage.setItem('acked', JSON.stringify([...acked]));
   api('/api/ack', {alert_id:id}); renderAlerts();
 };
-let beepOk = false;
-addEventListener('pointerdown', () => { beepOk = true; }, {once:true});
+/* The FOUND beep. Safari on iPhone only plays Web Audio from a context created
+   or resumed during a tap: one made when the alert arrives, as this used to,
+   stays silent. So the first tap makes the context, and later taps wake it if
+   iOS has suspended it (it does, in the background). A phone on silent still
+   mutes it, and iPhones have no vibrate. Taps, not pointerdown: on a touch
+   screen only the end of a tap counts as one. */
+let audio = null;
+function wakeAudio(){
+  if (audio && audio.state !== 'running' && audio.resume) {
+    const r = audio.resume();
+    if (r && r.catch) r.catch(() => {});
+  }
+}
+function unlockAudio(){
+  try {
+    if (!audio) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audio = new AC();
+      // a silent blip inside the tap is what unlocks older iOS
+      const o = audio.createOscillator(), g = audio.createGain();
+      g.gain.value = 0; o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + .02);
+    }
+    wakeAudio();
+  } catch(_){}
+}
+['pointerup', 'touchend', 'click', 'keydown'].forEach(e =>
+  addEventListener(e, unlockAudio, {capture:true, passive:true}));
+function beep(){
+  const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+  o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+  g.gain.value = .25; o.start(t); o.stop(t + .42);
+}
 function notify(){
   if (navigator.vibrate) navigator.vibrate([200,100,200]);
-  if (!beepOk) return;            // iOS refuses audio before a user gesture
+  if (!audio) return;             // no tap yet: browsers refuse sound before one
   try {
-    const a = new (window.AudioContext||window.webkitAudioContext)();
-    const o = a.createOscillator(), g = a.createGain();
-    o.frequency.value = 880; o.connect(g); g.connect(a.destination);
-    g.gain.value = .25; o.start(); setTimeout(() => { o.stop(); a.close(); }, 420);
+    if (audio.state === 'running') { beep(); return; }
+    const r = audio.resume && audio.resume();
+    if (r && r.then) r.then(beep, () => {});
   } catch(_){}
 }
 

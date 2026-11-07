@@ -297,8 +297,9 @@ def run(args, hub, cfg, stop):
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--search", default="red", choices=vest.COLOURS, metavar="COLOUR",
-                    help="the vest colour to search for (default red)")
+    ap.add_argument("--search", default=vest.DEFAULT_TARGET, choices=vest.COLOURS,
+                    metavar="COLOUR", help=f"the vest colour to search for (default "
+                                           f"{vest.DEFAULT_TARGET}, the construction vest)")
     ap.add_argument("--camera", type=int, default=None,
                     help="camera index (default: the laptop's built-in camera)")
     ap.add_argument("--port", type=int, default=ports.GUI_HTTP)

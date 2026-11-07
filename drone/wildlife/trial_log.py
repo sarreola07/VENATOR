@@ -6,7 +6,7 @@ The live chart forgets after 30 seconds, and a snapshot keeps one moment. A
 recognition trial needs every reading: when the wearer came into view, how the
 vote built up, when FOUND fired, and whether a decoy was ever the target. So the
 operator starts a recording from the camera page with a short note ("4 m,
-daylight, Sam in red"), runs the trial, and stops it. Each one is a CSV in
+daylight, Sam in yellow"), runs the trial, and stops it. Each one is a CSV in
 <save_dir>/trials/, downloadable from the page.
 
 One row per person per detection frame, plus a row for each FOUND. Stdlib only,

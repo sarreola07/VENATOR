@@ -3,8 +3,8 @@
 Which person is the one we are looking for.
 
 The search-and-rescue demonstration: a report says the missing person was last
-seen in a red vest. The network finds people; this module decides which of them
-match the description and calls everyone else "ignored".
+seen in a yellow construction vest. The network finds people; this module
+decides which of them match the description and calls everyone else "ignored".
 
 Ignored means ignored for targeting, never for safety. Every person the detector
 reports still counts toward closest_m, because someone in a blue vest walking up
@@ -15,8 +15,8 @@ counted, and the flight zone has to cover that.
 Why a colour rule and not a retrained network: it needs no dataset, it costs
 about 0.3 ms per person on a laptop (not yet measured on the Jetson), and every
 decision can be explained by pointing at the numbers. It also has a known limit
-worth stating out loud: it matches a description, so a red shirt looks the same
-as a red vest.
+worth stating out loud: it matches a description, so a yellow shirt looks the
+same as a yellow vest.
 
 The rule, in order:
 
@@ -43,16 +43,26 @@ from pathlib import Path
 
 COLOURS = ("red", "yellow", "blue")
 
+#: What the search looks for unless told otherwise: the missing person's yellow
+#: construction vest. Red and blue stay selectable, and are what the decoys wear.
+DEFAULT_TARGET = "yellow"
+
 #: Starting values, wide enough to find a vest and meant to be replaced by
-#: vest_calibrate.py in the room being flown in. Hue is in degrees and red wraps
-#: through zero, so a range whose low end is above its high end crosses 360.
+#: calibrating in the room being flown in (from the camera page, or with
+#: vest_calibrate.py). Hue is in degrees and red wraps through zero, so a range
+#: whose low end is above its high end crosses 360.
+#: Yellow is a construction vest's: hi-vis "yellow" is ANSI/ISEA 107 fluorescent
+#: yellow-green, whose colour limits convert to hue 55-84 degrees at saturation
+#: 0.55 or more (see tests/test_vest.py). The range runs to 90 to take in the
+#: greener vests and some white-balance drift; 80 cut the greener ones off. The
+#: price is that olive and lime clothes read yellow too.
 #: Blue's saturation floor is high on purpose: denim sits in the same hue as a
 #: blue vest, at about 0.45 saturation. Red's range stops at 15 degrees on purpose:
 #: skin under warm light and orange safety vests start just past it, so red is the
 #: colour most worth calibrating.
 DEFAULT_RANGES = {
     "red":    {"hue": [345, 15],  "sat": 0.45, "val": 0.25},
-    "yellow": {"hue": [40, 80],   "sat": 0.45, "val": 0.35},
+    "yellow": {"hue": [40, 90],   "sat": 0.45, "val": 0.35},
     "blue":   {"hue": [195, 255], "sat": 0.55, "val": 0.20},
 }
 

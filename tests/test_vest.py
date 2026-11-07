@@ -119,6 +119,27 @@ check("hue wraps through zero: 350", vest.in_hue(350, 345, 15))
 check("hue wraps through zero: 5", vest.in_hue(5, 345, 15))
 check("hue wraps through zero: 180 is out", vest.in_hue(180, 345, 15), False)
 
+print("\nThe target: a yellow construction vest")
+check("the search looks for yellow unless told otherwise", vest.DEFAULT_TARGET, "yellow")
+# Hi-vis "yellow" is ANSI/ISEA 107 fluorescent yellow-green. These are the corners
+# of its colour limits and their centre, converted from CIE xyY to sRGB, in full
+# light and in shade: hue 55 to 84 degrees, saturation 0.55 or more. A real vest
+# is broken up by silver reflective tape, so each is 60% fabric and 40% tape.
+TAPE = (200, 200, 205)
+HIVIS = {"centre": (211, 238, 0), "yellow corner": (246, 230, 0),
+         "pale yellow corner": (239, 228, 107), "green corner": (167, 249, 0),
+         "pale green corner": (185, 243, 96), "centre in shade": (150, 170, 0),
+         "green corner in shade": (118, 177, 0), "pale green corner in shade": (131, 173, 66)}
+for name, c in HIVIS.items():
+    check(f"a construction vest with its tape reads yellow: {name}",
+          vest.pick(vest.shares(chest(c, share=0.6, other=TAPE), R)), "yellow")
+open_vest = [HIVIS["centre"]] * 40 + [TAPE] * 25 + [(45, 45, 50)] * 35
+check("worn open over a dark shirt, it still reads yellow",
+      vest.pick(vest.shares(open_vest, R)), "yellow")
+check("an orange hi-vis vest is not taken for the yellow one",
+      vest.pick(vest.shares(chest((255, 110, 0), share=0.6, other=TAPE), R)), None)
+check("nor is a khaki work shirt", vest.pick(vest.shares(chest((195, 176, 145)), R)), None)
+
 print("\nThe chest box stays off the edges and above the waist")
 x1, y1, x2, y2 = vest.chest_box([0.0, 0.0, 1.0, 0.9])
 check("it starts below the head", round(y1, 3), 0.18)

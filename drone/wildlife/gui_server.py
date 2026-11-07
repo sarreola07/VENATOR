@@ -1528,10 +1528,11 @@ def main():
     ap.add_argument("--save-dir", default=str(Path.home() / "Pictures" / "wildlife"))
     ap.add_argument("--no-save", action="store_true")
     ap.add_argument("--quality", default="hi", choices=tuple(QUALITIES))
-    ap.add_argument("--search", nargs="?", const="red", default=None,
+    ap.add_argument("--search", nargs="?", const=vest.DEFAULT_TARGET, default=None,
                     choices=vest.COLOURS, metavar="COLOUR",
-                    help="search for the person in this vest (default red), "
-                         "and hand phones joining the hotspot a view-only token")
+                    help=f"search for the person in this vest (default "
+                         f"{vest.DEFAULT_TARGET}, the construction vest), and hand "
+                         f"phones joining the hotspot a view-only token")
     args = ap.parse_args()
     if args.search and args.conf is not None:
         # --conf sets the device's own filter, so people below it never reach
