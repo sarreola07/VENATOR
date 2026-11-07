@@ -3,6 +3,10 @@
 Installing the **three** boot services and the desktop launchers, and switching
 the modes that change how the drone behaves.
 
+**Updating a Jetson that's already set up:** follow `docs/JETSON_UPDATE.md`. It
+pulls `main`, restarts the services and checks every system with the props off,
+and its prompt can be pasted straight into Claude Code on the Jetson.
+
 | File | What it is |
 |---|---|
 | `install_service.sh` | Installs `venator-c2` — the LoRa command link — as a boot service. |

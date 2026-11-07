@@ -78,6 +78,13 @@ jobs:
       - name: Captive portal routes and boundary
         run: python3 tests/test_captive.py
 
+      # No Pixhawk: readings are plain numbers, so what the ARK Flow check calls
+      # OK, WARN or FAIL is pinned here. That verdict decides whether the indoor
+      # hover gets tried, so a working sensor must pass, and a covered lens, a
+      # missing setting or an estimator stuck in constant-position mode must not.
+      - name: ARK Flow check verdicts
+        run: python3 tests/test_check_flow.py
+
       - name: Every Python file compiles
         run: python3 -m compileall -q radio drone ground tests
 
