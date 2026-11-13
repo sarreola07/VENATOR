@@ -229,6 +229,9 @@ flight code to read.
 This is a bench test, with the props off. **Nothing here commands the aircraft
 yet.** The flight side is not built. It needs the ARK Flow hover working first.
 
+To set it all up with Claude Code on the Jetson, paste the master prompt in
+[docs/YELLOW_VEST_PROMPT.md](../../docs/YELLOW_VEST_PROMPT.md).
+
 ### From the operator's page
 
 Everything is on the page the normal `venator-gui` service already serves, so

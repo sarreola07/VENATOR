@@ -288,6 +288,11 @@ sudo systemctl restart venator-c2 venator-gui          # You
 ```
 Send the output to Claude on the Mac. Once it's fixed, `git checkout main` again.
 
+## Next
+
+For a full session on the vest search alone (calibration, trials, phones, the
+chart), use the master prompt in `docs/YELLOW_VEST_PROMPT.md`.
+
 ## What this doesn't cover
 
 - **Flying:** the props are off, and GPS is a known fault.
