@@ -66,11 +66,9 @@
     }
     document.documentElement.lang = current;
     if (button) {
-      // The button names the language it would switch to.
-      button.textContent = current === "es" ? "EN" : "ES";
-      // WCAG 2.5.3: the accessible name must contain the visible text, so the
-      // two letters lead and the explanation follows.
-      button.setAttribute("aria-label", current === "es" ? "EN, switch to English" : "ES, cambiar a español");
+      // The button names the language it would switch to, in that language.
+      // The visible word is the whole accessible name: no aria-label to drift.
+      button.textContent = current === "es" ? "English" : "Español";
       button.setAttribute("lang", current === "es" ? "en" : "es");
     }
     // The plate viewer's caption is copied from the shown image's data-name

@@ -269,7 +269,9 @@
   @media (max-width:560px){
     .mast{height:auto; flex-wrap:wrap; justify-content:flex-start; padding:14px 0 0}
     .mast picture,.mast img{flex:0 0 auto}
-    .mast nav{flex:1 0 100%; margin-top:12px; padding-bottom:10px; gap:18px}
+    /* Four items now, and the Spanish ones are longer: let the row wrap rather
+       than overflow, which the audit counts as sideways scroll. */
+    .mast nav{flex:1 0 100%; flex-wrap:wrap; margin-top:12px; padding-bottom:10px; gap:6px 18px}
   }
   @media (max-width:860px){
     .hero{grid-template-columns:1fr; gap:34px; align-items:start}
@@ -437,10 +439,10 @@
          near-white, for dark backgrounds. -->
     <a href="index.html"><img src="assets/brand/lockup-dark.svg" data-i18n-attr="alt:nav.lockup" alt="Venator, autonomous flight systems" width="168" height="30"></a>
     <nav aria-label="Primary" data-i18n-attr="aria-label:nav.primary">
+      <button class="lang" type="button" hidden lang="es">Español</button>
       <a href="index.html" data-i18n="nav.product">Product</a>
       <a href="how-it-works.html" aria-current="page" data-i18n="nav.how">How it works</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
-      <button class="lang" type="button" hidden lang="es" aria-label="ES, cambiar a español">ES</button>
     </nav>
   </header>
 
