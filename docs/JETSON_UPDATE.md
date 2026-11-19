@@ -257,17 +257,22 @@ curl -s "http://127.0.0.1:8080/api/trials/summary?k=$(bash deploy/field_mode.sh 
 4. On the laptop with the other LoRa stick, run `python3 ground/gcs_client.py`. It
    says hello and lists the menu, 1 to 8. Pick **7**.
 
-Don't try **8 Hover**: it's blocked until the ARK Flow work is done.
+Don't try **8 Hover** here: outdoors it needs a GPS 3D fix; indoors it needs
+the ARK Flow and `--indoor`, which is section 11.
 
 **Claude:**
 ```bash
 journalctl -u venator-c2 --since "-15 min" --no-pager | tail -40
 ```
 **Pass:**
-- A `diagnostics:` line for each status request.
-- `RUN 1 accepted — executing` and `RUN 2 accepted — executing`.
+- A `diagnostics:` line for each status request, and a `link: rx … tx …` line
+  after it (the link's own counters; `rssi` appears once the sticks run the
+  November bridge firmware).
+- `RUN 1 accepted — executing` and `RUN 2 accepted — executing`. If the remote
+  had to resend, a `RUN seq N again - answering from the cache` line, and still
+  only one `executing` per test.
 - Nothing logged for the STOP, and no LAND.
-- No tracebacks.
+- No tracebacks, and no `error handling` lines.
 
 ### 9. Pixhawk and ARK Flow
 **9a. You:**
@@ -329,6 +334,57 @@ Needs a decision: <anything>
 ```
 Replace any token (`k=…`) with `k=REDACTED`.
 
+### 11. Indoor hover (symposium)
+
+The hover (menu **8**) can fly indoors from the ARK Flow's position instead of
+GPS. Only that flight changes: Missions 1 and 2 and the waypoint flight stay
+GPS-gated, because their failsafe is RTL and RTL means nothing without a global
+position. The hover's failsafes all LAND. Order matters; stop at the first
+thing that does not pass.
+
+**11a. Claude:** `check_flow.py` must PASS (section 9d). Not WARN. Its FAIL and
+WARN lines are the to-do list; nothing below is worth doing before it passes.
+
+**11b. You:** the drop-in, exactly like `deploy/flight_mode.sh` writes for the
+bench, but with `--indoor` and props ON:
+```bash
+sudo mkdir -p /etc/systemd/system/venator-c2.service.d
+sudo tee /etc/systemd/system/venator-c2.service.d/props.conf >/dev/null <<EOF
+[Service]
+ExecStart=
+ExecStart=$PWD/venv/bin/python $PWD/drone/c2_server.py --real --indoor
+EOF
+sudo systemctl daemon-reload && sudo systemctl restart venator-c2
+```
+Run that from the repo root. `./deploy/flight_mode.sh on` removes it again
+(outdoor flight mode), `off` replaces it with the bench mode.
+
+**11c. Claude:**
+```bash
+journalctl -u venator-c2 -n 20 --no-pager
+```
+Pass: `Indoor mode: the hover (menu 8) is gated on an ARK Flow position, not
+GPS.` and no traceback.
+
+**11d. You, on the handheld:** send **7 Drone status**. The result should read
+`pos OK 0.xx m` with the drone on the floor; `NO POSITION (flow)` means the
+flow is not feeding PX4 and 11a was not really a pass. The remote's own
+screen after a HELLO shows `indoor: position OK`.
+
+**11e. You, props OFF, on the bench:** send **8 Hover**. It must be
+**refused** with `props are OFF — flight needs props ON`. That proves the props
+gate is checked before the position gate and that nothing arms on the bench.
+
+**11f. You, props ON, in the flight space, RC kill switch in hand:** stand
+clear, send **8 Hover**, and when the drone accepts it, HOLD the knob 3 s. It
+arms, climbs to 0.91 m, holds 10 s, lands. Click = STOP lands it early; BACK =
+ABORT lands it too; 4 s without the remote's pings lands it; the kill switch
+is yours. `ALT` on the remote is now the range-finder height, not GPS.
+
+**Pass for 11:** `HOVER: landed & disarmed` (or `landed (stopped early)`) in
+the journal, one `STATUS` line per second during the flight, and no
+`LINK LOST`.
+
 ## If the update breaks something
 
 ```bash
@@ -345,5 +401,6 @@ chart), use the master prompt in `docs/YELLOW_VEST_PROMPT.md`.
 ## What this doesn't cover
 
 - **Flying:** the props are off, and GPS is a known fault.
-- **The 3 ft hover:** it waits on `check_flow.py`'s output.
+- **The 3 ft hover outdoors:** it still needs a GPS 3D fix. Indoors it is
+  section 11, after `check_flow.py` passes.
 - **Missions 1 and 2:** they need GPS outdoors, and `camera_publisher.py` on depthai 2.32.

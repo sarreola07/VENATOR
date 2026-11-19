@@ -16,6 +16,16 @@
  * working sketches (915 MHz, SF7, syncword 0x12), so range/behaviour are
  * unchanged — only the direction handling is new.
  *
+ * With REPORT_LINK on, each received packet is followed on serial by one
+ * line, {"t":"LINK","rssi":-87,"snr":9}, the radio's own reading of it. The
+ * Python side (radio/serial_link.py) folds that into its counters and never
+ * hands it to the protocol, so the stick's view of the link reaches the
+ * laptop and the Jetson's journal. Set it to 0 for the old quiet serial.
+ *
+ * The boot banner starts "Venator LoRa transceiver ready": serial_link.py
+ * waits for that prefix after opening the port (the ESP32 reboots on open),
+ * so keep the prefix if the line changes. The version after it is informal.
+ *
  * The onboard 64x32 OLED shows link health (packet counts, RSSI/SNR and seconds
  * since the last packet), so a stick tells you whether the link is alive without
  * a computer attached. Set USE_OLED to 0 to get back the exact radio-only
@@ -28,6 +38,8 @@
 #include "LoRaWan_APP.h"
 
 #define USE_OLED 1           // 0 = radio only, byte-for-byte the previous behaviour
+#define REPORT_LINK 1        // 1 = a {"t":"LINK",...} line after each received packet
+#define VENATOR_BRIDGE_VERSION "2026-11-19"
 #ifndef OLED_SIMPLE          // 1 = big WAIT / LINK UP / NO LINK plus one detail line,
 #define OLED_SIMPLE 0        // for a stick read from a distance. Pick per stick with
 #endif                       // --build-property compiler.cpp.extra_flags=-DOLED_SIMPLE=1
@@ -185,6 +197,11 @@ void onRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
         Serial.write(payload[i]);        // print received bytes verbatim
     }
     Serial.write('\n');
+#if REPORT_LINK
+    // The radio's reading of that packet, as its own line. serial_link.py
+    // absorbs it; anything else reading the port sees one extra JSON line.
+    Serial.printf("{\"t\":\"LINK\",\"rssi\":%d,\"snr\":%d}\n", (int)rssi, (int)snr);
+#endif
 #if USE_OLED
     // rssi/snr were previously discarded; they are the most useful thing the
     // radio knows about the link, so keep the latest for the display.
@@ -230,7 +247,8 @@ void setup() {
     Radio.SetSyncWord(LORA_SYNCWORD);
 
     startRx();                           // default state: listening
-    Serial.println("Venator LoRa transceiver ready (half-duplex bridge).");
+    // Prefix "Venator LoRa transceiver ready" is what serial_link.py waits for.
+    Serial.println("Venator LoRa transceiver ready (half-duplex bridge) fw " VENATOR_BRIDGE_VERSION);
 }
 
 void loop() {

@@ -215,6 +215,36 @@ is an Arduino Serial Monitor still open on that stick — or a previous run of t
 server you forgot to stop, which holds the port exclusively and makes the next
 one fail with `Could not exclusively lock port`.
 
+### When nothing arrives at all
+
+A session that links sometimes and not others has had five causes, checked in
+this order. The laptop's handshake prints which one it thinks it is, from the
+link's own counters.
+
+1. **The first message went into a rebooting stick.** The Heltec resets when
+   the port opens and is deaf for ~2 s. Fixed in `radio/serial_link.py`, which
+   waits for the boot banner on every open. If `link_test.py --send` reports
+   `banner NOT seen`, the stick is on another port, another baud, or not running
+   the Venator firmware: `python3 radio/link_test.py --list`.
+2. **A key on one end only.** With a key on the laptop and none on the Jetson,
+   the Jetson answers unsigned and the laptop drops every reply. The handshake
+   now says `the signature did not verify: the two machines have different
+   keys`, and `HELLO_ACK` carries `auth`. Same key on both (`python3
+   radio/auth.py --init`, copy it) or on neither.
+3. **Another program holds the port.** An Arduino Serial Monitor or a server
+   you forgot to stop. `Could not exclusively lock port` is the clue; with the
+   monitor open the stick simply never prints anything to us.
+4. **The other end is not running.** Banner seen, lines arriving, no protocol
+   reply: `systemctl status venator-c2` on the Jetson, and its journal says
+   `no traffic from the ground for 30 s` while it waits.
+5. **Radio settings differ between sticks.** Both must be 915 MHz / SF7 /
+   BW125 / syncword 0x12. `--soak` on both machines at once shows loss and the
+   longest silence; the flight failsafe trips at 4 s.
+
+```bash
+python3 radio/link_test.py --soak 60      # on both machines at the same time
+```
+
 > A Windows PC also works as either end — `radio/link_test.py --list` names the `COM`
 > ports, `--lora-port auto` finds the stick by USB ID, and CI already builds
 > `VenatorGCS.exe`. Run it from PowerShell rather than WSL, which cannot

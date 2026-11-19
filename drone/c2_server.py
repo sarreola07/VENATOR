@@ -33,12 +33,30 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from radio import protocol as p
-from radio.serial_link import SerialLink
+from radio.serial_link import SerialLink, DEFAULT_SETTLE_S
+
+# Timers use the monotonic clock. The Jetson has no RTC battery, so the wall
+# clock steps when NTP arrives after boot; a step forward used to trip LINK
+# LOST at once and a step back stalled the pacing for the size of the jump.
+_clock = time.monotonic
 
 MAX_ALT_M = 50.0        # reject uploaded waypoints above this relative altitude
 LINK_LOSS_S = 4.0       # in flight, no client ping for this long -> failsafe (RTL; hover: LAND)
 FLIGHT_MAX_S = 600.0    # hard cap on a monitored flight -> same failsafe
 STATUS_INTERVAL_S = 1.0 # how often to push in-flight status to the client
+DRAIN_PER_TICK = 8      # messages read from the link per flight tick, at most
+DEDUPE_S = 30.0         # a retransmitted command gets its cached replies this long
+DEDUPE_REPLIES = 4      # ... and at most this many of them are kept
+DONE_REPEAT_S = 15.0    # a flight's DONE rides again on the PONGs of this many seconds
+DONE_REPEATS = 3        # ... at most this many times
+QUIET_REPORT_S = 30.0   # log once when nothing has come from the ground for this long
+STATS_REPORT_S = 60.0   # journal line with link counters while traffic flows
+
+# PX4 ESTIMATOR_STATUS flag bits for a usable position, as drone/checks/check_flow.py
+# reads them. Indoors (ARK Flow, --indoor) these replace the GPS gate for the hover.
+POS_HORIZ_REL = 8
+POS_VERT_AGL = 64
+POSITION_FRESH_S = 2.0  # a position older than this is no position
 
 # --- Mission 1: hover & detect ---
 # GPS-safe hover altitude. A true 3 ft (0.91 m) hold is unsafe on GPS alone
@@ -164,8 +182,11 @@ class MockFC:
     """
     name = "mock"
 
-    def __init__(self, gps=False):
+    def __init__(self, gps=False, position=None):
         self._gps = gps
+        # Indoor position (ARK Flow). None: follows the GPS flag, as a real
+        # vehicle with a fix also has a local position.
+        self._position = gps if position is None else position
         self._armed = False
         self._mode = "HOLD"
         self._t_arm = 0.0
@@ -177,6 +198,9 @@ class MockFC:
 
     def has_gps_fix(self):
         return self._gps
+
+    def has_position(self):
+        return self._position
 
     def run_mission(self, mid, motors=4):
         time.sleep(0.1)
@@ -253,13 +277,70 @@ class RealFC:
     """Real flight controller: connects the Pixhawk and runs missions.py logic."""
     name = "real"
 
-    def __init__(self, device, baud):
+    def __init__(self, device, baud, indoor=False):
         self.master = missions.connect(device, baud)
+        self.indoor = indoor
         # Cached flight state. _armed starts False but is set True by arm(), so a
         # mission loop can never mistake "no telemetry yet" for "already landed".
         self._armed = False
         self._alt = 0.0
         self._mode = "?"
+        # Local position (ARK Flow indoors): height above ground from
+        # LOCAL_POSITION_NED and the estimator's own verdict on it.
+        self._local_alt = 0.0
+        self._local_at = None
+        self._pos_flags_ok = False
+        self._pos_flags_at = None
+        if indoor:
+            self._request_position_stream()
+
+    def _request_position_stream(self):
+        """Ask PX4 for LOCAL_POSITION_NED and ESTIMATOR_STATUS at 5 Hz, the way
+        drone/checks/check_flow.py does. Best effort: a refusal only means the
+        default rates, and has_position() then judges by what arrives."""
+        for msg_id in (32, 230):            # LOCAL_POSITION_NED, ESTIMATOR_STATUS
+            try:
+                self.master.mav.command_long_send(
+                    self.master.target_system, self.master.target_component,
+                    mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
+                    msg_id, 200000, 0, 0, 0, 0, 0)
+            except Exception:
+                pass
+
+    def _take_position(self, msg):
+        """Fold a LOCAL_POSITION_NED or ESTIMATOR_STATUS into the caches."""
+        t = msg.get_type()
+        if t == "LOCAL_POSITION_NED":
+            self._local_alt = round(-float(msg.z), 2)      # NED: down is positive
+            self._local_at = _clock()
+        elif t == "ESTIMATOR_STATUS":
+            self._pos_flags_ok = bool(msg.flags & POS_HORIZ_REL) and bool(msg.flags & POS_VERT_AGL)
+            self._pos_flags_at = _clock()
+
+    def has_position(self):
+        """Indoors: PX4 has a usable local position (ARK Flow + range finder).
+        Both the estimator's flags and a fresh LOCAL_POSITION_NED are needed:
+        flags alone can stay set for a moment after the flow stops."""
+        end = _clock() + 2.0
+        while _clock() < end:
+            m = self.master.recv_match(type=["LOCAL_POSITION_NED", "ESTIMATOR_STATUS"],
+                                       blocking=True, timeout=0.5)
+            if m is None:
+                continue
+            self._take_position(m)
+            if self._position_fresh():
+                return True
+        return self._position_fresh()
+
+    def _position_fresh(self):
+        now = _clock()
+        return (self._pos_flags_ok and self._pos_flags_at is not None
+                and self._local_at is not None
+                and now - self._pos_flags_at <= POSITION_FRESH_S
+                and now - self._local_at <= POSITION_FRESH_S)
+
+    def position_text(self):
+        return "indoor: position OK" if self._position_fresh() else "indoor: no position"
 
     def status(self):
         armed = False
@@ -275,7 +356,10 @@ class RealFC:
         s = self.master.recv_match(type="SYS_STATUS", blocking=True, timeout=2)
         if s:
             batt = round(s.voltage_battery / 1000.0, 2)
-        return {"armed": armed, "gps": gps, "batt": batt}
+        if self.indoor:
+            self.has_position()                 # refresh, so the text is current
+            gps = self.position_text()
+        return {"armed": armed, "gps": gps, "batt": batt, "indoor": self.indoor}
 
     def has_gps_fix(self):
         g = self.master.recv_match(type="GPS_RAW_INT", blocking=True, timeout=2)
@@ -327,6 +411,10 @@ class RealFC:
         if g:
             fixes = {0: "noGPS", 1: "nofix", 2: "2D", 3: "3D", 4: "DGPS", 5: "RTK"}
             bits.append(f"gps {fixes.get(g.fix_type, g.fix_type)}/{g.satellites_visible}sat")
+        if self.indoor:
+            self.has_position()
+            bits.append("pos OK {:.2f}m".format(self._local_alt) if self._position_fresh()
+                        else "NO POSITION (flow)")
         s = self.master.recv_match(type="SYS_STATUS", blocking=True, timeout=3)
         if s:
             v = s.voltage_battery / 1000.0
@@ -395,16 +483,23 @@ class RealFC:
         setpoints keep streaming above PX4's 2 Hz minimum)."""
         while True:
             msg = self.master.recv_match(
-                type=["HEARTBEAT", "GLOBAL_POSITION_INT"], blocking=False)
+                type=["HEARTBEAT", "GLOBAL_POSITION_INT", "LOCAL_POSITION_NED",
+                      "ESTIMATOR_STATUS"], blocking=False)
             if msg is None:
                 break
-            if msg.get_type() == "HEARTBEAT":
+            t = msg.get_type()
+            if t == "HEARTBEAT":
                 self._armed = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
                 self._mode = mavutil.mode_string_v10(msg)
-            else:
+            elif t == "GLOBAL_POSITION_INT":
                 self._alt = round(msg.relative_alt / 1000.0, 2)
+            else:
+                self._take_position(msg)
+        # Indoors the height comes from the local estimate (range finder, since
+        # EKF2_HGT_REF=2); GLOBAL_POSITION_INT is empty without a GPS.
+        alt = self._local_alt if self.indoor else getattr(self, "_alt", 0.0)
         return {"armed": getattr(self, "_armed", False),
-                "alt": getattr(self, "_alt", 0.0),
+                "alt": alt,
                 "mode": getattr(self, "_mode", "?")}
 
     def run_mission(self, mid, motors=4):
@@ -527,11 +622,19 @@ class RealFC:
 # The C2 server: protocol handling + mission dispatch.
 # --------------------------------------------------------------------------
 class C2Server:
-    def __init__(self, fc, props_off=False, motors=4, log=print):
+    def __init__(self, fc, props_off=False, motors=4, log=print, indoor=False):
         self.fc = fc
         self.props_off = props_off
         self.motors = motors
         self.log = log
+        # Indoor hover (ARK Flow): only the hover's gate and altitude source
+        # change. Every other flight keeps its GPS gate -- their failsafe is RTL,
+        # which means nothing without a global position.
+        self.indoor = indoor
+        # Set by serve(): whether the link signs, and its counters for the
+        # diagnostics reply. Plain defaults so the tests' direct calls work.
+        self.link_authenticated = None
+        self.link_stats = None
         self._wp = []
         # A validated flight waiting for CONFIRM: None / "waypoints" / "mission1" /
         # "mission2" / "hover", and when it was prepared (it lapses, see confirm()).
@@ -569,7 +672,20 @@ class C2Server:
             return False, "props are ON — motor tests need props OFF"
         if item.get("needs") == "props_on" and self.props_off:
             return False, "props are OFF — flight needs props ON"
-        if item.get("gps") and not self.fc.has_gps_fix():
+        if item.get("gps"):
+            ok, reason = self._position_gate(item.get("fly"))
+            if not ok:
+                return False, reason
+        return True, "ok"
+
+    def _position_gate(self, fly):
+        """The position a flight needs: a GPS 3D fix, or indoors, for the hover
+        only, a usable ARK Flow position."""
+        if self.indoor and fly == "hover":
+            if not self.fc.has_position():
+                return False, "no position: ARK Flow not giving PX4 a position (run drone/checks/check_flow.py)"
+            return True, "ok"
+        if not self.fc.has_gps_fix():
             return False, "no GPS fix"
         return True, "ok"
 
@@ -579,7 +695,16 @@ class C2Server:
         t = msg.get("t")
         seq = msg.get("seq", 0)
         if t == p.HELLO:
-            st = self.fc.status()
+            st = dict(self.fc.status())
+            if self.indoor:
+                st["indoor"] = True
+                if hasattr(self.fc, "position_text"):
+                    st["gps"] = self.fc.position_text()
+                else:
+                    st["gps"] = ("indoor: position OK" if self.fc.has_position()
+                                 else "indoor: no position")
+            if self.link_authenticated is not None:
+                st["auth"] = bool(self.link_authenticated)
             return [p.message(p.HELLO_ACK, seq, proto=p.PROTO_VERSION,
                               fc=self.fc.name, props_off=self.props_off, **st)]
         if t == p.GET_MENU:
@@ -632,7 +757,7 @@ class C2Server:
     def _prepare(self, kind):
         """Arm the CONFIRM step for `kind` (or clear it with None)."""
         self._pending = kind
-        self._pending_at = time.time()
+        self._pending_at = _clock()
 
     def _armed_now(self):
         """Whether the flight controller says it is armed. A failed read counts
@@ -644,7 +769,7 @@ class C2Server:
 
     def confirm(self, link, send):
         """CONFIRM received: launch the prepared flight, unless it has lapsed."""
-        if self._pending and time.time() - self._pending_at > PENDING_CONFIRM_S:
+        if self._pending and _clock() - self._pending_at > PENDING_CONFIRM_S:
             self.log(f"{self._pending} lapsed — CONFIRM came {PENDING_CONFIRM_S:g}+ s late")
             self._pending = None
         # The gates were last checked when this flight was *prepared*, up to
@@ -697,8 +822,9 @@ class C2Server:
         """
         if self.props_off:
             return False, "props are OFF — flight needs props ON"
-        if not self.fc.has_gps_fix():
-            return False, "no GPS 3D fix"
+        ok, reason = self._position_gate(self._pending)
+        if not ok:
+            return False, "no GPS 3D fix" if reason == "no GPS fix" else reason
         return True, "ok"
 
     def _validate_fly(self):
@@ -726,6 +852,9 @@ class C2Server:
                 text = f"error reading telemetry: {short_error(exc)}"
             self.log(f"diagnostics: {text}")
             send(p.message(p.ACK, seq, id=mid, accepted=True, reason="reading telemetry"))
+            if self.link_stats is not None:
+                # The radio's own view, so a flaky link can be told from a flaky FC.
+                send(p.message(p.LOG, 0, text=link_summary(self.link_stats())))
             send(p.message(p.DONE, seq, id=mid, result=text))
             return
         if item0.get("action") == "toggle_props":
@@ -997,7 +1126,7 @@ class C2Server:
         if not self._arm_and_takeoff(send, "hover", "Hover", HOVER3_ALT_M):
             return
 
-        climb_start = time.time()
+        climb_start = _clock()
         hold_start = None
         flight = MonitoredFlight(self, link, send, "hover", "HOVER",
                                  allow_stop=True, failsafe="LAND", phase="takeoff")
@@ -1108,9 +1237,9 @@ class MonitoredFlight:
         self._report_phase = phase is not None
         self.extra = {}
         self.timed_out = False
-        self._last_ping = time.time()
+        self._last_ping = _clock()
         self._last_status = 0.0
-        self._deadline = time.time() + FLIGHT_MAX_S
+        self._deadline = _clock() + FLIGHT_MAX_S
 
     @property
     def flying(self):
@@ -1127,14 +1256,28 @@ class MonitoredFlight:
         self.server.fc.set_flight_mode(self.failsafe)
         self.rtl = self.failsafe == "RTL"
 
+    def _status(self, now, st):
+        fields = dict(self.extra)
+        if self._report_phase:
+            fields["phase"] = ("RTL" if self.rtl else (self.ending or self.phase))
+        self.send(p.message(p.STATUS, 0, rtl=self.rtl, **fields, **st))
+        self._last_status = now
+
     def ticks(self):
-        while time.time() < self._deadline:
-            now = time.time()
-            msg = self.link.poll()
-            if msg:
+        while _clock() < self._deadline:
+            now = _clock()
+            # Drain what has queued, not one line a tick: PINGs that piled up
+            # during a blocking arm() used to be read one per tick afterwards,
+            # so a link that died during arming looked alive for seconds.
+            pinged = False
+            for _ in range(DRAIN_PER_TICK):
+                msg = self.link.poll()
+                if not msg:
+                    break
                 mt = msg.get("t")
                 if mt == p.PING:
                     self._last_ping = now
+                    pinged = True
                     self.send(p.message(p.PONG, msg.get("seq", 0)))
                 elif mt == p.STOP and self.allow_stop and self.ending is None:
                     self.ending = "STOP"
@@ -1151,13 +1294,18 @@ class MonitoredFlight:
             st = self.server.fc.flight_state()
             yield now, st                      # the mission does its own work here
 
-            if now - self._last_status >= STATUS_INTERVAL_S:
-                fields = dict(self.extra)
-                if self._report_phase:
-                    fields["phase"] = ("RTL" if self.rtl
-                                       else (self.ending or self.phase))
-                self.send(p.message(p.STATUS, 0, rtl=self.rtl, **fields, **st))
-                self._last_status = now
+            # STATUS rides on the PONG: the radio is half-duplex and the ground
+            # has just finished talking, so this is the moment it is listening.
+            # Two free-running 1 s timers (its PING, our STATUS) used to collide
+            # a third of the time. Unsolicited only after the ground has been
+            # quiet for two intervals, so a remote that pings every 5 s still
+            # sees status.
+            # 0.8 x, not 1 x: the ground's pings come every STATUS_INTERVAL_S
+            # too, and judging "due" against the same period would skip every
+            # other one.
+            due = now - self._last_status
+            if (pinged and due >= 0.8 * STATUS_INTERVAL_S) or due >= 2 * STATUS_INTERVAL_S:
+                self._status(now, st)
 
             if not st["armed"]:                # it landed and disarmed
                 self._close()
@@ -1184,10 +1332,64 @@ class LoRaLink(SerialLink):
     StartLimitIntervalSec=0 is a restart every RestartSec forever rather than a
     wait. port_finder so the retry re-resolves instead of hammering one path."""
 
-    def __init__(self, port, baud):
-        super().__init__(port, baud, raise_on_down=False,
-                         defer_open=True, port_finder=find_lora_device,
+    def __init__(self, port, baud, port_finder=find_lora_device):
+        super().__init__(port, baud, raise_on_down=False, settle=DEFAULT_SETTLE_S,
+                         defer_open=True, port_finder=port_finder,
                          log=lambda m: print(m, flush=True))
+
+
+def link_summary(stats):
+    """One short line of link counters, for the journal and the LOG reply."""
+    if not stats:
+        return "link: no counters"
+    bits = ["link: rx {rx} bad {rx_bad} rej {rx_rejected} tx {tx} drop {tx_dropped}".format(**stats)]
+    if stats.get("rssi") is not None:
+        bits.append("rssi {} snr {}".format(stats["rssi"], stats.get("snr")))
+    if stats.get("last_rx_s") is not None:
+        bits.append("heard {:.0f}s ago".format(stats["last_rx_s"]))
+    return " ".join(bits)[:ERROR_TEXT_MAX + 40]
+
+
+class Dedupe:
+    """Replies to the last few commands, by (type, seq), so a retransmitted
+    command is answered from here and never acted on twice.
+
+    The clients retransmit RUN, FLY_REQ, WP_* and CONFIRM when no reply comes
+    back in time; without this, a lost ACK meant a motor test ran twice. Only
+    the first DEDUPE_REPLIES replies are kept: a flight's whole LOG/STATUS
+    stream is not something to replay."""
+
+    KINDS = (p.RUN, p.CONFIRM, p.FLY_REQ, p.WP_BEGIN, p.WP, p.WP_END)
+
+    def __init__(self):
+        self._seen = {}
+
+    def key(self, msg):
+        t, seq = msg.get("t"), msg.get("seq")
+        if t not in self.KINDS or not isinstance(seq, int) or seq <= 0:
+            return None                 # seq 0 carries no identity
+        return (t, seq)
+
+    def replay(self, key):
+        """The cached replies for key, or None if it is new (or lapsed)."""
+        hit = self._seen.get(key)
+        if hit is None or _clock() - hit[0] > DEDUPE_S:
+            return None
+        return hit[1]
+
+    def recorder(self, key, send):
+        """A send() that also files the first few replies under key."""
+        replies = []
+        self._seen[key] = (_clock(), replies)
+        if len(self._seen) > 64:
+            for k in sorted(self._seen, key=lambda k: self._seen[k][0])[:-32]:
+                del self._seen[k]
+
+        def record(m):
+            if len(replies) < DEDUPE_REPLIES and m.get("t") != p.STATUS:
+                replies.append(m)
+            return send(m)
+        return record
 
 
 def serve(server, link, log=print):
@@ -1201,24 +1403,74 @@ def serve(server, link, log=print):
             "range that speaks this protocol can command this aircraft. "
             "Run 'python3 radio/auth.py --init' on both machines. "
             "See docs/SECURITY.md.")
+    server.link_authenticated = bool(getattr(link, "authenticated", False))
+    stats = getattr(link, "stats", None)
+    if callable(stats):
+        server.link_stats = stats
+    if server.indoor:
+        log("Indoor mode: the hover (menu 8) is gated on an ARK Flow position, not GPS.")
+    dedupe = Dedupe()
+    # A flight's DONE is sent once, at the end, and the air can lose it; the
+    # ground then waits for a result that never comes. The ground keeps
+    # pinging after the flight, so the DONE is repeated with the next PONGs.
+    last_done = {"msg": None, "at": 0.0, "n": 0}
+
+    def tx(m):
+        if m.get("t") == p.DONE and m.get("seq", 0) == 0:
+            last_done.update(msg=m, at=_clock(), n=0)
+        return link.send(m)
+    last_rx = _clock()
+    quiet_reported = False
+    last_stats = _clock()
     while True:
-        msg = link.poll()
-        if msg is None:
-            time.sleep(0.02)
-            continue
-        t = msg.get("t")
+        t = None
         try:
+            msg = link.poll()
+            if msg is None:
+                now = _clock()
+                if not quiet_reported and now - last_rx > QUIET_REPORT_S:
+                    log(f"no traffic from the ground for {QUIET_REPORT_S:g} s "
+                        f"({link_summary(stats() if callable(stats) else None)})")
+                    quiet_reported = True
+                time.sleep(0.02)
+                continue
+            last_rx = _clock()
+            if quiet_reported:
+                log("the ground is back")
+                quiet_reported = False
+            if callable(stats) and last_rx - last_stats > STATS_REPORT_S:
+                log(link_summary(stats()))
+                last_stats = last_rx
+            t = msg.get("t")
+            key = dedupe.key(msg)
+            if key is not None:
+                replay = dedupe.replay(key)
+                if replay is not None:
+                    log(f"{t} seq {key[1]} again - answering from the cache, not running it twice")
+                    for reply in replay:
+                        link.send(reply)
+                    continue
+                send = dedupe.recorder(key, tx)
+            else:
+                send = tx
             if t == p.RUN:
-                server.run_and_report(msg, link.send)
+                server.run_and_report(msg, send)
             elif t == p.CONFIRM:
-                server.confirm(link, link.send)
+                server.confirm(link, send)
             else:
                 for reply in server.handle(msg):
-                    link.send(reply)
+                    send(reply)
+                if (t == p.PING and last_done["msg"] is not None
+                        and last_done["n"] < DONE_REPEATS
+                        and _clock() - last_done["at"] < DONE_REPEAT_S):
+                    last_done["n"] += 1
+                    link.send(last_done["msg"])
         except Exception as exc:
             # One bad message must not take the server down. Exiting is a restart
             # under systemd, and the new server knows nothing of a flight this
-            # one was running, so the failsafes would go with it.
+            # one was running, so the failsafes would go with it. poll() is
+            # inside the try for the same reason: a garbled packet used to
+            # escape it.
             log(f"error handling {t!r}: {exc!r}")
 
 
@@ -1231,33 +1483,37 @@ def wait_for_fc(link, args):
         device = find_fc_device() if args.fc_device == "auto" else args.fc_device
         try:
             print("FC device: {}".format(device), flush=True)
-            return RealFC(device, args.fc_baud)
+            return RealFC(device, args.fc_baud, indoor=getattr(args, "indoor", False))
         except SystemExit:
             pass  # missions.connect() exits on no-heartbeat; treat as retry
         except Exception as exc:
             print("FC connect failed: {}".format(exc), flush=True)
-        if time.time() - last_note > 30:
+        if _clock() - last_note > 30:
             print("Pixhawk not connected — retrying every 5 s...", flush=True)
-            last_note = time.time()
-        end = time.time() + 5
-        while time.time() < end:
-            msg = link.poll()
-            if msg is None:
-                time.sleep(0.05)
-                continue
-            t = msg.get("t")
-            seq = msg.get("seq", 0)
-            if t == p.HELLO:
-                link.send(p.message(p.HELLO_ACK, seq, proto=p.PROTO_VERSION,
-                                    fc="disconnected", props_off=True,
-                                    armed=False, gps="n/a", batt=0))
-                link.send(p.message(p.LOG, 0,
-                                    text="Pixhawk NOT connected to the Jetson — check its USB cable"))
-            elif t == p.PING:
-                link.send(p.message(p.PONG, seq))
-            elif t == p.GET_MENU:
-                link.send(p.message(p.MENU, seq, item=None, last=True))
-                link.send(p.message(p.LOG, 0, text="no missions — Pixhawk not connected"))
+            last_note = _clock()
+        end = _clock() + 5
+        while _clock() < end:
+            try:
+                msg = link.poll()
+                if msg is None:
+                    time.sleep(0.05)
+                    continue
+                t = msg.get("t")
+                seq = msg.get("seq", 0)
+                if t == p.HELLO:
+                    link.send(p.message(p.HELLO_ACK, seq, proto=p.PROTO_VERSION,
+                                        fc="disconnected", props_off=True,
+                                        armed=False, gps="n/a", batt=0,
+                                        auth=bool(getattr(link, "authenticated", False))))
+                    link.send(p.message(p.LOG, 0,
+                                        text="Pixhawk NOT connected to the Jetson — check its USB cable"))
+                elif t == p.PING:
+                    link.send(p.message(p.PONG, seq))
+                elif t == p.GET_MENU:
+                    link.send(p.message(p.MENU, seq, item=None, last=True))
+                    link.send(p.message(p.LOG, 0, text="no missions — Pixhawk not connected"))
+            except Exception as exc:
+                print("error on the link while waiting for the FC: {!r}".format(exc), flush=True)
 
 
 def main():
@@ -1280,6 +1536,11 @@ def main():
                     help="declare props OFF (enables motor tests, blocks flight)")
     ap.add_argument("--props-on", action="store_true",
                     help="(default) declare props ON — kept for compatibility")
+    # Indoor hover for the symposium: PX4 gets its position from the ARK Flow
+    # (optical flow + range finder, drone/checks/check_flow.py), not GPS. Only
+    # the hover's gate and altitude source change; see C2Server.indoor.
+    ap.add_argument("--indoor", action="store_true",
+                    help="gate the hover (menu 8) on an ARK Flow position instead of a GPS fix")
     args = ap.parse_args()
 
     # Line-buffer stdout so logs reach the journal immediately under systemd.
@@ -1292,11 +1553,14 @@ def main():
     # flight controller is missing (previously this crash-looped in silence).
     lora_port = find_lora_device() if args.lora_port == "auto" else args.lora_port
     print("LoRa device: {}".format(lora_port), flush=True)
+    # An explicit port is the operator's word: only 'auto' re-detects the stick
+    # when its node cannot be opened.
+    port_finder = find_lora_device if args.lora_port == "auto" else None
     # LoRaLink defers its first open, so an absent or still-enumerating stick is
     # a wait rather than exit 1. Exiting here was a crash-loop under systemd:
     # Restart=on-failure with StartLimitIntervalSec=0 retried every 5 s forever,
     # which is how a demo loses the command link to a slow USB port.
-    link = LoRaLink(lora_port, args.lora_baud)
+    link = LoRaLink(lora_port, args.lora_baud, port_finder=port_finder)
     if not link.up:
         print("LoRa stick not there yet — the server is up and will attach to "
               "it as soon as it appears.", flush=True)
@@ -1308,7 +1572,7 @@ def main():
     else:
         fc = MockFC()
 
-    server = C2Server(fc, props_off=args.props_off, motors=args.motors)
+    server = C2Server(fc, props_off=args.props_off, motors=args.motors, indoor=args.indoor)
 
     try:
         serve(server, link)

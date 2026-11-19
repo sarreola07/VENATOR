@@ -185,14 +185,85 @@ def run_send(link, count, timeout, allow_loss):
               flush=True)
     if loss_pct <= allow_loss:
         print(f"{C_OK}Link OK ✓{C_OFF}  (loss within the {allow_loss:.0f}% allowance)", flush=True)
+        print_stats(link)
         return 0
     print(f"{C_ERR}Link FAILED{C_OFF} — {loss_pct:.0f}% loss exceeds the "
           f"{allow_loss:.0f}% allowance.", flush=True)
+    print_stats(link)
     if not rtts:
         print("Nothing came back at all. Check that the other end is running "
               "--listen, that both sticks have the transceiver sketch, and that "
               "both are on 915 MHz / SF7 / syncword 0x12.", flush=True)
     return 1
+
+
+def print_stats(link):
+    """The link's own counters: what the stick heard, what it rejected, and
+    its radio reading of the last packet when the firmware reports one."""
+    s = link.stats()
+    line = (f"link: rx {s['rx']} bad {s['rx_bad']} rejected {s['rx_rejected']}  "
+            f"tx {s['tx']} dropped {s['tx_dropped']}  opens {s['opens']}  "
+            f"banner {'seen' if s['banner_seen'] else 'NOT seen'}")
+    if s.get("rssi") is not None:
+        line += f"  rssi {s['rssi']} dBm snr {s['snr']} dB"
+    print(f"{C_DIM}{line}{C_OFF}", flush=True)
+    if not s["banner_seen"] and not s["rx"] and not s["rx_bad"]:
+        print(f"{C_WARN}The stick printed nothing, not even its boot banner: wrong port, "
+              f"wrong baud, or not the Venator firmware.{C_OFF}", flush=True)
+    if s["rx_rejected"]:
+        print(f"{C_WARN}{s['rx_rejected']} message(s) failed the signature check: the two "
+              f"machines have different keys (radio/auth.py).{C_OFF}", flush=True)
+
+
+def run_soak(link, seconds, interval):
+    """Both ends at once: PING every `interval` and answer every PING, so two
+    sticks talking over each other show their collision loss. Run --soak on
+    both machines for the same time. The link-loss failsafe in flight trips
+    after 4 s of silence, so what matters is the longest gap, not the mean."""
+    print(f"{C_OK}Soak{C_OFF} — pinging every {interval:g}s and answering pings for "
+          f"{seconds:g}s. Ctrl-C to stop early.", flush=True)
+    end = time.time() + seconds
+    sent = {}                    # seq -> time sent
+    rtts, answered = [], 0
+    last_heard = time.time()
+    worst_gap = 0.0
+    next_ping = 0.0
+    seq = 0
+    try:
+        while time.time() < end:
+            now = time.time()
+            if now >= next_ping:
+                seq += 1
+                sent[seq] = now
+                link.send(p.message(p.PING, seq))
+                next_ping = now + interval
+                for s_ in [s_ for s_, t0 in sent.items() if now - t0 > 10]:
+                    del sent[s_]
+            msg = show(link.poll())
+            if msg is None:
+                time.sleep(0.02)
+                continue
+            worst_gap = max(worst_gap, now - last_heard)
+            last_heard = now
+            t = msg.get("t")
+            if t == p.PING:
+                link.send(p.message(p.PONG, msg.get("seq", 0)))
+                answered += 1
+            elif t == p.PONG and msg.get("seq") in sent:
+                rtts.append((now - sent.pop(msg["seq"])) * 1000)
+    except KeyboardInterrupt:
+        print("\nstopped.", flush=True)
+    lost = seq - len(rtts)
+    loss_pct = 100.0 * lost / seq if seq else 0.0
+    print(f"\n--- soak summary ---", flush=True)
+    print(f"pings sent {seq}, answered {len(rtts)}, lost {lost} ({loss_pct:.0f}%); "
+          f"pings answered for the other end {answered}", flush=True)
+    if rtts:
+        print(f"rtt min/avg/max = {min(rtts):.0f}/{sum(rtts)/len(rtts):.0f}/{max(rtts):.0f} ms",
+              flush=True)
+    print(f"longest silence {worst_gap:.1f} s (the flight failsafe trips at 4 s)", flush=True)
+    print_stats(link)
+    return 0 if loss_pct <= 20 and worst_gap < 4 else 1
 
 
 def run_chat(link):
@@ -246,6 +317,8 @@ def main():
                       help="initiator: send PINGs and measure the round trip")
     mode.add_argument("--chat", action="store_true",
                       help="send typed lines both ways as free text")
+    mode.add_argument("--soak", type=float, metavar="SECONDS",
+                      help="both ends at once: ping and answer pings for this long")
     mode.add_argument("--list", action="store_true",
                       help="list serial ports and exit")
     ap.add_argument("--port", default="auto",
@@ -256,6 +329,8 @@ def main():
                     help="--send: seconds to wait for each PONG")
     ap.add_argument("--allow-loss", type=float, default=20.0,
                     help="--send: loss %% that still counts as a pass (default 20)")
+    ap.add_argument("--interval", type=float, default=1.0,
+                    help="--soak: seconds between pings (default 1, the flight rate)")
     ap.add_argument("--seconds", type=float, default=0.0,
                     help="--listen: stop after this long (default: until Ctrl-C)")
     ap.add_argument("--settle", type=float, default=DEFAULT_SETTLE_S,
@@ -272,8 +347,8 @@ def main():
             print(f"{device:<28} {desc}{tag}")
         return 0
 
-    if not (args.listen or args.send or args.chat):
-        ap.error("pick a mode: --listen, --send, --chat or --list")
+    if not (args.listen or args.send or args.chat or args.soak):
+        ap.error("pick a mode: --listen, --send, --chat, --soak or --list")
 
     port = autodetect_port() if args.port == "auto" else args.port
     if port is None:
@@ -295,6 +370,8 @@ def main():
             return run_listen(link, args.seconds)
         if args.send:
             return run_send(link, args.count, args.timeout, args.allow_loss)
+        if args.soak:
+            return run_soak(link, args.soak, args.interval)
         return run_chat(link)
     finally:
         link.close()

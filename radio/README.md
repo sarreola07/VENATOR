@@ -42,7 +42,21 @@ python3 radio/link_test.py --send --count 20      # on the other: RTT + loss
 ```
 
 Exit code 0 means the loss was within `--allow-loss` (20% by default), so it
-works in scripts. `--chat` carries typed lines both ways instead.
+works in scripts. `--chat` carries typed lines both ways instead. Every run ends
+with the link's counters (`banner seen`, received, rejected, RSSI when the stick
+reports it), which is what to paste when a link misbehaves.
+
+```bash
+python3 radio/link_test.py --soak 60              # on BOTH machines at once
+```
+
+`--soak` pings and answers pings for the given time, so two sticks talking over
+each other show their collision loss and the longest silence. The flight
+failsafe trips after 4 s of silence, so that number is the one to watch.
+
+If a handshake gets nothing, the ground client prints which end it thinks is
+the problem (stick silent, keys differ, drone not answering); see "When nothing
+arrives at all" in [`../docs/DEV_SETUP.md`](../docs/DEV_SETUP.md).
 
 ## Send messages from a browser
 
