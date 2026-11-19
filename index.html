@@ -281,7 +281,7 @@
   .shots{margin-top:clamp(30px,4.5vw,46px)}
   .shots-stage{
     position:relative; width:100%;
-    aspect-ratio:var(--ar, 1/1);
+    aspect-ratio:var(--ar, 16/9);
     transition:aspect-ratio .45s cubic-bezier(.4,0,.2,1);
     background:#0A0A0A; border:1px solid var(--line);
     cursor:zoom-in;
@@ -594,31 +594,37 @@
   <section class="gallery">
     <p class="lab">Views</p>
     <h2>Every angle</h2>
-    <p class="cap">Top, side, front and three-quarter views of the same model.
+    <p class="cap">Top, front, side and rear views of the same model.
       Open any view at full size.</p>
 
     <!-- One box, one render at a time. The images are in the markup rather than
          built by script, so with JavaScript off the <noscript> rule in the head
-         simply shows all four stacked and hides the controls, instead of
-         leaving dead buttons behind. -->
+         simply shows all five stacked and hides the controls, instead of
+         leaving dead buttons behind. Every view is a 2000x1125 frame on the
+         same backdrop, so the box keeps one size as you step through; the top
+         view was widened to that frame rather than cropped. -->
     <div class="shots" data-shots>
       <div class="shots-stage" data-shots-stage>
-        <img class="shot" data-on src="assets/renders/view-top.webp"
-             width="1400" height="1400" loading="lazy"
-             data-full="assets/renders/view-top-full.webp" data-ar="1/1" data-name="Top view"
+        <img class="shot" data-on src="assets/renders/views/top.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/top.webp" data-ar="16/9" data-name="Top view"
              alt="The aircraft from directly above, showing all four arms and propellers">
-        <img class="shot" src="assets/renders/view-side.webp"
-             width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-side-full.webp" data-ar="16/9" data-name="Side view"
-             alt="The aircraft square on from the side, showing the stack from landing skids to GPS mast">
-        <img class="shot" src="assets/renders/view-front.webp"
-             width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-front-full.webp" data-ar="16/9" data-name="Front view"
-             alt="The aircraft square on from the front, both forward arms and the camera bracket level with the lens">
-        <img class="shot" src="assets/renders/three-q.webp"
-             width="1400" height="875" loading="lazy"
-             data-full="assets/renders/three-q-full.webp" data-ar="8/5" data-name="Three-quarter view"
-             alt="The aircraft in three-quarter view, showing the payload shelf, the camera bracket and the GPS mast together">
+        <img class="shot" src="assets/renders/views/front.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/front.webp" data-ar="16/9" data-name="Front view"
+             alt="The aircraft square on from the front, the OAK-D Pro camera centered under the body between the landing legs and the GPS mast above">
+        <img class="shot" src="assets/renders/views/right.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/right.webp" data-ar="16/9" data-name="Right side"
+             alt="The aircraft from its right side, nose to the right, with the camera at the nose and the Jetson and GPS mast at the tail">
+        <img class="shot" src="assets/renders/views/rear.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/rear.webp" data-ar="16/9" data-name="Rear view"
+             alt="The aircraft square on from the rear, the Jetson's heatsink centered under the body, the LoRa radio reaching out to one side and the GPS mast above">
+        <img class="shot" src="assets/renders/views/left.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/left.webp" data-ar="16/9" data-name="Left side"
+             alt="The aircraft from its left side, nose to the left, with the camera at the nose and the Jetson and GPS mast at the tail">
       </div>
       <div class="shots-bar">
         <button class="shots-arrow" type="button" data-shots-step="-1"
@@ -629,13 +635,16 @@
                   aria-label="Show the top view"></button>
           <button class="shots-dot" type="button" data-shots-go="1"
                   aria-current="false"
-                  aria-label="Show the side view"></button>
+                  aria-label="Show the front view"></button>
           <button class="shots-dot" type="button" data-shots-go="2"
                   aria-current="false"
-                  aria-label="Show the front view"></button>
+                  aria-label="Show the right side"></button>
           <button class="shots-dot" type="button" data-shots-go="3"
                   aria-current="false"
-                  aria-label="Show the three-quarter view"></button>
+                  aria-label="Show the rear view"></button>
+          <button class="shots-dot" type="button" data-shots-go="4"
+                  aria-current="false"
+                  aria-label="Show the left side"></button>
         </div>
         <button class="shots-arrow" type="button" data-shots-step="1"
                 aria-label="Next view">&#8594;</button>
