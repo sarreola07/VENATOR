@@ -304,9 +304,17 @@ const api = (p, body) => (VIEW_ONLY && body) ? Promise.resolve() : fetch(auth(p)
     body:JSON.stringify(body)} : {});
 
 /* ---------- video ---------- */
-let quality = 'hi', lastFrame = 0;
+// An audience phone starts on the low rung: 0.5 Mbps each instead of 2.24, so
+// a room of them fits the hotspot. The operator keeps the full picture.
+let quality = VIEW_ONLY && QUALITIES.lo ? 'lo' : 'hi', lastFrame = 0;
 const vid = q('#vid'), stage = q('#stage');
 const NOLINK_TEXT = q('#nolink').innerHTML;
+// Retries back off (2, 4, 8 ... 30 s, jittered) and reset once something
+// arrives. A fixed 2 s retry from a room full of phones that were all told
+// "too many viewers" was a storm the server had to answer every two seconds.
+const RETRY_MIN = 2000, RETRY_MAX = 30000;
+let vidRetry = RETRY_MIN, sseRetry = RETRY_MIN;
+const backoff = ms => Math.min(RETRY_MAX, Math.round(ms * (1.5 + Math.random())));
 function loadVideo(){
   quality = q('#q').value;
   // Cache-bust so a reconnect does not resume the old multipart response.
@@ -317,8 +325,9 @@ for (const name in QUALITIES){
   const [[w,h],qa] = QUALITIES[name];
   qsel.add(new Option(`${w}×${h} q${qa}`, name));
 }
+qsel.value = quality;
 qsel.onchange = () => { loadVideo(); api('/api/config', {quality:qsel.value}); };
-vid.onload = vid.onloadeddata = () => { lastFrame = Date.now(); };
+vid.onload = vid.onloadeddata = () => { lastFrame = Date.now(); vidRetry = RETRY_MIN; };
 // MJPEG delivers one long-lived response; onload fires per part in most
 // browsers but not reliably, so treat "detections arriving" as liveness too.
 setInterval(() => {
@@ -326,7 +335,7 @@ setInterval(() => {
   stage.classList.toggle('stale', stale);
   q('#nolink').classList.toggle('on', stale);
 }, 1000);
-vid.onerror = () => setTimeout(loadVideo, 2000);
+vid.onerror = () => { setTimeout(loadVideo, vidRetry); vidRetry = backoff(vidRetry); };
 
 /* ---------- box overlay ---------- */
 const ovl = q('#ovl'), ctx = ovl.getContext('2d');
@@ -410,6 +419,9 @@ function renderSearch(s){
   lastSearch = s || null;
   el.classList.toggle('on', on);
   q('#conf').classList.toggle('on', on);
+  // A frame the search faulted on carries the previous report marked stale:
+  // the banner holds its state rather than blinking off for that frame.
+  el.classList.toggle('stale', !!(s && s.stale));
   if (!on) return;
   const name = s.target.toUpperCase() + ' VEST';
   const head = {found:`FOUND: ${name}`, lost:`LOST SIGHT OF ${name}`,
@@ -730,6 +742,7 @@ function renderOps(s){
     b.classList.toggle('on', b.dataset.v === (searchNow || 'off'));
   q('#calbtn').textContent = searchNow ? `calibrate ${searchNow}` : 'calibrate';
   if (s.calibrating) setMsg('#calmsg', `Reading the ${s.calibrating} vest. Hold it still...`);
+  if (s.search_warning) setMsg('#opsmsg', s.search_warning, true);
   q('#recbtn').textContent = recordingNow ? 'stop' : 'record';
   q('#recbtn').classList.toggle('on', !!recordingNow);
   q('#recmsg').textContent = recordingNow ? `${recordingNow.name}, ${recordingNow.rows} rows` : '';
@@ -812,10 +825,23 @@ function renderChips(s){
     q('#nolink').classList.add('on');
     stage.classList.add('stale');
   }
+  if (s.camera === 'stalled'){
+    // The device is open but has gone quiet. The server reopens it itself
+    // after a few more seconds; this says so rather than showing a frozen frame.
+    q('#nolink').innerHTML = '<div><b>camera stalled</b><br>'
+      + '<span style="color:var(--muted)">No frames are arriving. Reopening the camera.</span></div>';
+    q('#nolink').classList.add('on');
+    stage.classList.add('stale');
+  }
   const out = [
-    s.camera === 'offline' || s.camera === 'restarting'
-      ? chip('camera', s.camera, s.camera === 'offline' ? 'bad' : 'warn')
+    s.camera === 'offline' || s.camera === 'restarting' || s.camera === 'stalled'
+      ? chip('camera', s.camera, s.camera === 'restarting' ? 'warn' : 'bad')
       : chip('fps', (s.fps ?? 0).toFixed(1), s.fps >= 8 ? 'ok' : 'warn'),
+    // The search is on but cannot read colours (numpy missing, or every colour
+    // frame faulting). The video looks fine in that state, so say it here.
+    s.search && s.search_warning ? chip('search', 'no colours', 'bad') : '',
+    s.search && s.search_faults ? chip('search faults', s.search_faults, 'bad') : '',
+    s.sse_max && s.sse >= s.sse_max ? chip('viewers', 'full', 'bad') : '',
     chip('model', s.model || '--'),
     chip('mode', s.pm || '--', (s.pm||'').startsWith('7W') ? 'ok' : 'warn'),
     w != null ? chip('draw', w.toFixed(2) + ' W') : '',
@@ -1044,6 +1070,7 @@ q('#dim').oninput = e => { q('#dimmer').style.opacity = e.target.value/100; };
 let es;
 function connect(){
   es = new EventSource(auth('/events'));
+  es.onopen = () => { sseRetry = RETRY_MIN; };
   es.addEventListener('det', e => {
     const d = JSON.parse(e.data);
     dets = d.d || []; lastFrame = Date.now();
@@ -1066,7 +1093,13 @@ function connect(){
     if (!shots.some(x => x.name === s.name)) shots.unshift(s);
     renderFilm(); syncLb();
   });
-  es.onerror = () => { es.close(); setTimeout(connect, 2000); };
+  es.onerror = () => {
+    es.close();
+    // While backing off, status is still polled once so the chips can say
+    // "viewers full" or "camera offline" instead of going quiet.
+    fetch(auth('/api/status')).then(r => r.json()).then(renderChips).catch(()=>{});
+    setTimeout(connect, sseRetry); sseRetry = backoff(sseRetry);
+  };
 }
 
 sizeCanvas(); loadVideo(); connect(); loadFilm();

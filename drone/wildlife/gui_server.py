@@ -50,11 +50,12 @@ import argparse
 import collections
 import glob
 import hmac
+import importlib.util
 import ipaddress
 import json
 import os
 import re
-import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -73,10 +74,14 @@ import gui_page
 import oak_wildlife
 import portal_page
 import ports
+import search_metrics
 import tracking
 import trial_log
 import vest
 from radio import auth
+
+#: When this process started, for /api/health.
+STARTED_AT = time.monotonic()
 
 MODEL = "luxonis/wildlife-megadetector:mdv6-yolov10-c"
 DEFAULT_SHAVES = 5          # measured fastest; see oak_wildlife.py
@@ -99,12 +104,13 @@ QUALITIES = {
 #: locks and unlocks leaks one each time, and this box has zero swap, so this
 #: is a resource limit rather than a nicety.
 #:
-#: 8 suits one or two operators. A demo audience will blow straight through it
-#: and the ninth person gets a 503, so GUI_MAX_VIEWERS raises it. Budget the
-#: bandwidth before going far above ~16: a 20 MHz 5 GHz channel carries
+#: 24 by default. 8 suited one or two operators, and a demo audience blew
+#: straight through it: the ninth phone got a 503 and retried forever. Nothing
+#: on the Jetson raised GUI_MAX_VIEWERS, so the default now covers a room, and
+#: view-only phones are started on the "lo" rung by the page itself. Budget the
+#: bandwidth before going far above that: a 20 MHz 5 GHz channel carries
 #: 70-100 Mbps in practice, and the "hi" rung is 2.24 Mbps per viewer against
-#: the "lo" rung's 0.50. Sixteen on "hi" is 36 Mbps and workable; the same
-#: sixteen on "lo" is 8 Mbps and comfortable. Point an audience at ?q=lo.
+#: the "lo" rung's 0.50. Twenty-four on "lo" is 12 Mbps and comfortable.
 def _env_int(name, default, lo, hi):
     try:
         return max(lo, min(hi, int(os.environ.get(name, default))))
@@ -119,15 +125,40 @@ def _env_float(name, default, lo, hi):
         return default
 
 
-MAX_VIEWERS = _env_int("GUI_MAX_VIEWERS", 8, 1, 64)
+MAX_VIEWERS = _env_int("GUI_MAX_VIEWERS", 24, 1, 64)
+#: Event streams are cheaper than video but still a thread each, and a phone
+#: that reconnects every 2 s while its old stream waits for a ping to fail can
+#: stack several. Capped separately, a little above the video cap so every
+#: viewer with a picture also gets its boxes.
+MAX_SSE = _env_int("GUI_MAX_SSE", MAX_VIEWERS + 8, 1, 128)
 #: The failure that actually happens in the field: the operator walks out of
 #: range, TCP goes quiet, and a write blocks forever. A timeout turns that into
 #: an OSError the handler already catches.
 SOCKET_TIMEOUT_S = 10.0
-#: iOS Safari suspends EventSource on lock. Comment frames keep it honest.
-SSE_PING_S = 15.0
+#: A phone that stays silent on a keep-alive connection otherwise holds its
+#: thread for good. Streams set their own, shorter timeout above.
+IDLE_TIMEOUT_S = 30
+#: iOS Safari suspends EventSource on lock. Comment frames keep it honest, and
+#: a ping that fails is also how a vanished phone's thread gets freed, so this
+#: is short.
+SSE_PING_S = 8.0
 #: Alerts and evidence must not be dropped for a viewer that was briefly slow.
-RELIABLE_BACKLOG = 32
+#: Past this many, the viewer is cut off and reconnects, which re-seeds every
+#: unacked alert: at-least-once rather than silently losing the oldest.
+RELIABLE_BACKLOG = 256
+#: Seconds without a frame from the camera before the page is told it has
+#: stalled, and before the device is reopened. An OAK that drops off the USB
+#: bus raises; one that silently stops delivering did not, until this.
+CAMERA_STALL_WARN_S = 5.0
+CAMERA_STALL_S = 15.0
+#: Allowed before the first frame ever arrives: the model is still loading.
+CAMERA_START_S = 60.0
+#: Host readings (temperature, power, USB speed, Wi-Fi) are refreshed this
+#: often on their own thread. They used to run inside the camera loop every
+#: second, two `iw` subprocesses included, and a slow one stalled the video.
+TELEMETRY_PERIOD_S = 5.0
+#: Request body cap for POST /api/*. Everything the page sends is tiny.
+MAX_BODY = 8192
 
 EVIDENCE_NAME = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9]{4}\.jpg$")
 
@@ -205,6 +236,96 @@ STOP = {"flag": False}
 
 def log(msg):
     print(f"{time.strftime('%H:%M:%S')} {msg}", flush=True)
+
+
+def _jsonable(value):
+    """json.dumps fallback: numpy scalars have .item(), anything else is named.
+
+    A numpy float reaching a payload used to raise TypeError inside the event
+    stream, which ended that viewer's stream rather than one value.
+    """
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            return item()
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
+def _dumps(obj):
+    return json.dumps(obj, separators=(",", ":"), default=_jsonable)
+
+
+def _same(given, token):
+    """Constant-time equality that cannot raise.
+
+    secrets.compare_digest refuses non-ASCII text with a TypeError, and the
+    token comes from the URL, a cookie or a header, so a stray `%C3%A9` used to
+    end the request thread before the gate had answered.
+    """
+    if not isinstance(given, str) or not isinstance(token, str):
+        return False
+    return hmac.compare_digest(given[:64].encode("utf-8", "surrogateescape"),
+                               token.encode("utf-8", "surrogateescape"))
+
+
+def _int_param(query, name, default, lo, hi):
+    """An integer query parameter, clamped, with garbage falling back."""
+    try:
+        return max(lo, min(hi, int(query.get(name, [default])[0] or default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _atomic_write_text(path, text):
+    """Write a file so a reader never sees half of it."""
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+# --- the search's state across restarts -------------------------------------
+
+def state_path():
+    return Path(os.environ.get("VENATOR_STATE_FILE")
+                or Path.home() / ".venator" / "gui-state.json")
+
+
+def load_state(path):
+    """The vest colour the last run was searching for, or None.
+
+    Any damage reads as "off": a stale or broken file must never stop the
+    camera from starting.
+    """
+    try:
+        data = json.loads(Path(path).read_text())
+        colour = data.get("search")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return colour if colour in vest.COLOURS else None
+
+
+def save_state(cfg):
+    """Remember the search so Restart=always brings it back mid-demonstration.
+
+    Only when main() named a file: every other caller (tests, the webcam demo)
+    has no state_file and writes nothing.
+    """
+    path = cfg.get("state_file")
+    if not path:
+        return
+    search = cfg.get("search")
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        _atomic_write_text(path, json.dumps({
+            "search": search.target if search is not None else None,
+            "quality": cfg.get("quality"),
+            "t": int(time.time()),
+        }))
+    except OSError as exc:
+        log(f"could not save the search state ({exc})")
 
 
 # --- this service's secret --------------------------------------------------
@@ -297,13 +418,13 @@ def wifi_link():
     info = {}
     try:
         out = subprocess.run(["iw", "dev"], capture_output=True, text=True,
-                             timeout=4).stdout
+                             timeout=2).stdout
         iface = next((l.split()[1] for l in out.splitlines()
                       if l.strip().startswith("Interface")), None)
         if not iface:
             return info
         dump = subprocess.run(["iw", "dev", iface, "station", "dump"],
-                              capture_output=True, text=True, timeout=4).stdout
+                              capture_output=True, text=True, timeout=2).stdout
         signals = [int(l.split(":")[1].split()[0])
                    for l in dump.splitlines() if "signal:" in l]
         info["clients"] = dump.count("Station ")
@@ -312,6 +433,60 @@ def wifi_link():
     except (OSError, subprocess.SubprocessError, ValueError, IndexError):
         pass
     return info
+
+
+class Telemetry:
+    """Host readings on their own thread, so the camera loop never waits.
+
+    The status tick used to call soc_temp_c(), board_watts(), usb_speed_mbps()
+    and wifi_link() inline, once a second. The last of those runs `iw` twice,
+    with a 4 s timeout each, and on a busy hotspot a slow `iw` held the loop
+    while the tracklet queue (four deep) dropped. Now they run here, every
+    TELEMETRY_PERIOD_S, and the loop reads the last values.
+
+    Not started until start() is called: run() falls back to an unstarted one
+    whose readings are all None, so a test on a fake camera spawns no thread and
+    runs no subprocess.
+    """
+
+    READERS = {"temp": soc_temp_c, "watts": board_watts,
+               "usb": usb_speed_mbps, "link": wifi_link}
+
+    def __init__(self, readers=None, period=TELEMETRY_PERIOD_S):
+        self._readers = dict(readers if readers is not None else self.READERS)
+        self._period = period
+        self._lock = threading.Lock()
+        self._values = {k: None for k in self._readers}
+        self._stop = threading.Event()
+        self.started = False
+
+    def refresh(self):
+        for name, read in self._readers.items():
+            try:
+                value = read()
+            except Exception as exc:   # noqa: BLE001 - a reading is never worth a crash
+                log(f"telemetry {name} failed: {exc}")
+                value = None
+            with self._lock:
+                self._values[name] = value
+
+    def _loop(self):
+        while not self._stop.is_set() and not STOP["flag"]:
+            self.refresh()
+            self._stop.wait(self._period)
+
+    def start(self):
+        if not self.started:
+            self.started = True
+            threading.Thread(target=self._loop, name="telemetry", daemon=True).start()
+        return self
+
+    def stop(self):
+        self._stop.set()
+
+    def snapshot(self):
+        with self._lock:
+            return dict(self._values)
 
 
 def reachable_urls(port, token):
@@ -357,9 +532,15 @@ class Viewer:
         self.latest = {}
         self.queue = collections.deque(maxlen=RELIABLE_BACKLOG)
         self.seq = 0
+        #: Set once a reliable event would have been dropped. The stream is
+        #: then closed so the phone reconnects and is re-seeded, instead of
+        #: the oldest alert vanishing without anyone knowing.
+        self.overflow = False
 
     def offer(self, name, payload, reliable):
         if reliable:
+            if len(self.queue) >= RELIABLE_BACKLOG:
+                self.overflow = True
             self.queue.append((name, payload))
         else:
             self.latest[name] = payload
@@ -393,10 +574,14 @@ class Hub:
         self._bytes = {name: 0 for name in QUALITIES}
         self._viewers = []
         self._streams = 0
+        self._sse = 0
         self._status = {}
         self._dets = {}
         self._alerts = collections.deque(maxlen=64)
         self._unacked = set()
+        #: Per-stream last-frame clock, so /api/health can say how old the
+        #: newest picture is.
+        self._frame_at = None
 
     # -- producer side (camera thread) --
 
@@ -405,6 +590,7 @@ class Hub:
             self._jpeg[name] = jpeg
             self._seq[name] += 1
             self._bytes[name] = len(jpeg)
+            self._frame_at = time.monotonic()
             self._cond.notify_all()
 
     def publish(self, name, payload, reliable=False):
@@ -422,7 +608,8 @@ class Hub:
 
     def ack(self, alert_id):
         with self._cond:
-            self._unacked.discard(alert_id)
+            if isinstance(alert_id, str):      # a list in the JSON is unhashable
+                self._unacked.discard(alert_id)
             return len(self._unacked)
 
     # -- consumer side (one thread per connection) --
@@ -431,10 +618,34 @@ class Hub:
         with self._cond:
             return self._streams < MAX_VIEWERS
 
-    def frames(self, quality):
-        """Yield each new JPEG to one viewer, counting it as watching."""
+    def claim_stream(self):
+        """Take a video slot now, or say no. Check and claim under one lock, so
+        a burst of phones arriving together cannot all pass the check."""
         with self._cond:
+            if self._streams >= MAX_VIEWERS:
+                return False
             self._streams += 1
+            return True
+
+    def release_stream(self):
+        """Give back a slot taken with claim_stream()."""
+        with self._cond:
+            self._streams = max(0, self._streams - 1)
+
+    def sse_slots_free(self):
+        with self._cond:
+            return self._sse < MAX_SSE
+
+    def frames(self, quality, claimed=False):
+        """Yield each new JPEG to one viewer, counting it as watching.
+
+        `claimed` says the caller took the slot with claim_stream() and will
+        give it back with release_stream(); a generator's own finally can't be
+        relied on for that, because closing one that was never started runs
+        nothing. Otherwise the slot is taken here, on the first next()."""
+        with self._cond:
+            if not claimed:
+                self._streams += 1
             seen = self._seq[quality]
         try:
             while True:
@@ -446,17 +657,31 @@ class Hub:
                 if jpeg is not None:
                     yield jpeg        # outside the lock, always
         finally:
-            with self._cond:
-                self._streams -= 1
+            if not claimed:
+                with self._cond:
+                    self._streams -= 1
 
     def events(self):
-        """Yield (name, payload) for one SSE subscriber until it disconnects."""
+        """Yield (name, payload) for one SSE subscriber until it disconnects.
+
+        Yields ("close", None) once if the subscriber fell more than
+        RELIABLE_BACKLOG reliable events behind; the stream ends and the phone
+        reconnects to a fresh seed. The seed carries every alert still unacked,
+        so a phone that was locked when FOUND fired still gets it.
+        """
         viewer = Viewer()
         with self._cond:
+            if self._sse >= MAX_SSE:
+                yield "close", None
+                return
+            self._sse += 1
             self._viewers.append(viewer)
             viewer.offer("status", self._status, False)
             if self._dets:
                 viewer.offer("det", self._dets, False)
+            for alert in reversed(self._alerts):
+                if alert.get("id") in self._unacked:
+                    viewer.offer("alert", alert, True)
         try:
             while True:
                 with self._cond:
@@ -464,12 +689,17 @@ class Hub:
                         yield None, None      # heartbeat
                         continue
                     batch = viewer.drain()
+                    overflow = viewer.overflow
                 for name, payload in batch:
                     yield name, payload
+                if overflow:
+                    yield "close", None
+                    return
         finally:
             with self._cond:
                 if viewer in self._viewers:
                     self._viewers.remove(viewer)
+                    self._sse -= 1
 
     def latest_jpeg(self):
         """The newest encoded frame, preferring the high rung.
@@ -486,18 +716,44 @@ class Hub:
         with self._cond:
             s = dict(self._status)
             s["viewers"] = self._streams
-            s["sse"] = len(self._viewers)
+            s["viewers_max"] = MAX_VIEWERS
+            s["sse"] = self._sse
+            s["sse_max"] = MAX_SSE
             s["alerts_unacked"] = len(self._unacked)
             s["jpeg_bytes"] = dict(self._bytes)
             s["recent_alerts"] = list(self._alerts)[:5]
+            if self._frame_at is not None:
+                s["frame_age_s"] = round(time.monotonic() - self._frame_at, 1)
             return s
 
 
 # --- HTTP -------------------------------------------------------------------
 
 def make_handler(hub, token, save_dir, cfg, view_token=None):
-    wrong = {"count": 0}
+    wrong = {}                       # client address -> (failures, last failure)
     wrong_lock = threading.Lock()
+    verdict_lock = threading.Lock()
+
+    def penalty(addr):
+        """Seconds to stall this client's next answer: 0.5 s a failure, capped
+        at 2 s, forgotten after a minute.
+
+        Per client. The old single counter meant one phone presenting a stale
+        cookie slowed every other phone's captive-portal probes, and the
+        sleeping threads multiplied under a reconnect storm.
+        """
+        now = time.monotonic()
+        with wrong_lock:
+            if len(wrong) >= 256:
+                for stale in [a for a, (_, t) in wrong.items() if now - t > 60.0]:
+                    del wrong[stale]
+                if len(wrong) >= 256:
+                    wrong.pop(next(iter(wrong)))
+            count, last = wrong.get(addr, (0, now))
+            count = 1 if now - last > 60.0 else count + 1
+            wrong[addr] = (count, now)
+        return min(0.5 * count, 2.0)
+
     def portal_token():
         """What a phone joining the hotspot is handed.
 
@@ -517,6 +773,9 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
         # explicitly and everything else carries a length.
         protocol_version = "HTTP/1.1"
         server_version = "venator-gui/1"
+        # Idle keep-alive connections used to hold a thread for good. The
+        # streams set their own, shorter timeout.
+        timeout = IDLE_TIMEOUT_S
 
         def _given_token(self, url):
             return (parse_qs(url.query).get("k", [""])[0]
@@ -524,25 +783,38 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                     or self._cookie_token())
 
         def _is_view_token(self, url):
-            return bool(view_token) and secrets.compare_digest(
-                self._given_token(url), view_token)
+            return bool(view_token) and _same(self._given_token(url), view_token)
+
+        def _client(self):
+            # Absent when the handler is driven without a socket, as the tests do.
+            return getattr(self, "client_address", ("?",))[0]
 
         def _authorised(self, url, write=False):
             if token is None:
                 return True        # no key file: bound to loopback, see main()
             given = self._given_token(url)
-            if (secrets.compare_digest(given, token)
-                    or (not write and self._is_view_token(url))):
+            if _same(given, token) or (not write and self._is_view_token(url)):
                 with wrong_lock:
-                    wrong["count"] = 0
+                    wrong.pop(self._client(), None)
                 return True
+            # A phone whose only credential is a cookie from an earlier key is
+            # not guessing: it is told at once, and the cookie is cleared so it
+            # stops presenting it on every reconnect.
+            self._stale_cookie = (not parse_qs(url.query).get("k")
+                                  and not self.headers.get("X-Venator-Token")
+                                  and bool(self._cookie_token()))
+            if self._stale_cookie:
+                return False
             # Growing delay on failure, the same shape as
             # radio/phone_relay.py:286-291.
-            with wrong_lock:
-                wrong["count"] += 1
-                delay = min(0.5 * wrong["count"], 5.0)
-            time.sleep(delay)
+            time.sleep(penalty(self._client()))
             return False
+
+        def _forbidden(self, body=b"forbidden\n"):
+            extra = None
+            if getattr(self, "_stale_cookie", False):
+                extra = [("Set-Cookie", "vt=; Path=/; Max-Age=0; SameSite=Strict")]
+            return self._body(403, "text/plain; charset=utf-8", body, extra)
 
         def _cookie_token(self):
             for part in (self.headers.get("Cookie") or "").split(";"):
@@ -659,9 +931,8 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 return self._redirect(self._portal_url())
 
             if not self._authorised(url):
-                return self._body(403, "text/plain; charset=utf-8",
-                                  b"Wrong or missing key.\n"
-                                  b"Use the address the GUI printed at startup.\n")
+                return self._forbidden(b"Wrong or missing key.\n"
+                                       b"Use the address the GUI printed at startup.\n")
 
             if path == "/":
                 # The page and the cookie carry the token that was presented, so
@@ -678,15 +949,23 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 return self._body(200, "text/html; charset=utf-8", page, extra)
             if path == "/api/status":
                 return self._json(hub.snapshot())
+            if path == "/api/health":
+                return self._json(health_report(hub, cfg, save_dir))
+            if path == "/api/metrics":
+                metrics = cfg.get("metrics")
+                return self._json(metrics.snapshot() if metrics is not None else {})
             if path == "/api/evidence":
-                n = int(parse_qs(url.query).get("n", ["40"])[0] or 40)
-                return self._json(self._evidence_list(min(max(n, 1), 200)))
+                n = _int_param(parse_qs(url.query), "n", 40, 1, 200)
+                return self._json(self._evidence_list(n))
             if path.startswith("/api/evidence/"):
                 return self._evidence_file(path[len("/api/evidence/"):])
             if path == "/api/trials":
                 trials = cfg.get("trials")
                 return self._json({"recording": trials.status() if trials else None,
                                    "trials": trials.list() if trials else []})
+            if path == "/api/trials/summary":
+                trials = cfg.get("trials")
+                return self._json({"trials": trials.summary() if trials else []})
             if path.startswith("/api/trials/"):
                 return self._trial_file(path[len("/api/trials/"):])
             if path == "/live.mjpg":
@@ -711,9 +990,20 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
         def do_POST(self):
             url = urlparse(self.path)
             if not self._authorised(url, write=True):
-                return self._body(403, "text/plain; charset=utf-8", b"forbidden\n")
+                return self._forbidden()
+            # The length is checked before anything is read. A negative one
+            # used to become rfile.read(-1), which waits for a close that a
+            # keep-alive client never sends; a chunked body has no length to
+            # trust at all.
+            if self.headers.get("Transfer-Encoding"):
+                return self._body(411, "text/plain; charset=utf-8", b"length required\n")
             try:
-                length = min(int(self.headers.get("Content-Length") or 0), 8192)
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return self._body(400, "text/plain; charset=utf-8", b"bad length\n")
+            if length < 0 or length > MAX_BODY:
+                return self._body(413, "text/plain; charset=utf-8", b"body too large\n")
+            try:
                 payload = json.loads(self.rfile.read(length) or b"{}")
             except (ValueError, OSError):
                 return self._body(400, "text/plain; charset=utf-8", b"bad json\n")
@@ -746,8 +1036,11 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                     cfg["conf_requested"] = want
             if "classes" in payload and isinstance(payload["classes"], list):
                 cfg["classes"] = [str(c) for c in payload["classes"]][:16]
-            if "quality" in payload and payload["quality"] in QUALITIES:
+            # isinstance first: a list in the JSON is unhashable, and `in` on
+            # the dict raised TypeError and ended the request thread.
+            if isinstance(payload.get("quality"), str) and payload["quality"] in QUALITIES:
                 cfg["quality"] = payload["quality"]
+                save_state(cfg)
             if "save" in payload:
                 cfg["save"] = bool(payload["save"])
             # The vest search, from the operator's page. This handler only runs
@@ -763,6 +1056,10 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 problem = start_calibration(cfg, payload["calibrate"])
             if "record" in payload:
                 problem = self._record(payload["record"])
+            if payload.get("mark") == "wrong_lock":
+                # The judges' number that matters most, marked by the operator
+                # the moment a decoy is seen with TARGET on it.
+                problem = self._mark_wrong_lock()
             out = {k: cfg[k] for k in
                    ("conf", "conf_requested", "device_floor", "classes",
                     "quality", "save") if k in cfg}
@@ -770,6 +1067,19 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
             if problem:
                 out["problem"] = problem
             return out
+
+        def _mark_wrong_lock(self):
+            if cfg.get("search") is None:
+                return "Turn the search on first."
+            metrics = cfg.get("metrics")
+            if metrics is None:
+                metrics = cfg["metrics"] = search_metrics.SearchMetrics()
+            metrics.mark_wrong_lock()
+            trials = cfg.get("trials")
+            if trials is not None:
+                trials.event("wrong_lock", cfg["search"].target)
+            log("operator marked a wrong lock")
+            return None
 
         def _record(self, want):
             """Start a trial recording ({"note": ...}) or stop one (false)."""
@@ -857,36 +1167,44 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
             if not EVIDENCE_NAME.match(name):
                 return {"ok": False, "error": "bad name"}
             side = Path(save_dir, name).with_suffix(".json")
-            try:
-                data = json.loads(side.read_text())
-            except (OSError, ValueError):
-                data = {}
-            data["verdict"] = {
-                "ok": bool(payload.get("ok")),
-                "cls": str(payload.get("cls", ""))[:32] or None,
-                "t": int(time.time()),
-            }
-            try:
-                side.write_text(json.dumps(data, indent=1))
-            except OSError as e:
-                return {"ok": False, "error": str(e)}
+            # Two taps on two phones used to race a read-modify-write of the
+            # same sidecar; one lock and an atomic replace end that.
+            with verdict_lock:
+                try:
+                    data = json.loads(side.read_text())
+                except (OSError, ValueError):
+                    data = {}
+                data["verdict"] = {
+                    "ok": bool(payload.get("ok")),
+                    "cls": str(payload.get("cls", ""))[:32] or None,
+                    "t": int(time.time()),
+                }
+                try:
+                    _atomic_write_text(side, json.dumps(data, indent=1))
+                except OSError as e:
+                    return {"ok": False, "error": str(e)}
             return {"ok": True, "name": name}
 
         # -- streaming --
 
         def _mjpeg(self, quality):
-            if not hub.stream_slots_free():
+            # Claimed, not checked: a burst of phones arriving together all
+            # passed the old check-then-count and overshot the cap.
+            if not hub.claim_stream():
                 return self._body(503, "text/plain; charset=utf-8",
-                                  b"too many viewers\n")
-            self.connection.settimeout(SOCKET_TIMEOUT_S)
-            self.send_response(200)
-            self.send_header("Content-Type",
-                             "multipart/x-mixed-replace; boundary=frame")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("Connection", "close")
-            self.end_headers()
-            frames = hub.frames(quality)
+                                  b"too many viewers\n", [("Retry-After", "5")])
+            frames = hub.frames(quality, claimed=True)
+            # The headers are inside the try as well: a phone that walked out
+            # of range during the handshake used to leave a traceback in the
+            # journal from the header flush.
             try:
+                self.connection.settimeout(SOCKET_TIMEOUT_S)
+                self.send_response(200)
+                self.send_header("Content-Type",
+                                 "multipart/x-mixed-replace; boundary=frame")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
                 for jpeg in frames:
                     self.wfile.write(
                         b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
@@ -895,29 +1213,34 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 pass        # viewer closed, or walked out of range
             finally:
                 frames.close()
+                hub.release_stream()
 
         def _sse(self):
-            self.connection.settimeout(SOCKET_TIMEOUT_S)
-            self.send_response(200)
-            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Accel-Buffering", "no")
-            self.send_header("Connection", "close")
-            self.end_headers()
+            if not hub.sse_slots_free():
+                return self._body(503, "text/plain; charset=utf-8",
+                                  b"too many viewers\n", [("Retry-After", "5")])
             events = hub.events()
             seq = 0
             try:
+                self.connection.settimeout(SOCKET_TIMEOUT_S)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Accel-Buffering", "no")
+                self.send_header("Connection", "close")
+                self.end_headers()
                 self.wfile.write(b": hello\n\n")
                 for name, payload in events:
                     if name is None:
                         self.wfile.write(b": ping\n\n")   # keeps iOS honest
                         continue
+                    if name == "close":
+                        break       # the hub wants this phone to reconnect
                     seq += 1
                     self.wfile.write(
                         f"id: {seq}\nevent: {name}\ndata: ".encode()
-                        + json.dumps(payload, separators=(",", ":")).encode()
-                        + b"\n\n")
-            except (OSError, ValueError):
+                        + _dumps(payload).encode() + b"\n\n")
+            except (OSError, ValueError, TypeError):
                 pass
             finally:
                 events.close()
@@ -925,22 +1248,21 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
         # -- plumbing --
 
         def _json(self, obj):
-            self._body(200, "application/json",
-                       json.dumps(obj, separators=(",", ":")).encode())
+            self._body(200, "application/json", _dumps(obj).encode())
 
         def _body(self, code, ctype, data, extra=None):
-            self.send_response(code)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(data)))
-            if code >= 400 or "html" in ctype or "json" in ctype:
-                self.send_header("Cache-Control", "no-store")
-            for k, v in (extra or []):
-                self.send_header(k, v)
-            self.end_headers()
             try:
+                self.send_response(code)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(data)))
+                if code >= 400 or "html" in ctype or "json" in ctype:
+                    self.send_header("Cache-Control", "no-store")
+                for k, v in (extra or []):
+                    self.send_header(k, v)
+                self.end_headers()
                 self.wfile.write(data)
-            except OSError:
-                pass
+            except (OSError, ValueError):
+                pass        # the client is gone; nothing to tell it
 
         def log_message(self, *args):
             pass        # the detector's own output is the interesting log
@@ -987,6 +1309,20 @@ def resolve_model(dai, name):
     no network, so that is the default path and the zoo is only a fallback for a
     model that has genuinely never been fetched.
     """
+    path = cached_model_path(name)
+    if path is not None:
+        log(f"model from cache: {os.path.basename(path)} (no network needed)")
+        return path
+
+    log(f"model {name} is not cached — fetching from the zoo, which needs internet")
+    desc = dai.NNModelDescription(name)
+    desc.platform = "RVC2"
+    return dai.getModelFromZoo(desc)
+
+
+def cached_model_path(name):
+    """The cached archive for this model, or None. Shared with /api/health, so
+    the demo-day check can say whether the camera will need the internet."""
     # The archive is named for the VARIANT (the part after ':'), not the model:
     # "luxonis/wildlife-megadetector:mdv6-yolov10-c" is cached as
     # "MDV6-yolov10-c.rvc2.tar.xz". metadata.yaml alongside it holds only
@@ -997,13 +1333,72 @@ def resolve_model(dai, name):
     # rather than a bad lookup.
     for path in sorted(glob.glob(os.path.join(ZOO_CACHE, "*", "*.tar.xz"))):
         if os.path.basename(path).split(".")[0].lower() == variant:
-            log(f"model from cache: {os.path.basename(path)} (no network needed)")
             return path
+    return None
 
-    log(f"model {name} is not cached — fetching from the zoo, which needs internet")
-    desc = dai.NNModelDescription(name)
-    desc.platform = "RVC2"
-    return dai.getModelFromZoo(desc)
+
+def health_report(hub, cfg, save_dir):
+    """Everything the demo depends on, in one gated JSON answer.
+
+    /healthz stays a bare "ok" for the boot fallback that polls it. This is for
+    the operator and deploy/symposium_check.sh: is the camera live, can the
+    search read colours, is the model on disk, is there room for evidence, and
+    how many phones are on. `ok` is false with `problems` naming each one.
+    """
+    s = hub.snapshot()
+    search = cfg.get("search")
+    cal = cfg.get("calibrating")
+    camera = s.get("camera") or ("live" if (s.get("fps") or 0) > 0 else "waiting")
+    # The save folder is only made once something is saved, so measure the
+    # nearest folder that exists on the way up.
+    disk_probe = Path(save_dir)
+    while not disk_probe.exists() and disk_probe.parent != disk_probe:
+        disk_probe = disk_probe.parent
+    try:
+        disk_free_mb = shutil.disk_usage(disk_probe).free // (1024 * 1024)
+    except OSError:
+        disk_free_mb = None
+    trials = cfg.get("trials")
+    trials_dir = Path(trials.directory) if trials is not None else Path(save_dir)
+    probe = trials_dir
+    while not probe.exists() and probe.parent != probe:
+        probe = probe.parent
+    out = {
+        "camera": camera,
+        "fps": s.get("fps"),
+        "frame_age_s": s.get("frame_age_s"),
+        "search": search.target if search is not None else None,
+        "search_warning": cfg.get("search_warning") if search is not None else None,
+        "search_faults": s.get("search_faults", 0),
+        "calibrating": cal.colour if cal is not None else None,
+        "calibration_source": cfg.get("calibration_source"),
+        "numpy": importlib.util.find_spec("numpy") is not None,
+        "model": cfg.get("model", MODEL),
+        "model_cached": cached_model_path(cfg.get("model", MODEL)) is not None,
+        "disk_free_mb": disk_free_mb,
+        "trials_writable": os.access(probe, os.W_OK),
+        "viewers": s.get("viewers"), "viewers_max": s.get("viewers_max"),
+        "sse": s.get("sse"), "sse_max": s.get("sse_max"),
+        "alerts_unacked": s.get("alerts_unacked"),
+        "resume_state": bool(cfg.get("state_file")),
+        "uptime_s": round(time.monotonic() - STARTED_AT),
+    }
+    problems = []
+    if camera in ("offline", "stalled", "restarting", "waiting"):
+        problems.append(f"camera {camera}")
+    if not out["numpy"]:
+        problems.append("numpy missing: the search can't read colours")
+    if not out["model_cached"]:
+        problems.append("detector not cached: the first start needs internet")
+    if disk_free_mb is not None and disk_free_mb < 200:
+        problems.append(f"only {disk_free_mb} MB free for evidence")
+    if not out["trials_writable"]:
+        problems.append("trial folder isn't writable")
+    if out["search_warning"]:
+        problems.append(out["search_warning"])
+    out["problems"] = problems
+    out["ok"] = not problems
+    return out
 
 
 def long_axis_m(width, height, z_m):
@@ -1054,6 +1449,7 @@ def search_state(cfg):
     in progress, and the trial being recorded."""
     search, cal, trials = cfg.get("search"), cfg.get("calibrating"), cfg.get("trials")
     return {"search": search.target if search is not None else None,
+            "search_warning": cfg.get("search_warning") if search is not None else None,
             "calibrating": cal.colour if cal is not None else None,
             "recording": trials.status() if trials is not None else None}
 
@@ -1079,17 +1475,30 @@ def set_search(cfg, colour):
             cfg["calibrating"] = None
             if cfg.get("trials") is not None:
                 cfg["trials"].stop()
+            if cfg.get("metrics") is not None:
+                cfg["metrics"].reset()
             cfg["rebuild"] = True
             log("vest search off")
+            save_state(cfg)
     elif search is None:
         ranges, wb_k, source = vest.load_calibration()
         cfg["search"] = vest.VestSearch(colour, ranges, use_depth=cfg.get("use_depth", True))
         cfg["search_wb"] = wb_k
+        cfg["calibration_source"] = source
         cfg["rebuild"] = True
+        # Said on the page, not only in the journal: without numpy every colour
+        # frame faults and the search never locks, while the video looks fine.
+        cfg["search_warning"] = (None if importlib.util.find_spec("numpy") else
+                                 "numpy isn't installed in the camera's Python, so the "
+                                 "search can't read colours.")
+        if cfg["search_warning"]:
+            log(f"vest search: {cfg['search_warning']}")
         log(f"vest search: looking for {colour}, colours from {source}")
+        save_state(cfg)
     elif search.target != colour:
         search.set_target(colour)
         log(f"vest search: now looking for {colour}")
+        save_state(cfg)
     return True
 
 
@@ -1151,6 +1560,12 @@ def search_step(hub, cfg, dets, rgb, now):
     report = search.process(dets, sample, now)
     if link is not None:
         link.send(report)
+    # The judges' numbers: time to lock, wrong locks, match share. Made here
+    # if nobody made one, so the webcam demo gets them for free.
+    metrics = cfg.get("metrics")
+    if metrics is None:
+        metrics = cfg["metrics"] = search_metrics.SearchMetrics()
+    metrics.update(report, dets, now)
     cal = cfg.get("calibrating")
     if cal is not None:
         if cal.started is None:
@@ -1294,6 +1709,17 @@ def run(args, hub, cfg):
         counts = {}
         colour_frames = ColourFrames()
         search_faults = 0
+        #: The last report the search produced. Sent again, marked stale, on a
+        #: frame where the search faulted, so the banner holds its state
+        #: instead of vanishing for that frame.
+        last_report = None
+        # Host readings come from their own thread. With none handed in (a test
+        # on a fake camera) the readings are simply None, and no thread starts.
+        telemetry = cfg.get("telemetry") or Telemetry()
+        # The camera watchdog. The OAK can stop delivering frames without ever
+        # raising; this notices, tells the page, then reopens the device.
+        started_at = time.monotonic()
+        last_frame_at = None
 
         while not STOP["flag"] and pipeline.isRunning():
             if cfg.get("rebuild"):
@@ -1306,6 +1732,7 @@ def run(args, hub, cfg):
                 enc = q.tryGet()
                 if enc is not None:
                     hub.publish_frame(name, bytes(enc.getData()))
+                    last_frame_at = time.monotonic()
 
             if frame_q is not None:
                 # The newest frame, at most one frame apart from the tracklets
@@ -1322,8 +1749,11 @@ def run(args, hub, cfg):
                 frames += 1
                 seq += 1
                 now = time.monotonic()
+                last_frame_at = now
                 fps_window.append(now)
                 searching = cfg.get("search") is not None
+                if not searching:
+                    last_report = None
                 dets, raw_tracklets = [], []
                 for t in msg.tracklets:
                     src = t.srcImgDetection
@@ -1409,8 +1839,14 @@ def run(args, hub, cfg):
                              "w": size[0], "h": size[1], "d": dets,
                              "tracks": len(book)}
                 if report is not None:
+                    last_report = report
                     det_event["search"] = {k: v for k, v in report.items()
                                            if k != "found_now"}
+                elif searching and last_report is not None:
+                    # The search faulted on this frame. Phones keep the last
+                    # state rather than seeing the banner blink off.
+                    det_event["search"] = dict({k: v for k, v in last_report.items()
+                                                if k != "found_now"}, stale=True)
                 hub.publish("det", det_event)
 
                 if report is not None and report.get("found_now") and cfg["save"]:
@@ -1438,7 +1874,15 @@ def run(args, hub, cfg):
                 fps = 0.0
                 if len(fps_window) > 2:
                     fps = (len(fps_window) - 1) / (fps_window[-1] - fps_window[0])
-                hub.publish("status", {
+                # Silence from the device. Before the first frame the pipeline
+                # may still be loading the model, so that gets longer.
+                quiet = now - (last_frame_at if last_frame_at is not None else started_at)
+                limit = CAMERA_STALL_S if last_frame_at is not None else CAMERA_START_S
+                if quiet > limit:
+                    raise RuntimeError(f"camera stalled: no frame for {quiet:.0f} s")
+                tele = telemetry.snapshot()
+                metrics = cfg.get("metrics")
+                status = {
                     "t": round(time.time(), 2),
                     "fps": round(fps, 1),
                     "frames": frames,
@@ -1450,11 +1894,11 @@ def run(args, hub, cfg):
                     "tracks": len(book),
                     "active": len(book.active()),
                     "saved": hits_saved,
-                    "temp": soc_temp_c(),
-                    "watts": board_watts(),
+                    "temp": tele.get("temp"),
+                    "watts": tele.get("watts"),
                     "pm": cfg["pm"],
-                    "usb": usb_speed_mbps(),
-                    "link": wifi_link(),
+                    "usb": tele.get("usb"),
+                    "link": tele.get("link") or {},
                     "model": args.model.split("/")[-1],
                     "quality": cfg["quality"],
                     "classes": classes.coarse_classes(labels),
@@ -1468,8 +1912,14 @@ def run(args, hub, cfg):
                     # No GPS is fitted, and the GUI must not imply otherwise.
                     "gps": {"fix": "not fitted"},
                     "fc": "not connected",
+                    "search_faults": search_faults,
                     **search_state(cfg),
-                })
+                }
+                if metrics is not None and cfg.get("search") is not None:
+                    status["metrics"] = metrics.snapshot()
+                if quiet > CAMERA_STALL_WARN_S:
+                    status["camera"] = "stalled"
+                hub.publish("status", status)
             if msg is None:
                 time.sleep(0.004)
 
@@ -1499,7 +1949,7 @@ def save_evidence(hub, save_dir, hits, dets):
             "t": int(time.time()),
             "classes": sorted({d["c"] for d in dets}),
             "detections": dets,
-        }, indent=1))
+        }, indent=1, default=_jsonable))
     except OSError as e:
         log(f"could not save evidence: {e}")
         return False
@@ -1550,7 +2000,8 @@ def main():
     cfg = {"conf": args.conf, "classes": [], "quality": args.quality,
            "save": not args.no_save, "pm": power_mode(),
            # The device filter --conf programs. The search can't run under it.
-           "device_conf": args.conf}
+           "device_conf": args.conf,
+           "model": args.model}
 
     # Always there, search or not, so the flight code can reach the camera and
     # the operator can start a search from the page. Made here rather than in
@@ -1559,8 +2010,21 @@ def main():
     cfg["search_link"] = vest.SearchLink(
         ports.SEARCH_TARGET_UDP, ports.SEARCH_REPORT_UDP, log=log)
     cfg["trials"] = trial_log.TrialLog(Path(args.save_dir) / "trials", log=log)
-    if args.search:
-        set_search(cfg, args.search)
+    cfg["metrics"] = search_metrics.SearchMetrics()
+    # Host readings on their own thread, read by the camera loop once a second.
+    cfg["telemetry"] = Telemetry().start()
+    # The search survives a restart: Restart=always brings the service back
+    # mid-demonstration already looking for the same vest, and the portal keeps
+    # handing phones the view-only token. --search on the command line wins;
+    # GUI_RESUME_SEARCH=0 turns the memory off.
+    cfg["state_file"] = str(state_path())
+    want = args.search
+    if not want and os.environ.get("GUI_RESUME_SEARCH", "1") != "0":
+        want = load_state(cfg["state_file"])
+        if want:
+            log(f"resuming the {want} vest search from {cfg['state_file']}")
+    if want:
+        set_search(cfg, want)
 
     hub = Hub()
     server = start_server(hub, token, host, args.port, args.save_dir, cfg, view_token)
@@ -1602,6 +2066,7 @@ def main():
             break
         except Exception as exc:       # noqa: BLE001 - any device fault
             attempts += 1
+            tele = cfg["telemetry"].snapshot()
             hub.publish("status", {
                 "t": round(time.time(), 2),
                 "camera": "offline",
@@ -1609,10 +2074,11 @@ def main():
                 "attempts": attempts,
                 "fps": 0.0,
                 "pm": cfg["pm"],
-                "usb": usb_speed_mbps(),
-                "link": wifi_link(),
+                "usb": tele.get("usb"),
+                "link": tele.get("link") or {},
                 "gps": {"fix": "not fitted"},
                 "fc": "not connected",
+                **search_state(cfg),
             })
             if attempts == 1 or attempts % 12 == 0:
                 log(f"camera unavailable ({exc}); evidence review still works. "

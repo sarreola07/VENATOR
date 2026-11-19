@@ -185,7 +185,7 @@ check("/healthz with no Host -> 200", r.code, 200)
 print("\nThe gate still protects everything that matters")
 # Portal routes are the ONLY unauthenticated surface besides /healthz.
 for path in ("/", "/api/status", "/api/evidence", "/live.mjpg", "/events",
-             "/snapshot.jpg"):
+             "/snapshot.jpg", "/api/health", "/api/metrics", "/api/trials/summary"):
     r = request(path, host="10.42.0.1")
     check(f"{path} without a token -> 403", r.code, 403)
 

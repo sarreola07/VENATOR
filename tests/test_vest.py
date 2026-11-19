@@ -706,6 +706,92 @@ check("turning it on is refused", gui_server.set_search(conf_cfg, "red"), False)
 check("and nothing starts", conf_cfg.get("search"), None)
 check("turning it off is still fine", gui_server.set_search(conf_cfg, None), True)
 
+print("\nThe page changing the search mid-frame cannot end the frame")
+# set_target() from the HTTP thread used to reset _target_seen_at to None
+# under a running process(); the next line did `now - None`.
+racy = vest.VestSearch("yellow")
+run_frames(racy, 12, scene(a=(1, chest(YELLOW))))
+check("locked first", racy._locked, 1)
+racy._target_seen_at = None            # what a reset landing mid-frame leaves
+rep = racy.process([person(1, st="LOST")], None, 1.3)
+check("a frame with the target predicted, not seen, still reports",
+      rep["state"] in ("found", "lost") and rep["visible"] is False)
+check("the lock is guarded by a lock", hasattr(racy, "_lock"))
+check("a depth that isn't a number is no depth",
+      [vest._depth({"xyz": [1, 2, None]}), vest._depth({"xyz": [1, 2, "3"]}),
+       vest._depth({"xyz": "nope"}), vest._depth({"xyz": [1, 2, True]})],
+      [None, None, None, None])
+check("a frame that isn't an image gives no pixels",
+      (vest.chest_pixels(object(), [0.2, 0.1, 0.4, 0.9]), vest.centre_pixels(None)), ([], []))
+with mock.patch.object(socket, "socket", side_effect=OSError("no sockets")):
+    link = vest.SearchLink(ports.SEARCH_TARGET_UDP, ports.SEARCH_REPORT_UDP, log=lambda *_: None)
+check("a link with no sockets still constructs", link._tx is None and link._rx is None)
+link.send({"state": "idle"})
+link.poll_target(racy)
+check("and sending and polling on it are silent", True)
+
+print("\nThe judges' numbers")
+import search_metrics  # noqa: E402
+metrics = search_metrics.SearchMetrics()
+judged = vest.VestSearch("yellow")
+who = scene(a=(1, chest(YELLOW)), b=(2, chest(RED), {"x": 1.5}), c=(3, chest(GREY), {"x": -1.5}))
+first_found = None
+for i in range(25):
+    now = i * 0.1
+    dets = [who[t]["det"]() for t in who]
+    cur = {t: who[t]["px"] for t in who}
+    rep = judged.process(dets, lambda box, _d=dets, _c=cur: _c[next(d["id"] for d in _d if d["b"] is box)], now)
+    metrics.update(rep, dets, now)
+    if rep.get("found_now") and first_found is None:
+        first_found = now
+m = metrics.snapshot()
+check("time to lock is measured from the first sighting", m["ttl_last_s"], round(first_found, 2))
+check("about a second, as the demo claims", 0.5 <= m["ttl_last_s"] <= 1.2)
+check("one find", m["finds"], 1)
+check("no wrong locks", m["wrong_locks"], 0)
+check("the target's match share is well clear of the best decoy's",
+      m["match_target"] > 0.6 and m["match_decoy"] < 0.1)
+check("it counts who was ignored", m["ignored"], 2)
+check("and how long the state has held", m["state"] == "found" and m["state_s"] is not None)
+metrics.mark_wrong_lock()
+check("an operator's mark is counted separately and in the total",
+      (metrics.snapshot()["wrong_locks_marked"], metrics.snapshot()["wrong_locks"]), (1, 1))
+metrics.update({"target": "red", "state": "searching"}, [], 3.0)
+check("a new target starts the numbers over", metrics.snapshot()["finds"], 0)
+# A find on someone whose vest is not the target is the wrong lock the search
+# must never produce. Simulated here, since VestSearch won't produce one.
+metrics.update({"target": "yellow", "state": "found", "found_now": True, "id": 9, "found": 1},
+               [dict(person(9), vest="red", role="target", match=0.1)], 4.0)
+check("a find on the wrong vest would be counted", metrics.snapshot()["wrong_locks_seen"], 1)
+
+print("\nA recording summarises itself for the results table")
+import trial_log  # noqa: E402
+with tempfile.TemporaryDirectory() as tmp:
+    rec = trial_log.TrialLog(tmp, log=lambda *_: None)
+    name = rec.start("summary, 4 m")
+    t0 = 1700000000.0
+    px_target = dict(person(1, z=4.2), role="checking", vest="yellow", match=0.7, votes=3)
+    for i in range(5):
+        rec.write({"target": "yellow", "state": "checking"}, [px_target], stamp=t0 + i * 0.1)
+    found = {"target": "yellow", "state": "found", "found_now": True, "id": 1, "conf": 0.9, "z": 3.9}
+    rec.write(found, [dict(px_target, role="target", xyz=[0, 0, 3.9])], stamp=t0 + 1.5)
+    rec.write({"target": "yellow", "state": "found"},
+              [dict(person(2, z=6.0), role="target", vest="red", match=0.2)], stamp=t0 + 2.0)
+    rec.event("wrong_lock", "yellow", stamp=t0 + 2.1)
+    rec.stop()
+    s = trial_log.summarise(rec.path(name))
+    check("the note is read back", s["note"], "summary, 4 m")
+    check("seconds to the first FOUND", s["seconds_to_found"], 1.5)
+    check("the distances seen", (s["distance_min_m"], s["distance_max_m"]), (3.9, 6.0))
+    check("a target row in the wrong vest is a wrong lock", s["wrong_lock_rows"], 1)
+    check("and so is the operator's mark", s["wrong_locks_marked"], 1)
+    check("rows and people are counted", (s["rows"], s["people"]), (9, 2))
+    check("the log's own summary lists it", [t["name"] for t in rec.summary()], [name])
+    bad = Path(tmp) / "20250101-000000-x.csv"
+    bad.write_bytes(b"\xff\xfe not,a,csv")
+    check("a damaged file summarises to an error, not a crash",
+          "error" in trial_log.summarise(bad) or trial_log.summarise(bad)["rows"] >= 0)
+
 print("\nThe pixel step, with numpy when it is available")
 try:
     import numpy as np
@@ -902,6 +988,46 @@ else:
         hub, _ = fake_camera_run(camera_cfg(search=BrokenSearch("yellow")), 3, tmp)
         check("a fault in the search does not stop the video or the boxes",
               len(hub._dets["d"]), 1)
+        check("and the page is told how many frames faulted",
+              hub.snapshot().get("search_faults", 0) >= 1)
+
+    class FlakySearch(vest.VestSearch):
+        """Works for the first frames, then faults on every one after."""
+        calls = 0
+
+        def process(self, dets, sample, now):
+            FlakySearch.calls += 1
+            if FlakySearch.calls > 15:
+                raise RuntimeError("colour fault")
+            return super().process(dets, sample, now)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        hub, _ = fake_camera_run(camera_cfg(search=FlakySearch("yellow")), 20, tmp)
+        held = hub._dets.get("search") or {}
+        check("a faulting frame re-sends the last report, marked stale, so the "
+              "banner holds", (held.get("state"), held.get("stale")), ("found", True))
+
+    class FakeTelemetry:
+        def snapshot(self):
+            return {"temp": 42.0, "watts": 6.5, "usb": 5000, "link": {"rssi": -50}}
+
+    with tempfile.TemporaryDirectory() as tmp, \
+            mock.patch.object(gui_server, "wifi_link", side_effect=AssertionError("in the loop")), \
+            mock.patch.object(gui_server, "usb_speed_mbps", side_effect=AssertionError("in the loop")):
+        hub, _ = fake_camera_run(camera_cfg(telemetry=FakeTelemetry()), 3, tmp)
+        check("host readings come from the telemetry thread, never the camera loop",
+              (hub.snapshot().get("temp"), hub.snapshot().get("link")), (42.0, {"rssi": -50}))
+        hub, _ = fake_camera_run(camera_cfg(), 3, tmp)
+        check("with no telemetry handed in, the loop runs no subprocess either",
+              hub.snapshot().get("usb"), None)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = camera_cfg(search=vest.VestSearch("yellow"))
+        hub, _ = fake_camera_run(cfg, 30, tmp)
+        check("the judges' numbers come out of the loop",
+              cfg["metrics"].snapshot()["finds"], 1)
+        check("and the watchdog stayed quiet on a live camera",
+              hub.snapshot().get("camera"), None)
 
     print("\nThe operator turns the search on and off from the page")
     with tempfile.TemporaryDirectory() as tmp:

@@ -188,6 +188,8 @@ journalctl -u venator-gui --since "-20 min" --no-pager \
 ls -t ~/Pictures/wildlife/trials/ | head -3
 head -3 "$(ls -t ~/Pictures/wildlife/trials/*.csv | head -1)"
 bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p'
+curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+curl -s "http://127.0.0.1:8080/api/trials/summary?k=$(bash deploy/field_mode.sh view-token)"
 ```
 **Pass:**
 - **The log has:**
@@ -197,6 +199,10 @@ bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p
   - `trial … saved, N rows`.
 - **The CSV** starts with `time,note,target`.
 - **The check** says `vests calibrated today`.
+- **The health report** says `"ok": true`, or every entry in `problems` is one
+  you expect (`detector not cached` is a stop: the next start would need internet).
+- **The trials summary** shows `seconds_to_found` around 1 and
+  `wrong_lock_rows` 0 for the recording you just made.
 
 ### 8. Radio link and the new STOP
 **You:**

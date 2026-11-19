@@ -276,6 +276,41 @@ The flight code can also set the colour over loopback:
 python3 -c "import socket, json; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(json.dumps({'target': 'blue'}).encode(), ('127.0.0.1', 5008))"
 ```
 
+### The numbers for the judges
+
+Three things decide whether the search works, and the page measures them
+rather than leaving them to impressions:
+
+- **Time to lock:** seconds from the first frame a person was measured in to
+  the FOUND that locked onto them. About a second is the claim.
+- **Wrong locks:** a FOUND on someone whose vest isn't the target colour. The
+  search is built so this stays at zero. If a decoy is ever seen with TARGET on
+  them, press **wrong lock** (operator's page) and it is counted and written
+  into the trial as an `event`.
+- **Match share:** the running mean of the target's chest share against the
+  best of the people being ignored. The gap is what the vote relies on.
+
+They are in the 1 Hz status every phone receives, at `/api/metrics`, and they
+start over whenever the colour changes. `/api/trials/summary` reads every
+recording on disk and gives, per trial, the note, the rows, the seconds to the
+first FOUND, the distances seen, and any row where someone was TARGET in the
+wrong vest, which is the table `docs/YELLOW_VEST_PROMPT.md` used to ask for by
+hand.
+
+### The search survives a restart
+
+The service remembers the colour in `~/.venator/gui-state.json` and comes back
+looking for it, so `Restart=always` bringing the camera back mid-demonstration
+doesn't silently turn the search off, and phones joining the hotspot keep
+getting the view-only token. `--search` on the command line wins over the
+file; `GUI_RESUME_SEARCH=0` in the service environment turns the memory off.
+That makes the "search at boot" drop-in optional: pressing **yellow** once is
+enough.
+
+`/api/health` (view token allowed) is the demo-day check in one answer: camera
+live, numpy present so colours can be read, detector cached so no internet is
+needed, free disk, viewers against their caps, and `ok` with `problems[]`.
+
 ### The chart
 
 The chart plots **vest match** (how much of the chest is the target colour, with

@@ -206,20 +206,29 @@ class Sent:
         self.body = b""
 
 
-def drive(method, path, cfg=None, body=b"", hub=None, save_dir="/tmp"):
-    """Run one request through the real handler, with no socket."""
+def drive(method, path, cfg=None, body=b"", hub=None, save_dir="/tmp", headers=None,
+          addr=None, handler=None):
+    """Run one request through the real handler, with no socket.
+
+    `headers` override the defaults; `addr` gives the request a client address
+    (none by default, as a captive probe test has none); `handler` reuses one
+    make_handler() result so its per-client failure counts carry over.
+    """
     cfg = cfg if cfg is not None else {
         "conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
-    Handler = gui_server.make_handler(hub or gui_server.Hub(), tok, save_dir, cfg, view)
+    Handler = handler or gui_server.make_handler(hub or gui_server.Hub(), tok, save_dir, cfg, view)
     sent = Sent()
 
     class H(Handler):
         def __init__(self):          # bypass BaseHTTPRequestHandler's socket setup
             self.path = path
             self.headers = {"Host": "10.42.0.1", "Content-Length": str(len(body))}
+            self.headers.update(headers or {})
             self.rfile = io.BytesIO(body)
             self.wfile = io.BytesIO()
             self.connection = type("C", (), {"settimeout": lambda *a: None})()
+            if addr is not None:
+                self.client_address = (addr, 0)
 
         def send_response(self, code, *a):
             sent.code = code
@@ -349,6 +358,161 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the operator can turn it back on", search_cfg["search"].target, "red")
     check("which restarts the camera to pull colour frames", search_cfg.get("rebuild"), True)
     del os.environ["VENATOR_VEST_FILE"]
+
+print("\nBad input ends the request, never the request thread")
+# Each of these used to raise inside do_GET/do_POST: the thread died with a
+# traceback in the journal and the phone got no answer at all.
+check("a non-ASCII token is just a wrong token",
+      drive("GET", "/api/status?k=%C3%A9%C3%A9").code, 403)
+check("a non-ASCII cookie too",
+      drive("GET", "/api/status", headers={"Cookie": "vt=éé"}).code, 403)
+check("garbage in ?n= falls back", drive("GET", f"/api/evidence?n=abc&k={tok}").code, 200)
+cfg = {"conf": None, "classes": [], "quality": "hi", "save": True, "pm": "7W"}
+check("a list where a quality name belongs is ignored",
+      (drive("POST", f"/api/config?k={tok}", cfg, b'{"quality": ["lo"]}').code, cfg["quality"]),
+      (200, "hi"))
+check("a list where an alert id belongs is ignored",
+      drive("POST", f"/api/ack?k={tok}", cfg, b'{"alert_id": ["x"]}').code, 200)
+hub_ack = gui_server.Hub()
+hub_ack.publish("alert", {"id": "x1"}, reliable=True)
+check("the hub itself shrugs it off", hub_ack.ack(["x1"]), 1)
+check("a negative Content-Length is refused rather than read to EOF",
+      drive("POST", f"/api/config?k={tok}", cfg, b"{}", headers={"Content-Length": "-1"}).code, 413)
+check("an oversized body is refused",
+      drive("POST", f"/api/config?k={tok}", cfg, b"{}", headers={"Content-Length": "99999"}).code, 413)
+check("a chunked body is refused",
+      drive("POST", f"/api/config?k={tok}", cfg, b"{}", headers={"Transfer-Encoding": "chunked"}).code, 411)
+check("a non-numeric Content-Length is refused",
+      drive("POST", f"/api/config?k={tok}", cfg, b"{}", headers={"Content-Length": "abc"}).code, 400)
+Handler = gui_server.make_handler(gui_server.Hub(), tok, "/tmp", cfg, view)
+check("idle connections time out", Handler.timeout, gui_server.IDLE_TIMEOUT_S)
+
+
+class Scalar:
+    """Stands in for a numpy scalar: json.dumps can't, .item() can."""
+    def item(self):
+        return 4.5
+
+
+hub_np = gui_server.Hub()
+hub_np.publish("status", {"temp": Scalar()})
+r = drive("GET", f"/api/status?k={tok}", hub=hub_np)
+check("a numpy-like scalar in the status still serialises", r.code, 200)
+check("as its value", json.loads(r.body)["temp"], 4.5)
+
+print("\nA stale cookie is cleared, not punished; delays are per client")
+r = drive("GET", "/api/status", headers={"Cookie": "vt=0000000000000000"})
+check("cookie-only wrong token gets 403", r.code, 403)
+check("and the cookie is cleared so the phone stops sending it",
+      "vt=;" in r.headers.get("Set-Cookie", "") and "Max-Age=0" in r.headers.get("Set-Cookie", ""))
+check("a wrong ?k= clears no cookie",
+      "Set-Cookie" in drive("GET", "/api/status?k=wrong").headers, False)
+shared = gui_server.make_handler(gui_server.Hub(), tok, "/tmp", cfg, view)
+t0 = time.monotonic()
+drive("GET", "/api/status?k=wrong", addr="10.42.0.7", handler=shared)
+drive("GET", "/api/status?k=wrong", addr="10.42.0.7", handler=shared)
+same = time.monotonic() - t0
+t0 = time.monotonic()
+drive("GET", "/api/status?k=wrong", addr="10.42.0.8", handler=shared)
+other = time.monotonic() - t0
+check(f"a repeat offender waits longer ({same:.1f} s for two tries)", same >= 1.3)
+check(f"a different phone does not inherit that delay ({other:.1f} s)", other < 0.9)
+check("the delay is capped", min(0.5 * 50, 2.0), 2.0)
+
+print("\nEvent streams are capped and never silently lose an alert")
+hub_sse = gui_server.Hub()
+gens = [hub_sse.events() for _ in range(gui_server.MAX_SSE)]
+first = [next(g) for g in gens]       # registers each one and hands it the status
+check("every stream gets the seeded status", all(n == "status" for n, _ in first))
+check("the cap is reached", hub_sse.sse_slots_free(), False)
+extra = hub_sse.events()
+check("one more is told to go away", next(extra), ("close", None))
+check("and the snapshot says how full it is",
+      (hub_sse.snapshot()["sse"], hub_sse.snapshot()["sse_max"]),
+      (gui_server.MAX_SSE, gui_server.MAX_SSE))
+for g in gens:
+    g.close()
+check("closing frees the slots", hub_sse.sse_slots_free())
+check("video slots are claimed atomically",
+      [hub_sse.claim_stream() for _ in range(gui_server.MAX_VIEWERS + 1)],
+      [True] * gui_server.MAX_VIEWERS + [False])
+claimed = [hub_sse.frames("hi", claimed=True) for _ in range(gui_server.MAX_VIEWERS)]
+for g in claimed:
+    g.close()                 # never started: a generator's finally runs nothing here
+    hub_sse.release_stream()  # which is why the handler releases explicitly
+check("and released when the stream closes", hub_sse.stream_slots_free())
+
+hub_seed = gui_server.Hub()
+hub_seed.publish("alert", {"id": "f1"}, reliable=True)
+hub_seed.publish("alert", {"id": "f2"}, reliable=True)
+hub_seed.ack("f1")
+late = hub_seed.events()
+got3 = [next(late) for _ in range(2)]
+check("a phone connecting late is handed every unacked alert",
+      [p.get("id") for n, p in got3 if n == "alert"], ["f2"])
+check("and the status", "status" in [n for n, _ in got3])
+late.close()
+
+hub_full = gui_server.Hub()
+slow = hub_full.events()
+next(slow)
+for i in range(gui_server.RELIABLE_BACKLOG + 5):
+    hub_full.publish("alert", {"id": f"b{i}"}, reliable=True)
+drained = []
+while True:
+    name, payload = next(slow)
+    drained.append(name)
+    if name == "close":
+        break
+check("a viewer that fell too far behind is cut off to reconnect",
+      drained[-1] == "close" and drained.count("alert") == gui_server.RELIABLE_BACKLOG)
+slow.close()
+
+print("\nDemo-day endpoints")
+r = drive("GET", f"/api/health?k={view}")
+check("view-only phones can read the health report", r.code, 200)
+health = json.loads(r.body)
+check("it has a verdict and names its problems",
+      isinstance(health.get("ok"), bool) and isinstance(health.get("problems"), list))
+check("it says whether the search can read colours", "numpy" in health)
+check("and whether the detector is on disk", "model_cached" in health)
+check("it is behind the gate", drive("GET", "/api/health").code, 403)
+r = drive("GET", f"/api/metrics?k={view}")
+check("metrics are readable before a search ever ran", (r.code, json.loads(r.body)), (200, {}))
+
+with tempfile.TemporaryDirectory() as tmp:
+    state = os.path.join(tmp, "gui-state.json")
+    cfg_state = dict(cfg, state_file=state)
+    gui_server.set_search(cfg_state, "yellow")
+    check("turning the search on remembers it", gui_server.load_state(state), "yellow")
+    gui_server.set_search(cfg_state, "blue")
+    check("so does changing colour", gui_server.load_state(state), "blue")
+    gui_server.set_search(cfg_state, None)
+    check("and turning it off", gui_server.load_state(state), None)
+    Path(state).write_text("{not json")
+    check("a damaged file reads as off", gui_server.load_state(state), None)
+    Path(state).write_text('{"search": "green"}')
+    check("so does a colour that isn't a vest", gui_server.load_state(state), None)
+    check("a missing file reads as off", gui_server.load_state(os.path.join(tmp, "nope")), None)
+    plain = dict(cfg)
+    gui_server.set_search(plain, "yellow")
+    gui_server.set_search(plain, None)
+    check("with no state file named, nothing is written",
+          sorted(os.listdir(tmp)), ["gui-state.json"])
+
+    trials = trial_log.TrialLog(os.path.join(tmp, "trials"), log=lambda *_: None)
+    sum_cfg = dict(cfg, search=vest.VestSearch("yellow"), trials=trials)
+    drive("POST", f"/api/config?k={tok}", sum_cfg, b'{"record": {"note": "summary test"}}', save_dir=tmp)
+    drive("POST", f"/api/config?k={tok}", sum_cfg, b'{"mark": "wrong_lock"}', save_dir=tmp)
+    drive("POST", f"/api/config?k={tok}", sum_cfg, b'{"record": false}', save_dir=tmp)
+    r = drive("GET", f"/api/trials/summary?k={view}", sum_cfg, save_dir=tmp)
+    rows = json.loads(r.body)["trials"]
+    check("the trials summary lists the recording", (r.code, len(rows)), (200, 1))
+    check("with the operator's wrong-lock mark counted", rows[0]["wrong_locks_marked"], 1)
+    check("and the metrics count it too",
+          sum_cfg["metrics"].snapshot()["wrong_locks"], 1)
+    check("a view-only phone can't mark one",
+          drive("POST", f"/api/config?k={view}", sum_cfg, b'{"mark": "wrong_lock"}', save_dir=tmp).code, 403)
 
 print("\nPorts are distinct and overridable")
 check("GUI and relay no longer collide", ports.GUI_HTTP != ports.PHONE_RELAY_HTTP)

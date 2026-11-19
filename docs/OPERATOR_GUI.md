@@ -98,9 +98,12 @@ pane greys out, says so, and everything else keeps working.
 | GET | `/live.mjpg?q=hi\|lo` | VPU bytes, zero transcode |
 | GET | `/events` | SSE: `det` `status` `alert` `evidence` |
 | GET | `/api/status` | One-shot snapshot, for first paint and `curl` |
+| GET | `/api/health` | The demo-day report: camera live, numpy present, detector cached, disk, viewer counts against their caps, `ok` plus `problems[]`. View token allowed |
+| GET | `/api/metrics` | The judges' numbers for the running search: time to lock, finds, wrong locks, match share target vs best decoy |
+| GET | `/api/trials/summary` | One line per trial CSV: note, rows, seconds to the first FOUND, distance range, wrong-lock rows |
 | GET | `/api/evidence?n=40` | Newest first, with sidecar data merged in |
 | GET | `/api/evidence/<name>` | Basename only, allowlisted shape |
-| POST | `/api/config` | `{conf, classes[], quality, save}` |
+| POST | `/api/config` | `{conf, classes[], quality, save, search, calibrate, record, mark}` |
 | POST | `/api/ack` | Clears an alert banner server-side |
 | POST | `/api/verdict` | `{name, ok}` → sidecar. The active-learning loop |
 | GET | `/healthz` | `ok`. **Unauthenticated** — the boot fallback polls it |
@@ -150,13 +153,22 @@ verify a C2 message, which `tests/test_gui_auth.py` asserts.
 
 | Hazard | What was done |
 |---|---|
-| One thread per stream, phone locking and unlocking, **zero swap on this box** | `MAX_VIEWERS = 8`, then `503`. Verified: eight `200`s and two `503`s |
+| One thread per stream, phone locking and unlocking, **zero swap on this box** | `MAX_VIEWERS = 24` (env `GUI_MAX_VIEWERS`), then `503` with `Retry-After`. Slots are claimed under the lock, not checked then counted, so a burst of phones cannot overshoot. Event streams have their own cap, `GUI_MAX_SSE`, a little above the video cap |
+| A room of phones all retrying every 2 s after a `503` | The page backs off (2, 4, 8 … 30 s, jittered) on both the video and the event stream, and resets once something arrives. View-only phones start on the `lo` rung |
 | Operator walks out of range, TCP goes silent, a write blocks forever | `connection.settimeout(10)` turns it into an `OSError` the handler already catches. Verified: 60 connect/disconnect cycles, thread count flat at 26 |
+| A phone that connects and then says nothing holds its thread for good | `Handler.timeout = 30` on every keep-alive connection; a negative, oversized or chunked POST body is refused before a byte is read |
+| A stray `%C3%A9` in `?k=`, a list where a string belongs, `?n=abc` | Each used to raise inside the handler and end the request thread with a traceback. Token comparison is byte-wise and cannot raise; JSON values are type-checked; numbers are clamped with garbage falling back |
+| One phone with a stale `vt` cookie slowing everyone's captive probes | The failure delay is counted per client address and capped at 2 s. A cookie-only wrong token is answered at once with the cookie cleared |
+| Header writes and `json.dumps` outside the `try` | Both streaming routes and `_body` are wrapped whole; a numpy scalar in a payload serialises through `.item()` instead of killing the stream |
+| `iw` and sysfs reads inside the camera loop, once a second | A `Telemetry` thread refreshes them every 5 s; the loop reads a dict. A slow `iw` no longer stalls frames |
+| The OAK stops delivering frames without raising | The loop raises `camera stalled` after 15 s of silence (60 s before the first frame) and `main()` reopens the device as it already does for a USB dropout; the page says `stalled` after 5 s |
+| The page changing the search while the camera thread is inside `process()` | `VestSearch` holds a lock across `set_target()` and `process()`; a frame the search faults on re-sends the last report marked `stale`, so the FOUND banner holds instead of blinking off |
+| `Restart=always` bringing the service back with the search off, mid-demonstration | `~/.venator/gui-state.json` (env `VENATOR_STATE_FILE`) remembers the colour; `--search` on the command line wins, `GUI_RESUME_SEARCH=0` turns the memory off |
 | `BaseHTTPRequestHandler` defaults to HTTP/1.0 | `protocol_version = "HTTP/1.1"` plus `Connection: close` on both streaming routes |
 | Browsers cap ~6 connections per origin; MJPEG + SSE take two | Filmstrip thumbnails are `loading="lazy"` |
 | iOS Safari suspends `EventSource` on lock | `: ping` comment frames, SSE `id:` for `Last-Event-ID`, acked alert ids in `sessionStorage` so a reconnect does not re-alarm |
 | A slow viewer stalling the camera | `frames()` yields **outside** the lock and only ever reads the newest JPEG. Lifted verbatim from `camera_publisher.py:204-218`. Verified: 500 frames published past a stalled viewer in 1 ms |
-| A missed SAR alert | `det`/`status` coalesce and drop freely; `alert`/`evidence` go in a bounded per-viewer deque, delivered at least once. Verified: 3 alerts survive 200 intervening detections |
+| A missed SAR alert | `det`/`status` coalesce and drop freely; `alert`/`evidence` go in a bounded per-viewer deque (256), delivered at least once. A viewer that falls further behind is cut off and reconnects, and every connection is seeded with the alerts still unacked, so a phone that was locked when FOUND fired still gets it. Verified: 3 alerts survive 200 intervening detections |
 
 ---
 

@@ -128,6 +128,33 @@ class TrialLog:
                 self._log(f"trial recording stopped, could not write: {exc}")
                 self._close()
 
+    def event(self, name, target="", stamp=None):
+        """One row that is not a detection: the operator marking a wrong lock."""
+        if self._file is None:
+            return
+        stamp = time.time() if stamp is None else stamp
+        when = time.strftime("%H:%M:%S", time.localtime(stamp)) + f".{int(stamp * 1000) % 1000:03d}"
+        row = (when, self.note, target or "", "", "", "", "", "", "", "", "", "", name)
+        with self._lock:
+            if self._writer is None:
+                return
+            try:
+                self._writer.writerow(row)
+                self._file.flush()
+                self.rows += 1
+            except (OSError, ValueError) as exc:
+                self._log(f"trial recording stopped, could not write: {exc}")
+                self._close()
+
+    def summary(self, limit=50):
+        """The results table, newest first: one line per recording on disk."""
+        out = []
+        for item in self.list(limit):
+            path = self.path(item["name"])
+            if path is not None:
+                out.append(summarise(path))
+        return out
+
     def _close(self):
         if self._file is not None:
             try:
@@ -160,3 +187,65 @@ class TrialLog:
             return None
         p = self.directory / name
         return p if p.is_file() else None
+
+
+def _seconds(when):
+    """A 'HH:MM:SS.mmm' stamp as seconds into the day, or None."""
+    try:
+        h, m, s = when.split(":")
+        return int(h) * 3600 + int(m) * 60 + float(s)
+    except (ValueError, AttributeError):
+        return None
+
+
+def summarise(path):
+    """What one recording proved, for the results table.
+
+    The note, the rows, seconds from the first row to the first FOUND, the
+    range of distances read, and the rows where someone was TARGET in a vest
+    that is not the target colour: a wrong lock, the result that matters most.
+    docs/YELLOW_VEST_PROMPT.md used to ask for this table to be worked out by
+    hand from the CSVs.
+    """
+    path = Path(path)
+    out = {"name": path.name, "note": "", "target": "", "rows": 0, "finds": 0,
+           "seconds_to_found": None, "distance_min_m": None, "distance_max_m": None,
+           "wrong_lock_rows": 0, "wrong_locks_marked": 0, "people": 0}
+    try:
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            first = None
+            people = set()
+            for row in reader:
+                out["rows"] += 1
+                out["note"] = out["note"] or row.get("note", "")
+                out["target"] = out["target"] or row.get("target", "")
+                t = _seconds(row.get("time"))
+                if t is not None and first is None:
+                    first = t
+                if row.get("track"):
+                    people.add(row["track"])
+                event = row.get("event", "")
+                if event == "found":
+                    out["finds"] += 1
+                    if out["seconds_to_found"] is None and first is not None and t is not None:
+                        delta = t - first
+                        if delta < 0:
+                            delta += 86400        # a trial across midnight
+                        out["seconds_to_found"] = round(delta, 2)
+                elif event == "wrong_lock":
+                    out["wrong_locks_marked"] += 1
+                elif (row.get("role") == "target" and row.get("vest")
+                      and row.get("target") and row["vest"] != row["target"]):
+                    out["wrong_lock_rows"] += 1
+                try:
+                    z = float(row.get("distance_m") or "")
+                except ValueError:
+                    continue
+                if z > 0:
+                    out["distance_min_m"] = z if out["distance_min_m"] is None else min(out["distance_min_m"], z)
+                    out["distance_max_m"] = z if out["distance_max_m"] is None else max(out["distance_max_m"], z)
+            out["people"] = len(people)
+    except (OSError, csv.Error, UnicodeDecodeError) as exc:
+        out["error"] = str(exc)
+    return out
