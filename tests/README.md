@@ -33,5 +33,12 @@ the judges' numbers in `search_metrics.py`, the trial summary, and on a fake
 camera: the fault counter, the stale re-send that holds the FOUND banner, and
 that host telemetry never runs inside the camera loop.
 
+`test_link_robustness.py` joins two serial ends by a lossy, half-duplex fake
+wire whose sticks reboot when opened. It pins the five things that made the
+link look dead: the banner wait on open, retransmits with server-side dedupe,
+a garbled signature that must not raise, the flight loop draining its backlog,
+and STATUS riding on the PONG. It also runs the laptop client against the real
+`serve()` over that wire at 20–30 % loss, and pins the `--indoor` hover gate.
+
 Add a case here whenever a bug reaches the aircraft — that is what keeps it
 from coming back.

@@ -64,6 +64,10 @@ def create_key(path=None):
     return p
 
 
+def _is_hex(text):
+    return all(c in "0123456789abcdef" for c in text)
+
+
 def _canonical(msg):
     """The exact bytes both ends sign. sort_keys so dict order cannot change the
     tag; the signature and nonce are not part of what is signed except that the
@@ -87,7 +91,10 @@ def verify(msg, key, seen=None):
     `seen` is a caller-owned list used as a bounded replay window. Pass the same
     list every time for one receiver."""
     tag = msg.get(SIG_FIELD)
-    if not isinstance(tag, str):
+    # The tag is hex of a fixed length or it is nothing. Checked by shape
+    # first: compare_digest raises TypeError on non-ASCII text, and a tag
+    # arrives from the air, so "é" in it used to end the receiver's thread.
+    if not isinstance(tag, str) or len(tag) != SIG_HEX or not _is_hex(tag):
         return False
     want = hmac.new(key, _canonical(msg), sha256).hexdigest()[:SIG_HEX]
     if not hmac.compare_digest(tag, want):
