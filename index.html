@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Venator: Autonomous Flight Systems</title>
-<meta name="description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular.">
+<meta name="description" content="Fence an area, sweep it, find who is in it, come home. An autonomous safety drone with onboard AI that runs on its own radio link. No internet. No cell service.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -13,7 +13,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
 <meta property="og:title" content="Venator: Autonomous Flight Systems">
-<meta property="og:description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular.">
+<meta property="og:description" content="Fence an area, sweep it, find who is in it, come home. An autonomous safety drone with onboard AI that runs on its own radio link. No internet. No cell service.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -426,11 +426,11 @@
   <div class="hero">
     <h1>Fence an area, sweep it, find who is in it, come home.</h1>
     <div>
-      <p>An autonomous aircraft commanded over a radio link that needs no
-        infrastructure &mdash; no internet, no cellular. A laptop, a pair of
-        915&nbsp;MHz radios and the drone.</p>
+      <p>An autonomous safety drone with onboard AI. It finds the people it&rsquo;s
+        sent for and ignores everything else. It runs on its own long-range
+        radio, so it works where networks don&rsquo;t.</p>
       <p class="act">
-        <a class="key" href="how-it-works.html#how">System architecture</a>
+        <a class="key" href="how-it-works.html#how">See how it works</a>
       </p>
     </div>
   </div>
@@ -473,8 +473,8 @@
   <div class="nums">
     <div>
       <b>915<i>MHz</i></b>
-      <span>Long-range radio link</span>
-      <em>LoRa, validated on hardware</em>
+      <span>Long-range radio</span>
+      <em>LoRa, proven on real hardware</em>
     </div>
     <div>
       <b>0</b>
@@ -483,63 +483,58 @@
     </div>
     <div>
       <b>18<i>min</i></b>
-      <span>Hover endurance</span>
-      <em>Holybro figure, stock airframe</em>
+      <span>Hover time</span>
+      <em>Holybro spec, stock frame</em>
     </div>
     <div>
       <b>1.5<i>kg</i></b>
-      <span>Payload capacity</span>
-      <em>Holybro figure, stock airframe</em>
+      <span>Payload</span>
+      <em>Holybro spec, stock frame</em>
     </div>
   </div>
 
   <!-- The three missions the aircraft was built for. These replace the note that
        used to sit here; the Holybro sourcing it carried lives on in the two tiles
-       above ("Holybro figure, stock airframe"), which is enough to keep those
+       above ("Holybro spec, stock frame"), which is enough to keep those
        numbers from reading as measurements of this build. -->
   <section class="missions">
     <p class="lab">Mission</p>
     <h2>Built to keep people safe</h2>
-    <p class="cap">A fully autonomous drone that runs its own image and video
-      recognition on board, built around three safety problems at UTSA. It needs
-      no internet, no cell signal and no app.</p>
+    <p class="cap">Fully autonomous, with the AI running on the drone itself.
+      Built for three real safety problems at UTSA.</p>
 
     <div class="missions-list">
       <details>
-        <summary><span class="n" aria-hidden="true">01</span>Its own network, open to any phone<span class="pm" aria-hidden="true"></span></summary>
-        <p>The drone is its own local server and Wi-Fi access point. Any phone can
-          join it and watch the live video in an ordinary web browser, with no app
-          to install. It also acts as a central network for text messages, like a
-          cell network without the towers: each message goes out over its
-          915&nbsp;MHz radio to every station in range.</p>
+        <summary><span class="n" aria-hidden="true">01</span>Its own network. Any phone.<span class="pm" aria-hidden="true"></span></summary>
+        <p>The drone hosts its own Wi-Fi and server. Any phone can connect and
+          watch live video in a web browser, with no app to install. It also sends
+          text messages over its long-range radio to every station in range, like
+          a cell network without the towers.</p>
       </details>
       <details>
-        <summary><span class="n" aria-hidden="true">02</span>Safety checks on a construction site<span class="pm" aria-hidden="true"></span></summary>
-        <p>Sent around a UTSA construction site, it patrols on its own and checks
-          that the crew is safe. All of the recognition runs on the drone itself.
-          It rejects visual noise and locks onto one group of people, the workers
-          in high-visibility vests, ignores everyone and everything else, and
-          sends an alert when a worker may need help.</p>
+        <summary><span class="n" aria-hidden="true">02</span>Construction site safety<span class="pm" aria-hidden="true"></span></summary>
+        <p>It patrols a UTSA construction site on its own and checks on the crew.
+          Onboard AI locks onto workers in high-visibility vests, ignores
+          everything else, and sends an alert when someone may need help.</p>
       </details>
       <details>
-        <summary><span class="n" aria-hidden="true">03</span>A safe walk back to your car at night<span class="pm" aria-hidden="true"></span></summary>
-        <p>Campus safety can dispatch the drone instead of a security officer. It
-          flies to the person who asked, follows 3&nbsp;metres behind them all the
-          way to their car, and keeps watch from above. If its radio link ever
-          drops, it flies itself home.</p>
+        <summary><span class="n" aria-hidden="true">03</span>A safe walk to your car at night<span class="pm" aria-hidden="true"></span></summary>
+        <p>Campus safety can send the drone instead of an officer. It flies to the
+          person who asked, follows 3&nbsp;meters behind them to their car, and
+          watches from above. If the radio link drops, it flies home on its own.</p>
       </details>
     </div>
   </section>
 
   <section class="gallery">
     <p class="lab">Hardware</p>
-    <h2>Hardware Design</h2>
+    <h2>Built from proven parts</h2>
     <!-- Provenance runs the other way round: the geometry is manufacturer CAD
          assembled in Blender to match the aircraft, with the propellers and the
          radio housing modelled in Onshape for this project. docs/BRAND.md keeps
          the full source table deliberately, "rather than left to memory". -->
-    <p class="cap">Cycles renders of this aircraft, built from manufacturer CAD
-      with the propellers and radio housing modelled for this project.</p>
+    <p class="cap">Rendered from the manufacturers&rsquo; 3D models. The propellers
+      and radio housing were designed for this project.</p>
 
     <div class="grid">
       <div class="tile">
@@ -547,7 +542,7 @@
           <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
         </figure>
         <h3>Pixhawk 6X</h3>
-        <p>Flight controller on the top plate. FMUv6X is the open autopilot hardware standard it is built to.</p>
+        <p>The flight controller, mounted on the top plate. Built to FMUv6X, the open autopilot standard.</p>
       </div>
 
       <div class="tile">
@@ -555,7 +550,7 @@
           <img src="assets/renders/cu-jetson.webp" width="1400" height="1000" loading="lazy" alt="The Jetson Orin Nano developer kit mounted beneath the payload shelf, its heatsink fins, fan and connector bank facing the camera, with the Heltec LoRa stick standing on the shelf edge above it">
         </figure>
         <h3>NVIDIA Jetson Orin Nano &amp; LoRa radio</h3>
-        <p>The companion computer, under the payload shelf, with the 915&nbsp;MHz radio on the shelf edge above it. It runs the command server and talks MAVLink, the standard autopilot protocol, to the 6X. The radio is a Heltec Wireless Stick V3; the geometry here was exported as the Lite, so the render is missing its small OLED.</p>
+        <p>The onboard computer. It runs the AI and the command server and tells the flight controller what to do. The 915&nbsp;MHz radio sits on the shelf above it: a Heltec Wireless Stick V3, shown here as the Lite model, without its small screen.</p>
       </div>
 
       <div class="tile">
@@ -563,7 +558,7 @@
           <img src="assets/renders/cu-oakd.webp" width="1400" height="1000" loading="lazy" alt="The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose">
         </figure>
         <h3>OAK-D Pro</h3>
-        <p>Stereo depth camera on the nose bracket, with an infrared dot projector and flood illumination.</p>
+        <p>The eyes. A stereo depth camera that measures the distance to everything it sees, with infrared lighting for low light.</p>
       </div>
 
       <div class="tile">
@@ -571,7 +566,7 @@
           <img src="assets/renders/cu-gps.webp" width="1400" height="1000" loading="lazy" alt="The Holybro M10 GPS on its mast above the tail, raised clear of the airframe">
         </figure>
         <h3>Holybro M10</h3>
-        <p>GPS on the mast at the tail. Fitted, and getting a fix.</p>
+        <p>GPS, mounted high on the tail mast for a clear view of the sky.</p>
       </div>
 
       <div class="tile">
@@ -579,25 +574,24 @@
           <img src="assets/renders/cu-motor.webp" width="1400" height="1000" loading="lazy" alt="A 2216 brushless motor at the end of a carbon arm, carrying one ten inch propeller by its hub">
         </figure>
         <h3>2216 motor and propeller</h3>
-        <p>One of four. Holybro's CAD names it DJ-2216-KV880; the kit listing says KV920. Unresolved, so neither number is claimed here.</p>
+        <p>One of four brushless motors, each turning a 10-inch propeller.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-arm.webp" width="1400" height="1000" loading="lazy" alt="A carbon fibre arm tube entering its moulded two-piece clamp where the arm meets the body plate, with the clamp screws visible">
+          <img src="assets/renders/cu-arm.webp" width="1400" height="1000" loading="lazy" alt="A carbon fiber arm tube entering its molded two-piece clamp where the arm meets the body plate, with the clamp screws visible">
         </figure>
         <h3>Carbon arm and clamp</h3>
-        <p>One of four, on a 500&nbsp;mm wheelbase. The tube is held in a moulded two-piece clamp where it meets the body plate.</p>
+        <p>One of four carbon fiber arms on a 500&nbsp;mm frame, each locked into the body by a two-piece clamp.</p>
       </div>
     </div>
   </section>
 
   <section class="gallery">
-    <p class="lab">Plates</p>
-    <h2>Every view we hold</h2>
-    <p class="cap">The aircraft from the side and the front, in plan, and in three-quarter view.
-      All Cycles, all the same model as the close-ups above. Open one to see it
-      at full size.</p>
+    <p class="lab">Views</p>
+    <h2>Every angle</h2>
+    <p class="cap">Top, side, front and three-quarter views of the same model.
+      Open any view at full size.</p>
 
     <!-- One box, one render at a time. The images are in the markup rather than
          built by script, so with JavaScript off the <noscript> rule in the head
@@ -607,19 +601,19 @@
       <div class="shots-stage" data-shots-stage>
         <img class="shot" data-on src="assets/renders/view-top.webp"
              width="1400" height="1400" loading="lazy"
-             data-full="assets/renders/view-top-full.webp" data-ar="1/1" data-name="Plan view"
-             alt="The aircraft from directly above, all four arms and propellers in plan">
+             data-full="assets/renders/view-top-full.webp" data-ar="1/1" data-name="Top view"
+             alt="The aircraft from directly above, showing all four arms and propellers">
         <img class="shot" src="assets/renders/view-side.webp"
              width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-side-full.webp" data-ar="16/9" data-name="Side elevation"
+             data-full="assets/renders/view-side-full.webp" data-ar="16/9" data-name="Side view"
              alt="The aircraft square on from the side, showing the stack from landing skids to GPS mast">
         <img class="shot" src="assets/renders/view-front.webp"
              width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-front-full.webp" data-ar="16/9" data-name="Front elevation"
+             data-full="assets/renders/view-front-full.webp" data-ar="16/9" data-name="Front view"
              alt="The aircraft square on from the front, both forward arms and the camera bracket level with the lens">
         <img class="shot" src="assets/renders/three-q.webp"
              width="1400" height="875" loading="lazy"
-             data-full="assets/renders/three-q-full.webp" data-ar="8/5" data-name="Three-quarter"
+             data-full="assets/renders/three-q-full.webp" data-ar="8/5" data-name="Three-quarter view"
              alt="The aircraft in three-quarter view, showing the payload shelf, the camera bracket and the GPS mast together">
       </div>
       <div class="shots-bar">
@@ -628,13 +622,13 @@
         <div class="shots-dots">
           <button class="shots-dot" type="button" data-shots-go="0"
                   aria-current="true"
-                  aria-label="Show the plan view"></button>
+                  aria-label="Show the top view"></button>
           <button class="shots-dot" type="button" data-shots-go="1"
                   aria-current="false"
-                  aria-label="Show the side elevation"></button>
+                  aria-label="Show the side view"></button>
           <button class="shots-dot" type="button" data-shots-go="2"
                   aria-current="false"
-                  aria-label="Show the front elevation"></button>
+                  aria-label="Show the front view"></button>
           <button class="shots-dot" type="button" data-shots-go="3"
                   aria-current="false"
                   aria-label="Show the three-quarter view"></button>
@@ -642,7 +636,7 @@
         <button class="shots-arrow" type="button" data-shots-step="1"
                 aria-label="Next view">&#8594;</button>
       </div>
-      <p class="shots-name" data-shots-name>Plan view</p>
+      <p class="shots-name" data-shots-name>Top view</p>
     </div>
   </section>
 
