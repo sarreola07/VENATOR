@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How Venator works: LoRa command link and onboard autonomy</title>
-<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no ground control software.">
+<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no cellular.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -13,7 +13,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
 <meta property="og:title" content="How Venator works: LoRa command link and onboard autonomy">
-<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no ground control software.">
+<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no cellular.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -392,8 +392,8 @@
   <div class="hero">
     <h1>Laptop to propeller, with no network in between.</h1>
     <div>
-      <p>What a command actually does on the way to the aircraft, the three
-        behaviours built on top of it, and how far each one has been taken.</p>
+      <p>What a command actually does on the way to the aircraft, and the four
+        behaviours built on top of it.</p>
     </div>
   </div>
 
@@ -427,12 +427,12 @@
       <div class="item">
         <div class="hd">
           <h3>What is actually fitted</h3>
-          <p>Every line is a real part of the repository. The one that is not an OK is the one that has not happened yet.</p>
+          <p>Every line is a real part of the repository.</p>
         </div>
         <figure class="selftest">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-            <img src="assets/brand/hero-light.svg" width="1000" height="384" alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts">
+            <img src="assets/brand/hero-light.svg" width="1000" height="384" alt="System self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready, and the aircraft lifts">
           </picture>
         </figure>
       </div>
