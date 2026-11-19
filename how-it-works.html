@@ -91,6 +91,22 @@
     margin:0; font-size:clamp(2.6rem,8.4vw,6rem); line-height:.96;
     font-weight:700; letter-spacing:-.035em; text-wrap:balance;
   }
+  /* The small label above the headline. It sits inside the <h1> so the hero
+     grid keeps its two children, and so the heading reads "Autonomy, fence an
+     area..." to a screen reader. Signal orange, used decoratively by the
+     owner's choice (BRAND.md keeps it for live state). Hard-coded like the nav:
+     the band is near-black in both themes, where #E05316 measures 5.11:1, so it
+     passes AA even at this 12px size. */
+  .hero h1 .kicker{
+    display:block; margin:0 0 18px; font-size:12px; line-height:1;
+    font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#E05316;
+  }
+  /* The Product page headline is three short beats, one per line. The longest,
+     "Find who's in it.", is 6.92em wide, so this size keeps each beat on one
+     line in the hero column from 375px up to the 1240px cap (the general
+     8.4vw/6rem above would break them mid-phrase). The &nbsp;s in the markup
+     keep a beat from leaving a single word behind on narrower screens. */
+  .hero h1.beats{font-size:clamp(2.6rem,7vw,5.6rem)}
   .hero p{
     margin:0; max-width:36ch;
     font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
