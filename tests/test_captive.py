@@ -144,6 +144,7 @@ check("never opens an MJPEG stream", b"live.mjpg" not in r.body)
 check("never opens an EventSource", b"EventSource" not in r.body)
 check("offers a way out to the real browser", b"Open the live camera" in r.body)
 check("names the typed-URL fallback", b"venator.com" in r.body)
+check("wears the brand, like the camera page", b"--paper:#F2F1EE" in r.body and b"#05070a" not in r.body)
 
 print("\nfavicon is 204, not a redirect")
 # Some captive WebViews follow a 302 on /favicon.ico and loop forever.

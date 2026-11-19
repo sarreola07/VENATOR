@@ -180,13 +180,31 @@ up and find a drone afterwards. Dark is forced — there is no
 `prefers-color-scheme: light` branch, because a white screen here is a
 usability fault rather than a preference.
 
-- Background `#05070a`, text `#d8d2c6` — never pure white.
-- **Amber** `animal`, **magenta** `person` (highest salience, and it stays
-  distinct under a red filter), dim cyan `vehicle`.
+- The page wears `docs/BRAND.md`'s tokens, the same ones `index.html` uses:
+  Ink `#0A0A0A` page, Panel `#131314`, Line `#2A2A27` at 1 px, Muted `#8A8781`,
+  Paper `#F2F1EE` text — never pure white. No rounded corners. Section labels
+  and buttons are the product page's: 11 px, 700, tracked, uppercase; a toggled
+  control is filled paper, an action is outlined paper, off is a hairline.
+  Anything a machine produced is in mono.
+- **Signal `#E05316` is live state only:** the FOUND kicker and alert rule, the
+  target's box, a recording in progress, the live square in the masthead.
+  Nothing that merely exists is orange.
+- **Amber `#D9A441` is the one warning tone** — `animal` boxes, a camera that is
+  offline or stalled, a chip that needs attention — and the word in caps does
+  the work, because under the red filter every tone converges anyway. People
+  who are not the target are paper or muted: the target being the only loud
+  thing on screen is the point being demonstrated.
 - A red-filter toggle and a black-overlay dimmer, since a browser cannot reach
   the backlight.
+- **Simple mode is the default.** The first screen is the masthead, the alert,
+  the search state (kicker, heading, mono detail), the video with boxes, the
+  chart and the bottom bar. The **METRICS** button reveals the judges' numbers
+  band (time to lock, finds, wrong locks, match share against the best decoy),
+  the status chips, the tracks list and, for the operator, the trials table.
+  The choice is remembered per phone.
 - Status chips in one scrolling row: fps, model, power mode, board draw, SoC
-  temp, USB link speed, RSSI, GPS, detection counts.
+  temp, USB link speed, RSSI, GPS, detection counts, and `search faults`,
+  `search no colours` or `viewers full` when those apply.
 - **SAR banner: sticky, no auto-dismiss, explicit ack tap**, with vibration and
   a beep armed on first gesture (iOS blocks audio before interaction).
 - One-tap ✓/✗ on each evidence thumbnail → `POST /api/verdict` → sidecar JSON.

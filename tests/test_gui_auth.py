@@ -260,6 +260,16 @@ check("the operator's page is not view-only",
 check("a view-only visitor still gets the confidence chart and snapshots",
       b'id="chart"' in page.body and b'id="csnap"' in page.body)
 check("evidence judging is hidden from them", b".viewonly .shot .v" in page.body)
+check("and so is the trials table", b".viewonly #trialsum" in page.body)
+check("they get the judges' numbers band", b'id="metrics"' in page.body)
+check("behind a metrics button, with simple mode the default",
+      b'id="metricsbtn"' in page.body and b"let simple = true" in page.body
+      and b"body.simple #metrics" in page.body)
+check("the page carries the brand tokens, not its own palette",
+      b"--paper:#F2F1EE" in page.body and b"--signal:#E05316" in page.body
+      and b"#05070a" not in page.body)
+check("nothing is rounded", b"border-radius" not in page.body)
+check("the masthead carries the lockup", b'id="mast"' in page.body and b"VENATOR</text>" in page.body)
 
 print("\nThe poster chart reads on a white poster, and stays off until asked for")
 

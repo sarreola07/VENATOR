@@ -35,90 +35,153 @@ PAGE = r"""<!doctype html>
 <meta name="color-scheme" content="dark">
 <title>VENATOR</title>
 <style>
+/* docs/BRAND.md's palette, the same tokens index.html uses, so what runs on the
+   bench looks like what is written about it. Dark is forced (see the module
+   docstring): --paper is the text colour and --ink the page, always. Signal is
+   spent on live state only: the FOUND banner, the target box, a recording in
+   progress, the live square in the masthead. Amber is the one warning tone;
+   under the red filter every tone converges anyway, so the word in caps does
+   the work. */
 :root{
-  --bg:#05070a; --panel:#0c1016; --line:#1b222c;
-  --fg:#d8d2c6;            /* never pure white */
-  --muted:#7d8694;
-  --amber:#ffcf4d;         /* animal */
-  --orange:#ff5f1f;        /* accent, alerts */
-  --magenta:#ff3fa4;       /* person - highest salience, stays distinct under red light */
-  --cyan:#4fd6d6;          /* vehicle */
-  --ok:#5fd38d; --warn:#ffcf4d; --bad:#ff5f5f;
+  --ink:#0A0A0A; --panel:#131314; --line:#2A2A27; --muted:#8A8781;
+  --paper:#F2F1EE; --signal:#E05316; --amber:#D9A441;
+  --hair:1px;
+  --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* the chart's vest colours are data, not chrome: the line is the vest */
+  --fg:var(--paper); --bg:var(--ink);
+  --ok:var(--paper); --warn:var(--amber); --bad:var(--amber);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--fg);
-  font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+html,body{margin:0;background:var(--ink);color:var(--paper);
+  font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 /* top/right/bottom/left rather than inset:0 throughout: Safari before 14.5
    ignores inset, and these overlays then shrink to nothing. */
 #redfilter{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:50;background:#f00;
   opacity:0;mix-blend-mode:multiply;transition:opacity .2s}
 #dimmer{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:51;background:#000;opacity:0}
 
+/* --- masthead: the product page's, at phone size --- */
+#mast{display:flex;align-items:center;gap:14px;height:56px;padding:0 14px;
+  padding-top:env(safe-area-inset-top);border-bottom:var(--hair) solid var(--line)}
+#mast svg{width:118px;height:21px;display:block;flex:0 0 auto}
+#mast .nav{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+#mast .fps{margin-left:auto;font:11px var(--mono);letter-spacing:.06em;color:var(--muted);font-variant-numeric:tabular-nums}
+#live{width:8px;height:8px;background:var(--line);flex:0 0 auto}
+#live.on{background:var(--signal)}
+#viewonly{display:none;align-items:center;gap:10px;padding:7px 14px;
+  border-bottom:var(--hair) solid var(--line);background:var(--panel)}
+#viewonly b{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+#viewonly span{font-size:12px;color:var(--muted)}
+.viewonly #viewonly{display:flex}
+
+/* --- the section label, index.html's .lab --- */
+.lab,h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)}
+h2{margin:16px 14px 8px}
+
 /* --- alert banner: sticky, no auto-dismiss, explicit ack --- */
 #alerts{position:sticky;top:0;z-index:40}
-.alert{background:#2a0a0a;border-bottom:2px solid var(--bad);padding:10px 14px;
-  display:flex;gap:10px;align-items:center;animation:pulse 1.4s ease-in-out infinite}
-@keyframes pulse{0%,100%{background:#2a0a0a}50%{background:#3d0d0d}}
+.alert{background:var(--ink);border-left:3px solid var(--signal);border-bottom:var(--hair) solid var(--line);
+  padding:12px 14px 12px 11px;display:flex;gap:12px;align-items:center;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{background:var(--ink)}50%{background:var(--panel)}}
 @media (prefers-reduced-motion:reduce){.alert{animation:none}}
-/* --- vest search: what the aircraft is looking for, above everything else --- */
-#search{display:none;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
-  padding:10px 14px;background:#11141a;font-variant-numeric:tabular-nums}
+.alert b{display:block;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--signal);line-height:1}
+.alert .meta{display:block;margin-top:5px;font:11px var(--mono);letter-spacing:.04em;color:var(--muted)}
+.alert button{margin-left:auto;background:var(--paper);color:var(--ink);border-color:var(--paper)}
+
+/* --- the search state: kicker, heading, mono detail --- */
+#search{display:none;flex-direction:column;gap:4px;padding:14px 14px 12px;
+  border-bottom:var(--hair) solid var(--line);background:var(--ink)}
 #search.on{display:flex}
-#search b{letter-spacing:.04em}
-#search.found b{color:#ffe600}
-#search .d{color:var(--muted);font-size:12px}
+#search .k{font-size:11px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);line-height:1}
+#search b{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+#search .d{font:11px var(--mono);letter-spacing:.04em;color:var(--muted);font-variant-numeric:tabular-nums}
+#search.found .k{color:var(--signal)}
+#search.stale .d::after{content:" · last reading";color:var(--muted)}
+#search .warn{font:11px var(--mono);color:var(--amber);letter-spacing:.04em}
 /* view-only visitors can look at everything and change nothing */
 .viewonly #snap,.viewonly #lb-foot,.viewonly .shot .v{display:none}
+.viewonly #trialsum{display:none}
+
+/* --- the judges' numbers: index.html's numbers band --- */
+#metrics{display:none;grid-template-columns:repeat(4,minmax(0,1fr));
+  border-top:var(--hair) solid var(--paper);border-bottom:var(--hair) solid var(--line)}
+#metrics.on{display:grid}
+#metrics>div{padding:12px 6px 12px 10px;border-right:var(--hair) solid var(--line);display:flex;flex-direction:column}
+#metrics>div:first-child{padding-left:14px}
+#metrics>div:last-child{border-right:0;padding-right:14px}
+#metrics b{font-size:26px;line-height:1;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+#metrics b i{font-style:normal;font-size:11px;letter-spacing:0;margin-left:3px;color:var(--muted)}
+#metrics b.off{color:var(--muted)}
+#metrics b.live{color:var(--signal)}
+#metrics em{display:block;margin-top:8px;font:9px/1.3 var(--mono);font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+/* simple mode is the default: the numbers, chips and lists wait behind the
+   METRICS button, so a visitor's first screen is the picture and the state */
+body.simple #metrics,body.simple #chips,body.simple #tracks-h,body.simple #tracks,body.simple #trialsum{display:none}
+
 /* --- the operator's vest search controls. Never on a view-only page: the server
    refuses those writes anyway, and buttons that do nothing would only confuse. --- */
-#ops{display:flex;flex-direction:column;gap:6px;padding:8px 14px;
-  border-bottom:1px solid var(--line);background:var(--panel);font-size:13px}
+#ops{display:flex;flex-direction:column;gap:10px;padding:12px 14px;
+  border-bottom:var(--hair) solid var(--line);background:var(--panel);font-size:13px}
 .viewonly #ops{display:none}
 .opsrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
-.opsrow .lbl{font-weight:600}
-#ops button{padding:4px 10px;font-size:12px;min-height:30px}
-#ops .d{color:var(--muted);font-size:12px}
-#ops .d.bad{color:var(--bad)}
+.opsrow .lbl{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+#ops button{padding:7px 11px;font-size:10px;min-height:34px}
+#ops .d{color:var(--muted);font-size:12px;line-height:1.35}
+#ops .d.bad{color:var(--amber)}
 #ops.off #calrow,#ops.off #recrow{display:none}
-#recnote{flex:1;min-width:150px;background:var(--bg);color:var(--fg);
-  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit;font-size:12px}
-#trials a{color:var(--fg);font-size:12px;margin-right:12px;font-variant-numeric:tabular-nums}
+#recnote{flex:1;min-width:150px;background:var(--ink);color:var(--paper);
+  border:var(--hair) solid var(--line);padding:8px 10px;font:12px var(--mono);min-height:34px}
+#recbtn.on{border-color:var(--signal);color:var(--signal);background:transparent}
+#recmsg{font:11px var(--mono);color:var(--muted)}
+#recmsg.on::before{content:"\25CF  REC  ";color:var(--signal)}
+#trials a{color:var(--paper);font:11px var(--mono);margin-right:12px}
+
 /* --- confidence chart: only shown during a search --- */
-#conf{display:none;border-bottom:1px solid var(--line);padding:0 8px 8px;background:var(--panel)}
+#conf{display:none;border-bottom:var(--hair) solid var(--line);padding:0 14px 10px;background:var(--panel)}
 #conf.on{display:block}
-#conf .head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 2px 4px}
-#conf .ttl{font-weight:600;margin-right:auto}
-#conf .head button{padding:4px 10px;font-size:12px}
+#conf .head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:12px 0 8px}
+#conf .ttl{margin-right:auto;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+#conf .head button{padding:6px 7px;font-size:10px;letter-spacing:.06em;min-height:32px}
 #plot{position:relative}
 #chart{display:block;width:100%;height:150px;touch-action:pan-y}
-#conf.poster #plot{background:#fff;border-radius:4px}
+#conf.poster #plot{background:#fff}
 #conf.poster #chart{height:auto;aspect-ratio:2/1;max-width:1000px;margin:0 auto}
 #conf.poster #legend{display:none}
-#ctip{display:none;position:absolute;top:4px;background:rgba(2,3,5,.92);
-  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;
+#ctip{display:none;position:absolute;top:4px;background:rgba(10,10,10,.94);
+  border:var(--hair) solid var(--line);padding:5px 8px;font:11px var(--mono);
   pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
 #ctip .row{display:flex;align-items:center;gap:6px}
 #ctip .row b{min-width:34px;text-align:right}
 #ctip .row span{color:var(--muted)}
-#legend{display:flex;flex-wrap:wrap;gap:3px 12px;padding:4px 2px 0;font-size:12px}
+#legend{display:flex;flex-wrap:wrap;gap:3px 12px;padding:6px 0 0;font:11px var(--mono);color:var(--muted)}
 .key{display:inline-flex;align-items:center;gap:5px}
-.key i,#ctip i{display:inline-block;width:14px;height:2px;border-radius:1px}
+.key i,#ctip i{display:inline-block;width:14px;height:2px}
 .key.more{color:var(--muted)}
-#snaps .bar{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:12px;color:var(--muted)}
-#snaps .bar button{margin-left:auto;padding:4px 10px;font-size:12px}
-.snap{border-top:1px solid var(--line);padding:8px 2px}
-.snap .when{font-size:12px;color:var(--muted);margin-bottom:4px}
-.snap img{display:block;width:100%;border-radius:4px;background:var(--bg)}
-.snap button{margin-top:6px;padding:4px 10px;font-size:12px}
-.snap table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;
+#snaps .bar{display:flex;align-items:center;gap:8px;padding:12px 0 4px;font:11px var(--mono);color:var(--muted)}
+#snaps .bar button{margin-left:auto;padding:6px 10px;font-size:10px}
+.snap{border-top:var(--hair) solid var(--line);padding:8px 0}
+.snap .when{font:11px var(--mono);color:var(--muted);margin-bottom:4px}
+.snap img{display:block;width:100%;background:var(--ink)}
+.snap button{margin-top:6px;padding:6px 10px;font-size:10px}
+.snap table{width:100%;border-collapse:collapse;margin-top:6px;font:11px var(--mono);
   font-variant-numeric:tabular-nums}
-.snap th{color:var(--muted);font-weight:500;text-align:right;padding:2px 4px}
-.snap td{text-align:right;padding:2px 4px;border-top:1px solid var(--line)}
+.snap th{color:var(--muted);font-weight:400;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:2px 4px;font-size:9.5px}
+.snap td{text-align:right;padding:3px 4px;border-top:var(--hair) solid var(--line)}
 .snap th:first-child,.snap td:first-child{text-align:left}
-.alert b{color:var(--bad);letter-spacing:.04em}
-.alert .meta{color:var(--muted);font-size:12px}
-.alert button{margin-left:auto}
+
+/* --- the trials table, operator only --- */
+#trialsum{margin:0 14px;font:11px var(--mono);font-variant-numeric:tabular-nums}
+#trialsum:empty{display:none}
+#trialsum .row{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr));gap:8px;
+  padding:8px 0;border-bottom:var(--hair) solid var(--line)}
+#trialsum .row.hd{color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-size:9.5px;padding:7px 0;border-top:var(--hair) solid var(--paper)}
+#trialsum .row span{text-align:right}
+#trialsum .row span:first-child{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#trialsum .row .d{color:var(--muted)}
+#trialsum .row .bad{color:var(--amber)}
 
 /* --- video --- */
 #stage{position:relative;background:#000;aspect-ratio:16/9;width:100%;overflow:hidden}
@@ -132,88 +195,101 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
   #stage img{position:absolute;top:0;left:0}
 }
 #nolink{position:absolute;top:0;right:0;bottom:0;left:0;display:none;place-items:center;text-align:center;
-  background:rgba(5,7,10,.72);color:var(--warn);padding:16px;font-size:13px}
+  background:rgba(10,10,10,.78);color:var(--amber);padding:16px;font-size:13px}
+#nolink b{display:block;font-size:11px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;margin-bottom:6px}
 #nolink.on{display:grid}
 #stage.stale img{filter:grayscale(1) brightness(.45)}
 
 /* --- chips --- */
-#chips{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;scrollbar-width:none;
-  border-bottom:1px solid var(--line)}
+#chips{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;scrollbar-width:none;
+  border-bottom:var(--hair) solid var(--line)}
 #chips::-webkit-scrollbar{display:none}
-.chip{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);
-  border-radius:999px;padding:5px 11px;font-size:12px;white-space:nowrap}
-.chip s{text-decoration:none;color:var(--muted);margin-right:5px}
-.chip.ok b{color:var(--ok)} .chip.warn b{color:var(--warn)} .chip.bad b{color:var(--bad)}
+.chip{flex:0 0 auto;border:var(--hair) solid var(--line);padding:5px 10px;font-size:11px;white-space:nowrap;
+  display:inline-flex;gap:6px;align-items:baseline}
+.chip s{text-decoration:none;color:var(--muted);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.chip b{font:11px var(--mono);font-weight:400;font-variant-numeric:tabular-nums}
+.chip.warn,.chip.bad{border-color:var(--amber)}
+.chip.warn b,.chip.bad b{color:var(--amber);text-transform:uppercase}
 
 /* --- track list --- */
-h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
-  margin:16px 12px 6px}
-#tracks{margin:0 8px}
-.trk{display:flex;gap:10px;align-items:baseline;padding:8px 10px;
-  border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+#tracks{margin:0 14px;border-top:var(--hair) solid var(--paper)}
+.trk{display:flex;gap:10px;align-items:baseline;padding:9px 0;
+  border-bottom:var(--hair) solid var(--line);font:12px var(--mono);font-variant-numeric:tabular-nums}
 .trk.gone{opacity:.4}
-.trk .cls{font-weight:600;min-width:62px}
-.trk .cls.animal{color:var(--amber)} .trk .cls.person{color:var(--magenta)}
-.trk .cls.vehicle{color:var(--cyan)}
-.trk .d{color:var(--muted);font-size:12px}
-.trk .r{margin-left:auto;color:var(--muted);font-size:12px}
-.empty{color:var(--muted);padding:10px;font-size:13px}
+.trk .cls{font-weight:700;letter-spacing:.08em;text-transform:uppercase;min-width:62px}
+.trk .cls.animal{color:var(--amber)} .trk .cls.person{color:var(--paper)}
+.trk .cls.vehicle{color:var(--muted)}
+.trk .d{color:var(--muted)}
+.trk .r{margin-left:auto}
+.empty{color:var(--muted);padding:10px 0;font-size:13px}
 
 /* --- filmstrip --- */
-#film{display:flex;gap:6px;overflow-x:auto;padding:4px 8px 10px;scrollbar-width:none}
+#film{display:flex;gap:8px;overflow-x:auto;padding:4px 14px 12px;scrollbar-width:none}
 #film::-webkit-scrollbar{display:none}
-.shot{flex:0 0 auto;width:104px}
-.shot img{width:104px;height:59px;object-fit:cover;background:#000;
-  border:1px solid var(--line);border-radius:4px;display:block}
-.shot .t{font-size:10px;color:var(--muted);margin-top:2px;text-align:center}
-.shot .v{display:flex;gap:4px;margin-top:3px}
-.shot .v button{flex:1;padding:3px 0;font-size:11px}
-.shot.judged img{border-color:var(--ok)}
-.shot.wrong img{border-color:var(--bad)}
+.shot{flex:0 0 auto;width:112px}
+.shot img{width:112px;height:63px;object-fit:cover;background:#000;
+  border:var(--hair) solid var(--line);display:block}
+.shot .t{font:10px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.shot .v{display:flex;gap:4px;margin-top:4px}
+.shot .v button{flex:1;padding:4px 0;font-size:10px;min-height:28px}
+.shot.judged img{border-color:var(--paper)}
+.shot.wrong img{border-color:var(--amber)}
 
 /* --- lightbox: one evidence frame, large, with its boxes drawn on --- */
 #lb-wrap{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:none;
-  background:rgba(2,3,5,.96);flex-direction:column}
+  background:rgba(10,10,10,.97);flex-direction:column}
 #lb-wrap.on{display:flex}
 #lb-stage{position:relative;flex:1;min-height:0;display:grid;place-items:center}
 #lb-img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 #lb-ovl{position:absolute;pointer-events:none}
 #lb-head{display:flex;gap:10px;align-items:center;padding:10px 12px;
-  padding-top:calc(10px + env(safe-area-inset-top));border-bottom:1px solid var(--line)}
-#lb-head .nm{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted)}
+  padding-top:calc(10px + env(safe-area-inset-top));border-bottom:var(--hair) solid var(--line)}
+#lb-head .nm{font:11px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 #lb-head button{margin-left:auto}
-#lb-meta{padding:8px 12px;border-top:1px solid var(--line);max-height:30vh;overflow-y:auto}
+#lb-meta{padding:8px 12px;border-top:var(--hair) solid var(--line);max-height:30vh;overflow-y:auto}
 #lb-meta .row{display:flex;gap:10px;align-items:baseline;padding:4px 0;
-  font-variant-numeric:tabular-nums;font-size:13px}
-#lb-meta .row .cls{font-weight:600;min-width:62px}
-#lb-meta .row .cls.animal{color:var(--amber)} #lb-meta .row .cls.person{color:var(--magenta)}
-#lb-meta .row .cls.vehicle{color:var(--cyan)}
+  font:12px var(--mono);font-variant-numeric:tabular-nums}
+#lb-meta .row .cls{font-weight:700;letter-spacing:.08em;text-transform:uppercase;min-width:62px}
+#lb-meta .row .cls.animal{color:var(--amber)} #lb-meta .row .cls.person{color:var(--paper)}
+#lb-meta .row .cls.vehicle{color:var(--muted)}
 #lb-meta .row .d{color:var(--muted)}
 #lb-foot{display:flex;gap:8px;padding:9px 12px calc(9px + env(safe-area-inset-bottom));
-  border-top:1px solid var(--line)}
+  border-top:var(--hair) solid var(--line)}
 #lb-foot button{flex:1}
-#lb-foot button.keep.on{border-color:var(--ok);color:var(--ok)}
-#lb-foot button.drop.on{border-color:var(--bad);color:var(--bad)}
+#lb-foot button.keep.on{border-color:var(--paper);color:var(--ink);background:var(--paper)}
+#lb-foot button.drop.on{border-color:var(--amber);color:var(--amber);background:transparent}
 .shot img{cursor:zoom-in}
 
-/* --- controls --- */
-button,select{background:var(--panel);color:var(--fg);border:1px solid var(--line);
-  border-radius:8px;padding:9px 13px;font:inherit;font-size:13px;min-height:38px}
-button:active{background:#18202b}
-button.on{border-color:var(--orange);color:var(--orange)}
+/* --- controls: index.html's .act grammar. A toggled-on control is filled
+   paper; an action is outlined in paper; off is a hairline in muted. --- */
+button,select{background:transparent;color:var(--muted);border:1.5px solid var(--line);
+  padding:9px 12px;font:inherit;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  min-height:44px;cursor:pointer;transition:transform .14s ease,background .18s ease,color .18s ease}
+select{color:var(--paper);font:12px var(--mono);text-transform:none;letter-spacing:0;font-variant-numeric:tabular-nums}
+button:active{transform:translateY(1px)}
+button.on{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+button.act{color:var(--paper);border-color:var(--paper)}
 #bar{position:fixed;left:0;right:0;bottom:0;z-index:45;display:flex;gap:8px;
   padding:9px 10px calc(9px + env(safe-area-inset-bottom));
-  background:rgba(8,11,16,.94);border-top:1px solid var(--line);
+  background:rgba(19,19,20,.94);border-top:var(--hair) solid var(--line);
   backdrop-filter:blur(8px);overflow-x:auto;scrollbar-width:none}
 #bar::-webkit-scrollbar{display:none}
 #bar>*{flex:0 0 auto}
-label.sl{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
-input[type=range]{width:88px;accent-color:var(--orange)}
+label.sl{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+input[type=range]{width:64px;accent-color:var(--paper)}
 </style></head><body>
 
 <div id="redfilter"></div><div id="dimmer"></div>
+<header id="mast">
+  <svg viewBox="0 0 470 84" role="img" aria-label="Venator"><g fill="#F2F1EE"><path d="M60 2 65.5 15 64 42 60 56 56 42 54.5 15Z"/><path d="M8 6 46 21 46 32 8 17Z"/><path d="M112 6 74 21 74 32 112 17Z"/><path d="M18 34 60 80 102 34 86 34 60 63 34 34Z"/></g><text x="152" y="46" fill="#F2F1EE" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="34" font-weight="700" letter-spacing="11">VENATOR</text><text x="154" y="66" fill="#9A968F" font-family="Helvetica Neue,Helvetica,Arial,sans-serif" font-size="10.5" letter-spacing="4.6">AUTONOMOUS FLIGHT SYSTEMS</text></svg>
+  <span class="nav">Search camera</span>
+  <span class="fps" id="mfps">&mdash; FPS</span>
+  <span id="live" aria-hidden="true"></span>
+</header>
+<div id="viewonly"><b>View only</b><span>You can watch everything and change nothing.</span></div>
 <div id="alerts"></div>
 <div id="search"></div>
+<div id="metrics"></div>
 
 <div id="ops" class="off">
   <div class="opsrow">
@@ -229,6 +305,7 @@ input[type=range]{width:88px;accent-color:var(--orange)}
   <div class="opsrow" id="recrow">
     <input id="recnote" maxlength="60" placeholder="trial note, e.g. 4 m daylight" aria-label="trial note">
     <button id="recbtn">record</button>
+    <button id="wrongbtn" title="a decoy was shown as TARGET">wrong lock</button>
     <span class="d" id="recmsg"></span>
   </div>
   <div class="opsrow" id="trials"></div>
@@ -238,7 +315,7 @@ input[type=range]{width:88px;accent-color:var(--orange)}
   <img id="vid" alt="">
   <canvas id="ovl"></canvas>
   <div id="nolink">
-    <div><b>video link lost</b><br>
+    <div><b>video link lost</b>
     <span style="color:var(--muted)">Status below is still live while the page is
     connected. Beyond ~100 m this is normal — fall back to the LoRa link.</span></div>
   </div>
@@ -250,7 +327,7 @@ input[type=range]{width:88px;accent-color:var(--orange)}
     <button id="m-match" class="on">match</button>
     <button id="m-person">person</button>
     <button id="cposter">poster</button>
-    <button id="csnap">snapshot</button>
+    <button id="csnap" class="act">snapshot</button>
   </div>
   <div id="plot"><canvas id="chart" role="img"
     aria-label="Confidence for each person over the last 30 seconds. The same readings are in the Tracks list and in snapshots."></canvas>
@@ -259,9 +336,11 @@ input[type=range]{width:88px;accent-color:var(--orange)}
   <div id="snaps"></div>
 </div>
 
+<div id="trialsum"></div>
+
 <div id="chips"></div>
 
-<h2>Tracks</h2>
+<h2 id="tracks-h">Tracks</h2>
 <div id="tracks"><div class="empty">nothing detected</div></div>
 
 <h2>Evidence <span id="filmn" style="color:var(--muted)"></span></h2>
@@ -289,13 +368,26 @@ input[type=range]{width:88px;accent-color:var(--orange)}
   <button id="lb" class="on">labels</button>
   <button id="red">red</button>
   <label class="sl">dim <input type="range" id="dim" min="0" max="85" value="0"></label>
-  <button id="snap">mark</button>
+  <button id="metricsbtn">metrics</button>
+  <button id="snap" class="act">mark</button>
 </div>
 
 <script>
 const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__, VIEW_ONLY = __VIEW_ONLY__;
 const q = s => document.querySelector(s);
 document.body.classList.toggle('viewonly', VIEW_ONLY);
+// Simple mode is the default: the picture, the state and the chart. The numbers
+// band, chips and lists wait behind the METRICS button. Remembered per phone.
+let simple = true;
+try { simple = localStorage.getItem('venator-simple') !== '0'; } catch(_){}
+function setSimple(on){
+  simple = on;
+  document.body.classList.toggle('simple', on);
+  q('#metricsbtn').classList.toggle('on', !on);
+  try { localStorage.setItem('venator-simple', on ? '1' : '0'); } catch(_){}
+}
+setSimple(simple);
+q('#metricsbtn').onclick = () => setSimple(!simple);
 const auth = u => u + (u.includes('?') ? '&' : '?') + (TOKEN ? 'k=' + TOKEN : '');
 // A view-only visitor's writes would only earn a 403 and a growing delay. Quality
 // and alert dismissal still work for them, because both are also local.
@@ -339,19 +431,25 @@ vid.onerror = () => { setTimeout(loadVideo, vidRetry); vidRetry = backoff(vidRet
 
 /* ---------- box overlay ---------- */
 const ovl = q('#ovl'), ctx = ovl.getContext('2d');
-const COLOUR = {animal:'#ffcf4d', person:'#ff3fa4', vehicle:'#4fd6d6'};
+// Brand tokens on the canvas. Signal is the target and nothing else; a person
+// who is not the target is paper or muted, and animals take the amber warning
+// tone because under a red filter they must still read as "not a person".
+const COLOUR = {animal:'#D9A441', person:'#F2F1EE', vehicle:'#8A8781'};
 // The vest search. The target is the only loud thing on screen: everyone else
-// fading to grey is the point being demonstrated.
-const ROLE = {target:'#ffe600', match:'#ffb000', checking:'#e8edf2', ignored:'#7d8590'};
-const boxColour = d => ROLE[d.role] || COLOUR[d.c] || '#fff';
+// fading to muted is the point being demonstrated.
+const ROLE = {target:'#E05316', match:'#F2F1EE', checking:'#F2F1EE', ignored:'#8A8781'};
+const ROLE_DASH = {match:[6,4], ignored:[4,4]};
+const ROLE_WIDTH = {target:3, match:2, checking:1.5, ignored:1.5};
+const MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+const boxColour = d => ROLE[d.role] || COLOUR[d.c] || '#F2F1EE';
 let lastSearch = null;
 function roleLabel(d){
-  const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
-  const worn = d.vest ? ' ' + d.vest : '';
+  const z = d.xyz ? d.xyz[2].toFixed(1) + ' M' : '';
+  const worn = d.vest ? ' ' + d.vest.toUpperCase() : '';
   const need = lastSearch && lastSearch.vote_need;
-  return {target:`TARGET ${z}`, match:`also matches ${z}`,
-          checking:`checking ${d.votes||0}/${need||'?'}`,
-          ignored:`ignored${worn}`}[d.role];
+  return {target:`TARGET ${z}`, match:`ALSO MATCHES ${z}`,
+          checking:`CHECKING ${d.votes||0}/${need||'?'}`,
+          ignored:`IGNORED${worn}`}[d.role];
 }
 let dets = [], showBox = true, showLab = true;
 function sizeCanvas(){
@@ -371,21 +469,23 @@ function draw(){
   const ar = (vid.naturalWidth || 16) / (vid.naturalHeight || 9);
   let w = r.width, h = r.width / ar, ox = 0, oy = (r.height - h) / 2;
   if (h > r.height){ h = r.height; w = r.height * ar; oy = 0; ox = (r.width - w) / 2; }
-  ctx.font = '600 12px ui-sans-serif,system-ui,sans-serif';
+  ctx.font = '700 11px ' + MONO;
   for (const d of dets){
     const c = boxColour(d);
     const x = ox + d.b[0]*w, y = oy + d.b[1]*h;
     const bw = (d.b[2]-d.b[0])*w, bh = (d.b[3]-d.b[1])*h;
-    ctx.lineWidth = d.role === 'target' ? 4 : 2;
+    ctx.lineWidth = ROLE_WIDTH[d.role] || 1.5;
+    ctx.setLineDash(ROLE_DASH[d.role] || []);
     ctx.strokeStyle = c; ctx.strokeRect(x, y, bw, bh);
+    ctx.setLineDash([]);
     if (!showLab) continue;
-    const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '';
+    const z = d.xyz ? d.xyz[2].toFixed(1) + ' M' : '';
     const idtag = d.id !== undefined ? `#${d.id} ` : '';
-    const txt = roleLabel(d) || `${idtag}${d.c} ${Math.round(d.p*100)}% ${z}`;
-    const tw = ctx.measureText(txt).width + 8;
-    const ty = y > 16 ? y - 16 : y + bh;
-    ctx.fillStyle = 'rgba(5,7,10,.78)'; ctx.fillRect(x, ty, tw, 16);
-    ctx.fillStyle = c; ctx.fillText(txt, x + 4, ty + 12);
+    const txt = roleLabel(d) || `${idtag}${d.c.toUpperCase()} ${Math.round(d.p*100)}% ${z}`;
+    const tw = ctx.measureText(txt).width + 10;
+    const ty = y > 18 ? y - 18 : y + bh;
+    ctx.fillStyle = 'rgba(10,10,10,.82)'; ctx.fillRect(x, ty, tw, 18);
+    ctx.fillStyle = c; ctx.fillText(txt, x + 5, ty + 13);
   }
 }
 q('#bx').onclick = e => { showBox = !showBox; e.target.classList.toggle('on', showBox); draw(); };
@@ -423,15 +523,36 @@ function renderSearch(s){
   // the banner holds its state rather than blinking off for that frame.
   el.classList.toggle('stale', !!(s && s.stale));
   if (!on) return;
-  const name = s.target.toUpperCase() + ' VEST';
-  const head = {found:`FOUND: ${name}`, lost:`LOST SIGHT OF ${name}`,
-                checking:`CHECKING FOR ${name}`}[s.state] || `SEARCHING FOR ${name}`;
+  // A kicker in the product page's voice, a heading in the hero's, a mono line.
+  const kick = {found:'Missing person found', lost:'Lost sight of them',
+                checking:'Checking'}[s.state] || 'Searching';
+  const vest = s.target + ' vest';
+  const head = {found:`${vest[0].toUpperCase() + vest.slice(1)}` + (s.z ? `, ${s.z.toFixed(1)} m` : ''),
+                lost:`Last seen in a ${vest}`,
+                checking:`Checking for a ${vest}`}[s.state] || `Looking for a ${vest}`;
   const bits = [];
-  if (s.state === 'found' && s.z) bits.push(s.z.toFixed(1) + ' m away');
+  if (s.state === 'found' && s.id !== undefined) bits.push(`track #${s.id}`);
   if (s.matches > 1) bits.push(`${s.matches} people match`);
   bits.push(`${s.ignored || 0} ignored`);
+  if (s.closest_m) bits.push(`closest ${s.closest_m.toFixed(1)} m`);
   el.classList.toggle('found', s.state === 'found');
-  el.innerHTML = `<b>${head}</b><span class="d">${bits.join(' &middot; ')}</span>`;
+  el.innerHTML = `<span class="k">${kick}</span><b>${head}</b><span class="d">${bits.join(' &middot; ')}</span>`
+    + (lastStatus && lastStatus.search_warning ? `<span class="warn">${lastStatus.search_warning}</span>` : '');
+}
+
+/* ---------- the judges' numbers: index.html's numbers band ---------- */
+function renderMetrics(m){
+  const el = q('#metrics'), on = !!(m && m.target);
+  el.classList.toggle('on', on);
+  if (!on) return;
+  const n = (v, unit, dp) => v == null ? `<b class="off">&mdash;</b>`
+    : `<b>${dp === undefined ? v : v.toFixed(dp)}${unit ? `<i>${unit}</i>` : ''}</b>`;
+  const pct = v => v == null ? '&mdash;' : Math.round(v*100);
+  el.innerHTML =
+    `<div>${n(m.ttl_last_s, 's', 1)}<em>Time to lock</em></div>` +
+    `<div>${n(m.finds)}<em>Finds</em></div>` +
+    `<div>${m.wrong_locks ? `<b class="live">${m.wrong_locks}</b>` : n(0)}<em>Wrong locks</em></div>` +
+    `<div><b>${pct(m.match_target)}<i>/ ${pct(m.match_decoy)}%</i></b><em>Match &middot; decoy</em></div>`;
 }
 
 /* ---------- confidence chart ---------- */
@@ -443,9 +564,9 @@ function renderSearch(s){
 // for a chart line, on purpose. Dark enough to meet it, it turns olive and can
 // no longer be told from red with colour blindness.
 const VEST_LINE = {red:'#e5484d', yellow:'#dcb40a', blue:'#4c8dff'};
-const NO_VEST = '#6e7681';
-const INK = {fg:'#d8d2c6', muted:'#7d8694', grid:'#1b222c', rule:'#3a4452', surface:'#0c1016'};
-const FONT = 'ui-sans-serif,system-ui,sans-serif';
+const NO_VEST = '#8A8781';
+const INK = {fg:'#F2F1EE', muted:'#8A8781', grid:'#2A2A27', rule:'#8A8781', surface:'#131314'};
+const FONT = MONO;
 const NIGHT = {...INK, line:VEST_LINE, none:NO_VEST,
                L:34, R:62, T:8, B:18, font:11, axisW:1, lineW:2, dot:4, gap:13};
 // The poster button's look, for print on white rather than for the field. At
@@ -453,8 +574,8 @@ const NIGHT = {...INK, line:VEST_LINE, none:NO_VEST,
 // the screen's too: that gap in lightness is what keeps it apart from this dark
 // yellow with colour blindness. Each line also has its own dash, for a poor
 // printer. 1000 x 500 at 3x is 10 x 5 inches at 300 pixels per inch.
-const POSTER = {w:1000, h:500, px:3, fg:'#111111', muted:'#111111', grid:'#bdbdbd',
-                rule:'#111111', surface:'#ffffff',
+const POSTER = {w:1000, h:500, px:3, fg:'#0A0A0A', muted:'#0A0A0A', grid:'#bdbdbd',
+                rule:'#0A0A0A', surface:'#ffffff',
                 line:{red:'#9E0B25', yellow:'#A67C00', blue:'#0B4FB3'}, none:'#444444',
                 dash:{red:[], yellow:[8,7], blue:[20,9]}, noDash:[12,5,3,5],
                 L:84, R:250, T:56, B:108, font:23, axisW:2, lineW:5.6, dot:8, gap:30};
@@ -745,7 +866,8 @@ function renderOps(s){
   if (s.search_warning) setMsg('#opsmsg', s.search_warning, true);
   q('#recbtn').textContent = recordingNow ? 'stop' : 'record';
   q('#recbtn').classList.toggle('on', !!recordingNow);
-  q('#recmsg').textContent = recordingNow ? `${recordingNow.name}, ${recordingNow.rows} rows` : '';
+  q('#recmsg').classList.toggle('on', !!recordingNow);
+  q('#recmsg').textContent = recordingNow ? `${recordingNow.name.replace(/\.csv$/, '')}, ${recordingNow.rows} rows` : '';
   // "Restarting" stays up until the camera is really back: a status with frames,
   // from after the restart. The reply to the click itself comes before it.
   if (restartAt && s.fps > 0 && s.camera !== 'restarting' && Date.now() - restartAt > 1500){
@@ -781,8 +903,34 @@ q('#recbtn').onclick = () => {
   const body = recordingNow ? {record: false} : {record: {note: q('#recnote').value}};
   ops(body);
 };
+q('#wrongbtn').onclick = () => {
+  if (!searchNow) return;
+  ops({mark: 'wrong_lock'}).then(() => setMsg('#recmsg', 'Wrong lock marked.', true));
+};
+function renderTrialSummary(rows){
+  const el = q('#trialsum');
+  el.textContent = '';
+  if (!rows || !rows.length) return;
+  const add = (cells, cls) => {
+    const row = document.createElement('div'); row.className = 'row' + (cls ? ' ' + cls : '');
+    for (const [text, c] of cells){
+      const s = document.createElement('span'); s.textContent = text; if (c) s.className = c; row.append(s);
+    }
+    el.append(row);
+  };
+  add([['Trial'], ['To found'], ['Range'], ['Wrong']], 'hd');
+  for (const t of rows.slice(0, 6)){
+    const wrong = (t.wrong_lock_rows || 0) + (t.wrong_locks_marked || 0);
+    const range = t.distance_min_m != null ? `${t.distance_min_m.toFixed(1)}–${t.distance_max_m.toFixed(1)} m` : '—';
+    add([[t.note || t.name.replace(/\.csv$/, '')],
+         [t.seconds_to_found != null ? t.seconds_to_found.toFixed(1) + ' s' : '—'],
+         [range, 'd'], [String(wrong), wrong ? 'bad' : '']]);
+  }
+}
 function loadTrials(){
   if (VIEW_ONLY) return;
+  fetch(auth('/api/trials/summary')).then(r => r.json())
+    .then(o => renderTrialSummary(o.trials)).catch(() => {});
   fetch(auth('/api/trials')).then(r => r.json()).then(o => {
     const el = q('#trials');
     el.textContent = '';
@@ -804,8 +952,14 @@ loadTrials();
 function chip(label, value, cls){
   return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
 }
+let lastStatus = null;
 function renderChips(s){
+  lastStatus = s;
   chartModel = s.model || chartModel;
+  // The masthead: fps in mono, and the live square only while frames arrive.
+  const live = !s.camera && (s.fps || 0) > 0;
+  q('#mfps').textContent = live ? (s.fps).toFixed(1) + ' FPS' : (s.camera || 'no camera').toUpperCase();
+  q('#live').classList.toggle('on', live);
   const t = s.temp, w = s.watts, usb = s.usb, rssi = s.link && s.link.rssi;
   // The camera can be absent while the page is perfectly healthy - the OAK
   // has been seen to drop off the USB bus. Say so plainly instead of showing
@@ -814,12 +968,12 @@ function renderChips(s){
   // video link doesn't still say "restarting" or "offline" from before.
   if (!s.camera) q('#nolink').innerHTML = NOLINK_TEXT;
   if (s.camera === 'restarting'){
-    q('#nolink').innerHTML = '<div><b>camera restarting</b><br>'
+    q('#nolink').innerHTML = '<div><b>camera restarting</b>'
       + '<span style="color:var(--muted)">For the vest search. Back in a few seconds.</span></div>';
     q('#nolink').classList.add('on');
   }
   if (s.camera === 'offline'){
-    q('#nolink').innerHTML = '<div><b>camera offline</b><br>'
+    q('#nolink').innerHTML = '<div><b>camera offline</b>'
       + '<span style="color:var(--muted)">' + (s.error || '')
       + '<br>Retrying. Evidence review below still works.</span></div>';
     q('#nolink').classList.add('on');
@@ -828,7 +982,7 @@ function renderChips(s){
   if (s.camera === 'stalled'){
     // The device is open but has gone quiet. The server reopens it itself
     // after a few more seconds; this says so rather than showing a frozen frame.
-    q('#nolink').innerHTML = '<div><b>camera stalled</b><br>'
+    q('#nolink').innerHTML = '<div><b>camera stalled</b>'
       + '<span style="color:var(--muted)">No frames are arriving. Reopening the camera.</span></div>';
     q('#nolink').classList.add('on');
     stage.classList.add('stale');
@@ -863,13 +1017,16 @@ function renderChips(s){
 const acked = new Set(JSON.parse(sessionStorage.getItem('acked') || '[]'));
 let alerts = [];
 function renderAlerts(){
+  // "missing_person_found_yellow_vest": the first three words are the kicker,
+  // the rest leads the mono line, so the banner stays on two lines on a phone.
+  const split = k => { const w = (k||'alert').split('_'); return [w.slice(0,3).join(' '), w.slice(3).join(' ')]; };
   q('#alerts').innerHTML = alerts.filter(a => !acked.has(a.id)).map(a => `
-    <div class="alert"><b>${(a.kind||'alert').replace(/_/g,' ').toUpperCase()}</b>
-    <span class="meta">${Math.round((a.conf||0)*100)}%
+    <div class="alert"><div><b>${split(a.kind)[0]}</b>
+    <span class="meta">${split(a.kind)[1] ? split(a.kind)[1] + ' &middot; ' : ''}${Math.round((a.conf||0)*100)}%
       ${a.dwell ? '&middot; '+a.dwell.toFixed(0)+' s' : ''}
       ${a.rel ? '&middot; '+a.rel.rng+' m brg '+a.rel.brg+'°' : ''}
       ${a.ll ? '&middot; '+a.ll[0].toFixed(5)+', '+a.ll[1].toFixed(5) : '&middot; no GPS fix'}
-    </span><button data-ack="${a.id}">ack</button></div>`).join('');
+    </span></div><button data-ack="${a.id}">ack</button></div>`).join('');
 }
 q('#alerts').onclick = e => {
   const id = e.target.dataset && e.target.dataset.ack;
@@ -1006,11 +1163,12 @@ function drawShot(){
     const c = boxColour(d);
     const x = d.b[0]*ir.width, y = d.b[1]*ir.height;
     const bw = (d.b[2]-d.b[0])*ir.width, bh = (d.b[3]-d.b[1])*ir.height;
-    lbCtx.lineWidth = 3; lbCtx.strokeStyle = c; lbCtx.strokeRect(x, y, bw, bh);
-    const txt = roleLabel(d) || `${d.c} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} m` : '');
-    lbCtx.font = '600 15px ui-sans-serif,system-ui,sans-serif';
+    lbCtx.lineWidth = d.role === 'target' ? 3 : 2; lbCtx.setLineDash(ROLE_DASH[d.role] || []);
+    lbCtx.strokeStyle = c; lbCtx.strokeRect(x, y, bw, bh); lbCtx.setLineDash([]);
+    const txt = roleLabel(d) || `${d.c.toUpperCase()} ${Math.round(d.p*100)}%` + (d.xyz ? ` ${d.xyz[2].toFixed(1)} M` : '');
+    lbCtx.font = '700 14px ' + MONO;
     const tw = lbCtx.measureText(txt).width + 10, ty = y > 20 ? y - 20 : y + bh;
-    lbCtx.fillStyle = 'rgba(2,3,5,.82)'; lbCtx.fillRect(x, ty, tw, 20);
+    lbCtx.fillStyle = 'rgba(10,10,10,.82)'; lbCtx.fillRect(x, ty, tw, 20);
     lbCtx.fillStyle = c; lbCtx.fillText(txt, x + 5, ty + 15);
   }
 }
@@ -1078,7 +1236,10 @@ function connect(){
     if (d.search && d.search.target) recordConfidence(d);
     draw(); renderTracks(); drawChart();
   });
-  es.addEventListener('status', e => { const s = JSON.parse(e.data); renderChips(s); renderOps(s); });
+  es.addEventListener('status', e => {
+    const s = JSON.parse(e.data);
+    renderChips(s); renderOps(s); renderMetrics(s.search ? s.metrics : null);
+  });
   es.addEventListener('calibration', e => {
     const c = JSON.parse(e.data);
     setMsg('#calmsg', c.message, !c.ok);

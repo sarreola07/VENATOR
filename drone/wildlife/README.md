@@ -291,7 +291,11 @@ rather than leaving them to impressions:
   best of the people being ignored. The gap is what the vote relies on.
 
 They are in the 1 Hz status every phone receives, at `/api/metrics`, and they
-start over whenever the colour changes. `/api/trials/summary` reads every
+start over whenever the colour changes. On the page they sit behind the
+**metrics** button at the bottom: the page opens in simple mode, which is the
+picture, the state and the chart, and the button adds the numbers band, the
+status chips, the tracks list and (operator only) the trials table. Press
+**wrong lock**, beside **record**, the moment a decoy is shown as TARGET. `/api/trials/summary` reads every
 recording on disk and gives, per trial, the note, the rows, the seconds to the
 first FOUND, the distances seen, and any row where someone was TARGET in the
 wrong vest, which is the table `docs/YELLOW_VEST_PROMPT.md` used to ask for by
