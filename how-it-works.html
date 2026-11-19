@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Venator works: long-range radio and onboard AI</title>
-<meta name="description" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
+<title data-i18n="hiw.title">How Venator works: long-range radio and onboard AI</title>
+<meta name="description" data-i18n-attr="content:hiw.desc" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -12,14 +12,14 @@
      JPEG, and a card nobody can decode is the same as no card. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
-<meta property="og:title" content="How Venator works: long-range radio and onboard AI">
-<meta property="og:description" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
+<meta property="og:title" data-i18n-attr="content:hiw.title" content="How Venator works: long-range radio and onboard AI">
+<meta property="og:description" data-i18n-attr="content:hiw.desc" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
+<meta property="og:image:alt" data-i18n-attr="content:shared.social_alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/brand/favicon.svg">
 <style>
@@ -78,6 +78,16 @@
   /* The page you are on holds the bright state, so the nav says where you are
      rather than only announcing it to a screen reader via aria-current. */
   .mast nav a[aria-current="page"]{color:#F2F1EE; border-color:#2A2A27}
+  /* The language switch sits in the nav and dresses like a link. It is hidden
+     until assets/lang.js removes the attribute, so with scripting off there is
+     no control that does nothing. */
+  .mast nav .lang{
+    background:none; border:0; border-bottom:1px solid transparent; padding:6px 0;
+    cursor:pointer; font:inherit; font-size:12px; letter-spacing:.14em; line-height:inherit;
+    text-transform:uppercase; color:#8A8781; white-space:nowrap;
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .mast nav .lang:hover,.mast nav .lang:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -425,18 +435,19 @@
     <!-- The masthead band is near-black in both colour schemes, so the lockup
          is always the near-white one. BRAND.md: "dark" means the ink is
          near-white, for dark backgrounds. -->
-    <a href="index.html"><img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30"></a>
-    <nav aria-label="Primary">
-      <a href="index.html">Product</a>
-      <a href="how-it-works.html" aria-current="page">How it works</a>
+    <a href="index.html"><img src="assets/brand/lockup-dark.svg" data-i18n-attr="alt:nav.lockup" alt="Venator, autonomous flight systems" width="168" height="30"></a>
+    <nav aria-label="Primary" data-i18n-attr="aria-label:nav.primary">
+      <a href="index.html" data-i18n="nav.product">Product</a>
+      <a href="how-it-works.html" aria-current="page" data-i18n="nav.how">How it works</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
+      <button class="lang" type="button" hidden lang="es" aria-label="ES, cambiar a español">ES</button>
     </nav>
   </header>
 
   <div class="hero">
-    <h1>Laptop to propeller, with no network in between.</h1>
+    <h1 data-i18n="hiw.h1">Laptop to propeller, with no network in between.</h1>
     <div>
-      <p>How a command travels from a laptop to the aircraft, and the four
+      <p data-i18n="hiw.p">How a command travels from a laptop to the aircraft, and the four
         capabilities built on that link.</p>
     </div>
   </div>
@@ -445,6 +456,7 @@
        both colour schemes, the same reason the lockup above is. -->
   <figure class="mission">
     <img src="assets/brand/mission-dark.svg" width="1000" height="500"
+      data-i18n-attr="alt:hiw.mission_alt"
       alt="A search and rescue mission from start to finish. An operator fences a search area; a coverage path is planned to sweep every meter inside it; the view tilts from a map to show the aircraft flying at 40 meters within the fence; it sweeps the area and reroutes in real time around a tree in its lane; it detects a deer and logs it with its position without raising an alert; it finds a person who is not moving, holds station and sends an emergency with their coordinates over 915 MHz LoRa so medical help is dispatched; it finds a second person who is moving and follows at 3 meters; then it returns home and lands with the track and every detection.">
   </figure>
 
@@ -454,28 +466,28 @@
 <div class="wrap">
 
   <section id="how" class="stack">
-    <p class="lab">How it works</p>
-    <h2>Three parts. Two links.</h2>
-    <p class="cap">The laptop sends a command over a 915&nbsp;MHz LoRa radio: long
+    <p class="lab" data-i18n="how.lab">How it works</p>
+    <h2 data-i18n="how.h2">Three parts. Two links.</h2>
+    <p class="cap" data-i18n="how.cap">The laptop sends a command over a 915&nbsp;MHz LoRa radio: long
       range, low power, no network needed. The onboard computer passes it to the
       flight controller and sends the answer back the same way.</p>
     <figure>
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
-        <img src="assets/brand/system-light.svg" width="900" height="214" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
+        <img src="assets/brand/system-light.svg" width="900" height="214" data-i18n-attr="alt:how.system_alt" alt="Three boxes: a laptop ground station, the Jetson on the drone, and the airframe. The laptop talks to the Jetson over 915 MHz LoRa, and the Jetson talks to the flight controller over MAVLink">
       </picture>
     </figure>
 
     <div class="series">
       <div class="item">
         <div class="hd">
-          <h3>Pre-flight check</h3>
-          <p>Every system reports in before the aircraft lifts off.</p>
+          <h3 data-i18n="how.pre.h3">Pre-flight check</h3>
+          <p data-i18n="how.pre.p">Every system reports in before the aircraft lifts off.</p>
         </div>
         <figure class="selftest">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-            <img src="assets/brand/hero-light.svg" width="1000" height="384" alt="System self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready, and the aircraft lifts">
+            <img src="assets/brand/hero-light.svg" width="1000" height="384" data-i18n-attr="alt:how.pre.alt" alt="System self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready, and the aircraft lifts">
           </picture>
         </figure>
       </div>
@@ -483,59 +495,59 @@
   </section>
 
   <section>
-    <h2>What it does</h2>
-    <p class="cap">Four capabilities on one radio link, with one safety rule: if the
+    <h2 data-i18n="what.h2">What it does</h2>
+    <p class="cap" data-i18n="what.cap">Four capabilities on one radio link, with one safety rule: if the
       link drops for more than four seconds, the aircraft flies home on its own.</p>
 
     <div class="series">
       <div class="item">
         <div class="hd">
-          <h3>Follow a person</h3>
-          <p>Stays 3&nbsp;m behind until told to stop. If it loses sight, it hovers instead of guessing.</p>
+          <h3 data-i18n="cap.follow.h3">Follow a person</h3>
+          <p data-i18n="cap.follow.p">Stays 3&nbsp;m behind until told to stop. If it loses sight, it hovers instead of guessing.</p>
         </div>
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/conops-dark.svg">
-            <img src="assets/brand/conops-light.svg" width="1000" height="400" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
+            <img src="assets/brand/conops-light.svg" data-i18n-attr="alt:cap.follow.alt" width="1000" height="400" alt="A laptop commands the drone over 915 MHz LoRa; it takes off, follows a person at 3 m, and returns home when the link drops">
           </picture>
         </figure>
       </div>
 
       <div class="item">
         <div class="hd">
-          <h3>Patrol a route</h3>
-          <p>Send a route over the radio. Every point is confirmed, and nothing spins up until you confirm a second time.</p>
+          <h3 data-i18n="cap.patrol.h3">Patrol a route</h3>
+          <p data-i18n="cap.patrol.p">Send a route over the radio. Every point is confirmed, and nothing spins up until you confirm a second time.</p>
         </div>
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/patrol-dark.svg">
-            <img src="assets/brand/patrol-light.svg" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then returns to launch">
+            <img src="assets/brand/patrol-light.svg" data-i18n-attr="alt:cap.patrol.alt" width="1000" height="420" alt="Four coordinates uploaded over LoRa, validated, armed, flown as a circuit with a deviation around an obstacle, then returns to launch">
           </picture>
         </figure>
       </div>
 
       <div class="item">
         <div class="hd">
-          <h3>Message every station at once</h3>
-          <p>One radio message reaches every station in range at the same moment, and each one confirms it arrived.</p>
+          <h3 data-i18n="cap.mesh.h3">Message every station at once</h3>
+          <p data-i18n="cap.mesh.p">One radio message reaches every station in range at the same moment, and each one confirms it arrived.</p>
         </div>
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mesh-dark.svg">
-            <img src="assets/brand/mesh-light.svg" width="1000" height="400" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
+            <img src="assets/brand/mesh-light.svg" data-i18n-attr="alt:cap.mesh.alt" width="1000" height="400" alt="One LoRa transmission reaching the ground station and the aircraft at the same instant, with phones loading a page from the machine holding the radio">
           </picture>
         </figure>
       </div>
 
       <div class="item">
         <div class="hd">
-          <h3>Steer around obstacles</h3>
-          <p>The depth camera spots what&rsquo;s ahead. The aircraft brakes, goes around it, and gets back on course.</p>
+          <h3 data-i18n="cap.avoid.h3">Steer around obstacles</h3>
+          <p data-i18n="cap.avoid.p">The depth camera spots what&rsquo;s ahead. The aircraft brakes, goes around it, and gets back on course.</p>
         </div>
         <figure>
           <picture>
             <source media="(prefers-color-scheme: dark)" srcset="assets/brand/avoid-dark.svg">
-            <img src="assets/brand/avoid-light.svg" width="1000" height="380" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
+            <img src="assets/brand/avoid-light.svg" data-i18n-attr="alt:cap.avoid.alt" width="1000" height="380" alt="Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track">
           </picture>
         </figure>
       </div>
@@ -549,10 +561,12 @@
        no longer serves it. -->
 
   <footer>
-    <span>MIT licensed. Built by Sergio Arreola.</span>
+    <span data-i18n="foot.lic">MIT licensed. Built by Sergio Arreola.</span>
     <span><a href="https://github.com/sarreola07/VENATOR">github.com/sarreola07/VENATOR</a></span>
   </footer>
 
 </div>
+<script src="assets/i18n/es.js" defer></script>
+<script src="assets/lang.js" defer></script>
 </body>
 </html>

@@ -98,6 +98,12 @@ jobs:
           for g in tools/gen_*.py; do echo "--- $g"; python3 "$g"; done
           git diff --exit-code -- assets/brand
 
+      # The product site's language switch: every keyed string on both pages
+      # has its Spanish, every Spanish entry is used, and the switch is on both
+      # pages hidden until its script runs. The markup is the only English copy.
+      - name: Site language switch is complete
+        run: python3 tests/test_site_i18n.py
+
       - name: Every shell script parses
         run: |
           status=0
