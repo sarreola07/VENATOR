@@ -51,11 +51,11 @@ ICON = {"✅": "done", "🔵": "wip", "⬜": "todo"}
 DRAW = {
     "0": (["NVMe +", "restore"],     "0 · NVMe install + project restore"),
     "1": (["C2", "protocol"],        "1 · C2 protocol — newline JSON, handshake, ACK / retransmit"),
-    "2": (["laptop", "client"],      "2 · laptop client — runs today with --mock; CI builds .exe and .app"),
+    "2": (["laptop", "client"],      "2 · laptop client — real radio or --mock; CI builds .exe and .app"),
     "3": (["Heltec", "firmware"],    "3 · firmware — flashed and validated on real radios, OLED on both sticks"),
     "4": (["Jetson", "C2 server"],   "4 · Jetson server — working over real LoRa, zero-touch boot service"),
-    "5": (["GPS +", "waypoints"],    "5 · waypoint flight — built and bench-tested; the GPS reports no fix"),
-    "6": (["polish +", "avoidance"], "6 · polish and obstacle avoidance — not started"),
+    "5": (["GPS +", "waypoints"],    "5 · waypoint flight — M10 GPS fix, flown outdoors"),
+    "6": (["polish +", "avoidance"], "6 · polish and obstacle avoidance — steers around what the OAK-D sees"),
 }
 
 SUMMARY = {
@@ -144,8 +144,11 @@ def build(theme_name, states):
     tally = {k: sum(1 for v in states.values() if v == k) for k in ("done", "wip", "todo")}
     summary = " · ".join(f"{tally[k]} {SUMMARY[k]}" for k in ("done", "wip", "todo") if tally[k])
     t_sum = pc(T0 + len(order) * DT + 0.4)
-    caps.append(("cs", t_sum, 100, t["ink"],
-                 f"{summary} — the link works end to end; flight is what is left"))
+    # The tail is a claim about the whole project, so it follows the tally rather
+    # than being written for one particular state of the table.
+    tail = ("the link, flight and avoidance all work" if tally["done"] == len(order)
+            else "the table below says what is left")
+    caps.append(("cs", t_sum, 100, t["ink"], f"{summary} — {tail}"))
 
     cap_el = "\n".join(
         f'    <text id="{i}" x="96" y="282" fill="{c}" font-family="{MONO}" font-size="13"'

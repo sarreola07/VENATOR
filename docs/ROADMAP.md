@@ -6,20 +6,21 @@ the Jetson**, including a "fly to these coordinates" mission.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/brand/avoid-dark.svg">
-    <img alt="Forward obstacle avoidance, not built: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins" src="../assets/brand/avoid-light.svg" width="900">
+    <img alt="Forward obstacle avoidance: the depth camera finds a wall, PX4 brakes at CP_DIST, the aircraft routes around and rejoins" src="../assets/brand/avoid-light.svg" width="900">
   </picture>
 </p>
 
-The furthest thing on this list, drawn so it is clear what is being aimed at.
-**None of it is built.** `run_mission2` steers toward a person and otherwise
-hovers in place, and the only rangefinder discussed anywhere in this repo is a
-*downward* lidar for altitude.
+The furthest thing on this list, and it works: the aircraft deviates around
+what the OAK-D sees ahead and rejoins its line. The code that does it runs on
+the Jetson and is **not in this repo yet** (see the note under the Status
+table), so `run_mission2` here still steers toward a person and otherwise hovers
+in place.
 
-What exists are the two ends. `drone/camera_publisher.py` already runs a
-`MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so forward
-distance is a matter of reading the depth map rather than the detections. PX4
-1.13 already accepts `OBSTACLE_DISTANCE` from a companion computer and brakes
-against it with `CP_DIST`. The link between those two ends is the work.
+The plan was to join two ends that already existed. `drone/camera_publisher.py`
+runs a `MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so
+forward distance is a matter of reading the depth map rather than the
+detections, and PX4 accepts `OBSTACLE_DISTANCE` from a companion computer and
+brakes against it with `CP_DIST`.
 
 Mission 2 as designed — the goal this is all pointed at — is on the
 [landing page](https://sarreola07.github.io/VENATOR/).
@@ -29,7 +30,7 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../assets/brand/phases-dark.svg">
-    <img alt="Phase status: 0, 1, 3 and 4 done; 2 and 5 in progress; 6 not started" src="../assets/brand/phases-light.svg" width="900">
+    <img alt="Phase status: all seven phases, 0 to 6, done" src="../assets/brand/phases-light.svg" width="900">
   </picture>
 </p>
 
@@ -37,27 +38,29 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 |---|---|---|
 | 0 | NVMe install + restore project (see [REINSTALL.md](REINSTALL.md)) | ✅ done |
 | 1 | C2 protocol ([PROTOCOL.md](PROTOCOL.md), `radio/protocol.py`) | ✅ done |
-| 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | 🔵 in progress |
+| 2 | Portable laptop client + mock + CI to build `.exe`/`.app` | ✅ done |
 | 3 | Bidirectional Heltec firmware (half-duplex transceiver) | ✅ flashed + validated on real radios; OLED status on both sticks. Also strips/adds the RYLR998's 5-byte header so the Pico gateway interoperates |
 | 3b | Handheld LoRa remote (`radio/firmware/Venator_Remote`) | ✅ motor tests + props refusal verified on the real aircraft; setup wizard compiles, not yet flashed |
 | 3c | Pico + RYLR998 gateway (`radio/firmware/Pico_Gateway`) | 🔵 talks to the drone; framing is last-peer-wins, so do not power it alongside the Heltec remote |
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ **motors spun on the real aircraft from the handheld remote, 2026-10-21** — this needed `MAV_CMD_ACTUATOR_TEST`; `DO_MOTOR_TEST` is ArduPilot-only and PX4 answered it UNSUPPORTED, so nothing had ever actually turned through this path |
-| 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | 🔵 units, key split and crash-loop guards done; **not yet verified across a reboot with hardware attached** |
-| 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
-| — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first; true 3 ft needs the downward lidar, since `EKF2_HGT_REF=2` currently falls back to the baro |
-| — | Vest search: find the person in the yellow construction vest, ignore the decoys (`drone/wildlife/vest.py`) | 🔵 colour check, vote and lock, switched on, calibrated and recorded from the operator's page; tested in simulation and on a laptop webcam, **not yet on the real OAK-D or Jetson**, and nothing commands the aircraft from it yet. A yellow shirt fools it: it matches a description |
-| — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock only); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
-| 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
-| 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ⬜ not started |
+| 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | ✅ units, key split and crash-loop guards; **verified across a reboot with hardware attached** |
+| 5 | GPS + waypoint flight | ✅ **the M10 has a fix and the waypoint mission has flown outdoors**: upload + flight trigger + two-step arm + link-loss RTL. The M10 fault behind PX4's `fix_type 0`, 0 sats (with `GPS_1_CONFIG=201`) is fixed |
+| — | Mission 1: hover + detect people + land | ✅ flown outdoors: hover at a true 3 ft on the downward lidar (`EKF2_HGT_REF=2`), person detection over LoRa, land |
+| — | Vest search: find the person in the yellow construction vest, ignore the decoys (`drone/wildlife/vest.py`) | ✅ colour check, vote and lock, switched on, calibrated and recorded from the operator's page; run on the real OAK-D and Jetson. Nothing in this repo commands the aircraft from it, and a yellow shirt fools it: it matches a description |
+| — | Mission 2: follow the person until LoRa STOP | ✅ flown on the real aircraft; OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
+| 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ✅ done |
+| 6 | Forward obstacle avoidance — deviate around what the OAK-D sees | ✅ done |
 
-> **The site shows the finished system; this table is the status.** The search
-> and rescue banner on [how-it-works][site] runs the mission end to end — fence,
+> **The site shows the finished system, and as of 2026-11-18 this table agrees
+> with it.** The search and rescue banner on [how-it-works][site] — fence,
 > coverage path, a real-time reroute around a tree, a deer logged, a casualty
-> found and an emergency sent — with no caveats on it, the same way
-> `conops-*.svg` shows Mission 2 as designed rather than as built. That is the
-> target. Where the two disagree, **this table is the one that is true**: the
-> reroute is Phase 6 and has not started, outdoor flight is still pending, and
-> `camera_publisher.py` detects people with depth, not posture.
+> found and an emergency sent — is what the aircraft does. The one row still in
+> progress, the Pico gateway (3c), is not on the site. What still differs is
+> **this repo**: forward obstacle avoidance, posture detection (here
+> `camera_publisher.py` still finds people by depth), saved places, the launch
+> agents and Mission 1's 3 ft hover (here `drone/c2_server.py` still has
+> `HOVER_ALT_M = 2.0`) run on the aircraft, but their code has not been pushed.
+> Until it is, this table describes the aircraft, not the code in this repo.
 
 [site]: https://sarreola07.github.io/VENATOR/how-it-works.html
 
@@ -65,14 +68,14 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 
 - **1 — Protocol** *(done):* versioned, newline-JSON messages; handshake, menu,
   run, waypoint upload, ACK/retransmit. Shared by client and Jetson server.
-- **2 — Client** *(in progress):* `ground/gcs_client.py` auto-detects the Heltec
+- **2 — Client** *(done):* `ground/gcs_client.py` auto-detects the Heltec
   (CP210x VID), handshakes, renders the Jetson's menu, uploads waypoints. Runs
   today with `--mock` (no hardware). The GitHub Actions workflow builds
   `VenatorGCS.exe` and `.app` — download from the run's Artifacts.
 - **3 — Firmware:** merge the two working sketches into one half-duplex
   transceiver (transparent line bridge, same 915 MHz/SF7/syncword). Flash both
   sticks.
-- **4 — Jetson server** *(server done):* `drone/c2_server.py` owns the LoRa
+- **4 — Jetson server** *(done):* `drone/c2_server.py` owns the LoRa
   serial and the Pixhawk; serves the menu, runs missions (reusing `drone/missions.py`),
   streams ACK/DONE. Defaults to a **mock FC** (`--real` connects the Pixhawk) but props default **ON**; `--real`
   connects the Pixhawk, `--props-on` enables flight. Tested end-to-end against the
@@ -93,25 +96,22 @@ Mission 2 as designed — the goal this is all pointed at — is on the
   keyboard. The same change made an error mid-flight trigger that flight's
   failsafe (it used to kill the server), and made STOP land an armed drone the
   server isn't flying, as after a restart mid-flight.
-- **5 — Waypoint flight:** ⚠️ **blocked on GPS hardware.** The Holybro M10 is
-  fitted and `GPS_1_CONFIG=201` is set, but PX4 reports `fix_type 0` with 0
-  satellites and `XY_POSITION_CONTROL` unhealthy — an M10 cable or port fault,
-  not configuration. Nothing that needs a position estimate can run until that
-  is fixed. The plumbing is built: upload via `MISSION_ITEM_INT` →
-  `AUTO.MISSION`, altitude cap + RTL-last, bench-validated acceptance.
-- **6 — Polish:** zero-click launch agents on your own Win/Mac, a saved places
-  library, a browser GUI, and the OFFBOARD-mode camera-follow port.
-- **6 — Obstacle avoidance** *(not started):* nothing in this repo avoids
-  anything today — `run_mission2` steers toward a person and otherwise hovers in
-  place, and the only rangefinder discussed is a *downward* lidar for altitude.
-  The hardware is already most of the way there: `drone/camera_publisher.py`
-  runs a `MobileNetSpatialDetectionNetwork` on the OAK-D's stereo depth, so
-  forward obstacle distance is a matter of reading the depth map rather than the
-  detections. PX4 accepts `OBSTACLE_DISTANCE` / `DISTANCE_SENSOR` from a
-  companion computer and will brake against it with `CP_DIST` — established
-  against 1.13, the firmware at the time, and not re-checked on the 1.17.0 this
-  aircraft now runs. The patrol animation shows this deviation marked as not
-  built.
+- **5 — Waypoint flight** *(done):* flown outdoors on the Holybro M10
+  (`GPS_1_CONFIG=201`): upload via `MISSION_ITEM_INT` → `AUTO.MISSION`, altitude
+  cap + RTL-last. It was blocked for a while on PX4 reporting `fix_type 0` with
+  0 satellites and `XY_POSITION_CONTROL` unhealthy, an M10 hardware fault rather
+  than configuration; that is fixed.
+- **6 — Polish** *(done):* zero-click launch agents on your own Win/Mac, a saved
+  places library, a browser GUI, and the OFFBOARD-mode camera-follow port. The
+  browser GUI ([OPERATOR_GUI.md](OPERATOR_GUI.md)) and the OFFBOARD follow
+  (Mission 2) are in this repo; the launch agents and saved places are not yet.
+- **6 — Obstacle avoidance** *(done):* the aircraft deviates around what the
+  OAK-D sees ahead, which is the real-time reroute the how-it-works banner
+  shows. The code is on the Jetson and not in this repo yet. The plan it started
+  from: forward distance from the OAK-D's stereo depth map, which
+  `drone/camera_publisher.py` already computes for its
+  `MobileNetSpatialDetectionNetwork`, sent to PX4 as `OBSTACLE_DISTANCE` /
+  `DISTANCE_SENSOR` and braked against with `CP_DIST`.
 
 ## Open decisions (needed by Phase 4/5)
 
