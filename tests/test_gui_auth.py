@@ -410,6 +410,36 @@ r = drive("GET", f"/api/status?k={tok}", hub=hub_np)
 check("a numpy-like scalar in the status still serialises", r.code, 200)
 check("as its value", json.loads(r.body)["temp"], 4.5)
 
+print("\nThe page puts server strings into markup as text, never as HTML")
+check("it has an escaper", "const esc =" in gui_page.PAGE)
+for raw in ("${s.error", "${d.raw", "${d.vest", "${s.name}", "${s.classes", "${d.c}", "${a.kind",
+            "<s>${label}", "${lastStatus.search_warning}"):
+    check(f"nothing interpolates {raw!r} unescaped", raw in gui_page.PAGE, False)
+import portal_page  # noqa: E402
+check("and so does the portal", "const esc =" in portal_page.PAGE and "<s>${esc(label)}" in portal_page.PAGE)
+
+print("\nThe detector comes from the cache, never from a stalled zoo fetch")
+from unittest import mock  # noqa: E402
+with tempfile.TemporaryDirectory() as tmp, mock.patch.object(gui_server, "ZOO_CACHE", tmp):
+    dai = mock.MagicMock()
+    try:
+        gui_server.resolve_model(dai, "luxonis/wildlife-megadetector:notcached")
+        raised = None
+    except FileNotFoundError as exc:
+        raised = str(exc)
+    check("a missing archive is a clear error", raised is not None and "not cached" in raised)
+    check("that names the fix", "--allow-zoo" in (raised or ""))
+    check("and the zoo was never asked", dai.getModelFromZoo.called, False)
+    gui_server.resolve_model(dai, "luxonis/wildlife-megadetector:notcached", allow_zoo=True)
+    check("with --allow-zoo it is", dai.getModelFromZoo.called)
+    os.makedirs(os.path.join(tmp, "a"))
+    Path(tmp, "a", "NotCached.rvc2.tar.xz").write_bytes(b"x")
+    dai.getModelFromZoo.reset_mock()
+    got = gui_server.resolve_model(dai, "luxonis/wildlife-megadetector:notcached")
+    check("a cached archive is used, by its variant name", got.endswith("NotCached.rvc2.tar.xz"))
+    check("without touching the zoo", dai.getModelFromZoo.called, False)
+    check("and /api/health agrees", gui_server.cached_model_path("x:notcached") is not None)
+
 print("\nA stale cookie is cleared, not punished; delays are per client")
 r = drive("GET", "/api/status", headers={"Cookie": "vt=0000000000000000"})
 check("cookie-only wrong token gets 403", r.code, 403)

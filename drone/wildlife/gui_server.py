@@ -1285,8 +1285,8 @@ def start_server(hub, token, host, port, save_dir, cfg, view_token=None):
 
 # --- camera -----------------------------------------------------------------
 
-def resolve_model(dai, name):
-    """Path to the model archive, preferring the local cache over the zoo.
+def resolve_model(dai, name, allow_zoo=False):
+    """Path to the model archive from the local cache; the zoo only when asked.
 
     THIS IS WHY THE CAMERA MUST NOT CALL getModelFromZoo FIRST
 
@@ -1306,14 +1306,21 @@ def resolve_model(dai, name):
     toggling the access point so destructive.
 
     The archive is already on disk. Loading it directly takes 1.14 s and needs
-    no network, so that is the default path and the zoo is only a fallback for a
-    model that has genuinely never been fetched.
+    no network, so that is the only path unless --allow-zoo says otherwise: a
+    model that has genuinely never been fetched is a clear error, not a stall.
     """
     path = cached_model_path(name)
     if path is not None:
         log(f"model from cache: {os.path.basename(path)} (no network needed)")
         return path
 
+    if not allow_zoo:
+        # Said on the page as "camera offline: detector not cached ..." through
+        # main()'s reconnect loop, instead of a stall nobody can diagnose from
+        # a phone. /api/health reports model_cached for the demo-day check.
+        raise FileNotFoundError(
+            f"detector not cached: no {name.split(':')[-1]} archive under {ZOO_CACHE}. "
+            "Run once with --allow-zoo on a network with internet to fetch it.")
     log(f"model {name} is not cached — fetching from the zoo, which needs internet")
     desc = dai.NNModelDescription(name)
     desc.platform = "RVC2"
@@ -1389,7 +1396,7 @@ def health_report(hub, cfg, save_dir):
     if not out["numpy"]:
         problems.append("numpy missing: the search can't read colours")
     if not out["model_cached"]:
-        problems.append("detector not cached: the first start needs internet")
+        problems.append("detector not cached: run once with --allow-zoo where there is internet")
     if disk_free_mb is not None and disk_free_mb < 200:
         problems.append(f"only {disk_free_mb} MB free for evidence")
     if not out["trials_writable"]:
@@ -1596,7 +1603,7 @@ def run(args, hub, cfg):
 
     os.environ.setdefault("DEPTHAI_ZOO_CACHE_PATH", ZOO_CACHE)
 
-    archive = dai.NNArchive(resolve_model(dai, args.model))
+    archive = dai.NNArchive(resolve_model(dai, args.model, getattr(args, "allow_zoo", False)))
     nn_w, nn_h = archive.getInputSize()
 
     with dai.Pipeline() as pipeline:
@@ -1963,6 +1970,10 @@ def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", default=MODEL)
+    ap.add_argument("--allow-zoo", action="store_true",
+                    help="fetch the detector from the Luxonis zoo if it is not cached. "
+                         "Off by default: the fetch holds the whole process on a "
+                         "stalled network, so a missing archive is reported instead")
     ap.add_argument("--conf", type=float, default=None,
                     help="override every per-class threshold in classes.py")
     ap.add_argument("--fps", type=float, default=10.0)

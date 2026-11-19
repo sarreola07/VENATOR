@@ -71,10 +71,15 @@ curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-tok
 
 The journal should show `GUI token` and either `vest search: looking for ...`
 or nothing about the search (it is off until pressed). The health report
-should say `"ok": true` once the camera is live; `detector not cached` in
-`problems` means the next start would need internet, so fetch it while you
-have some. Phones that had the old page open just reload it. The vest
+should say `"ok": true` once the camera is live. `detector not cached` in
+`problems` means the archive is not in `~/oak-venv/zoo-cache`: the service no
+longer fetches it by itself (that fetch hung the whole service on a stalled
+network), so on a network with internet run, once,
+`~/oak-venv/bin/python drone/wildlife/gui_server.py --allow-zoo --no-save`
+until it logs `model from cache` or the download, then Ctrl+C and restart the
+service. Phones that had the old page open just reload it. The vest
 calibration in `~/.venator/vest-colours.json` is untouched.
+`bash deploy/symposium_check.sh` now reads the same health report.
 
 The previous update:
 

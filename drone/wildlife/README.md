@@ -361,8 +361,11 @@ python3 -m venv ~/oak-venv
 ~/oak-venv/bin/python drone/wildlife/gui_server.py --search --save-dir ~/Pictures/venator-search
 ```
 
-Then open <http://127.0.0.1:8080>. The first run downloads the detector, about
-4 MB, and needs internet. With no key file the page is only reachable from the
+Then open <http://127.0.0.1:8080>. The first run needs `--allow-zoo` and
+internet to download the detector, about 4 MB; after that it loads from
+`~/oak-venv/zoo-cache`, and without the flag a missing archive is reported as
+"camera offline: detector not cached" rather than fetched, because the fetch
+holds the whole service on a stalled network. With no key file the page is only reachable from the
 laptop itself, which is what you want for this test. With no camera attached,
 Ctrl+C can take about 10 seconds, because it waits for the device search to end.
 

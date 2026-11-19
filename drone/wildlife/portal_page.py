@@ -126,8 +126,9 @@ function refresh(){ img.src = auth('/snapshot.jpg') + '&_=' + Date.now(); }
 refresh();
 setInterval(refresh, 2000);
 
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function chip(label, value, cls){
-  return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
+  return `<div class="chip ${cls||''}"><s>${esc(label)}</s><b>${esc(value)}</b></div>`;
 }
 function status(){
   fetch(auth('/api/status')).then(r => r.json()).then(s => {

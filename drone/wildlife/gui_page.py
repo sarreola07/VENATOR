@@ -375,6 +375,10 @@ input[type=range]{width:64px;accent-color:var(--paper)}
 <script>
 const TOKEN = __TOKEN__, QUALITIES = __QUALITIES__, VIEW_ONLY = __VIEW_ONLY__;
 const q = s => document.querySelector(s);
+// Everything the server sends is produced by this process today, and this
+// keeps that from ever mattering: a value goes into markup as text, never as
+// HTML, so a vest label or an error message cannot carry an element with it.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 document.body.classList.toggle('viewonly', VIEW_ONLY);
 // Simple mode is the default: the picture, the state and the chart. The numbers
 // band, chips and lists wait behind the METRICS button. Remembered per phone.
@@ -502,12 +506,12 @@ function renderTracks(){
     .map(d => {
       const z = d.xyz ? d.xyz[2].toFixed(1) + ' m' : '--';
       const len = d.len_m ? d.len_m.toFixed(1) + ' m' : '';
-      const raw = (d.vest || d.raw) ? ` <span class="d">(${d.vest || d.raw})</span>` : '';
-      const id = d.id !== undefined ? `<span class="d">#${d.id}</span>` : '';
+      const raw = (d.vest || d.raw) ? ` <span class="d">(${esc(d.vest || d.raw)})</span>` : '';
+      const id = d.id !== undefined ? `<span class="d">#${esc(d.id)}</span>` : '';
       const dw = d.dwell ? `<span class="d">${d.dwell.toFixed(0)} s</span>` : '';
       const gone = d.st && d.st !== 'TRACKED' ? ' gone' : '';
       const tone = d.role ? ` style="color:${boxColour(d)}"` : '';
-      return `<div class="trk${gone}">${id}<span class="cls ${d.c}"${tone}>${d.role || d.c}</span>${raw}
+      return `<div class="trk${gone}">${id}<span class="cls ${esc(d.c)}"${tone}>${esc(d.role || d.c)}</span>${raw}
         <span class="d">${Math.round(d.p*100)}%</span>
         ${dw}<span class="d">${len}</span><span class="r">${z}</span></div>`;
     }).join('');
@@ -526,7 +530,7 @@ function renderSearch(s){
   // A kicker in the product page's voice, a heading in the hero's, a mono line.
   const kick = {found:'Missing person found', lost:'Lost sight of them',
                 checking:'Checking'}[s.state] || 'Searching';
-  const vest = s.target + ' vest';
+  const vest = esc(s.target) + ' vest';
   const head = {found:`${vest[0].toUpperCase() + vest.slice(1)}` + (s.z ? `, ${s.z.toFixed(1)} m` : ''),
                 lost:`Last seen in a ${vest}`,
                 checking:`Checking for a ${vest}`}[s.state] || `Looking for a ${vest}`;
@@ -537,7 +541,7 @@ function renderSearch(s){
   if (s.closest_m) bits.push(`closest ${s.closest_m.toFixed(1)} m`);
   el.classList.toggle('found', s.state === 'found');
   el.innerHTML = `<span class="k">${kick}</span><b>${head}</b><span class="d">${bits.join(' &middot; ')}</span>`
-    + (lastStatus && lastStatus.search_warning ? `<span class="warn">${lastStatus.search_warning}</span>` : '');
+    + (lastStatus && lastStatus.search_warning ? `<span class="warn">${esc(lastStatus.search_warning)}</span>` : '');
 }
 
 /* ---------- the judges' numbers: index.html's numbers band ---------- */
@@ -950,7 +954,7 @@ loadTrials();
 
 /* ---------- chips ---------- */
 function chip(label, value, cls){
-  return `<div class="chip ${cls||''}"><s>${label}</s><b>${value}</b></div>`;
+  return `<div class="chip ${cls||''}"><s>${esc(label)}</s><b>${esc(value)}</b></div>`;
 }
 let lastStatus = null;
 function renderChips(s){
@@ -974,7 +978,7 @@ function renderChips(s){
   }
   if (s.camera === 'offline'){
     q('#nolink').innerHTML = '<div><b>camera offline</b>'
-      + '<span style="color:var(--muted)">' + (s.error || '')
+      + '<span style="color:var(--muted)">' + esc(s.error || '')
       + '<br>Retrying. Evidence review below still works.</span></div>';
     q('#nolink').classList.add('on');
     stage.classList.add('stale');
@@ -1019,14 +1023,14 @@ let alerts = [];
 function renderAlerts(){
   // "missing_person_found_yellow_vest": the first three words are the kicker,
   // the rest leads the mono line, so the banner stays on two lines on a phone.
-  const split = k => { const w = (k||'alert').split('_'); return [w.slice(0,3).join(' '), w.slice(3).join(' ')]; };
+  const split = k => { const w = esc(k||'alert').split('_'); return [w.slice(0,3).join(' '), w.slice(3).join(' ')]; };
   q('#alerts').innerHTML = alerts.filter(a => !acked.has(a.id)).map(a => `
     <div class="alert"><div><b>${split(a.kind)[0]}</b>
     <span class="meta">${split(a.kind)[1] ? split(a.kind)[1] + ' &middot; ' : ''}${Math.round((a.conf||0)*100)}%
       ${a.dwell ? '&middot; '+a.dwell.toFixed(0)+' s' : ''}
-      ${a.rel ? '&middot; '+a.rel.rng+' m brg '+a.rel.brg+'°' : ''}
+      ${a.rel ? '&middot; '+esc(a.rel.rng)+' m brg '+esc(a.rel.brg)+'°' : ''}
       ${a.ll ? '&middot; '+a.ll[0].toFixed(5)+', '+a.ll[1].toFixed(5) : '&middot; no GPS fix'}
-    </span></div><button data-ack="${a.id}">ack</button></div>`).join('');
+    </span></div><button data-ack="${esc(a.id)}">ack</button></div>`).join('');
 }
 q('#alerts').onclick = e => {
   const id = e.target.dataset && e.target.dataset.ack;
@@ -1087,9 +1091,9 @@ function renderFilm(){
   q('#film').innerHTML = shots.slice(0,40).map(s => {
     const v = s.verdict ? (s.verdict.ok ? 'judged' : 'wrong') : '';
     const ts = new Date(s.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    return `<div class="shot ${v}" data-n="${s.name}">
-      <img loading="lazy" src="${auth('/api/evidence/'+s.name)}" alt="">
-      <div class="t">${ts} ${(s.classes||[]).join(',')}</div>
+    return `<div class="shot ${v}" data-n="${esc(s.name)}">
+      <img loading="lazy" src="${esc(auth('/api/evidence/'+encodeURIComponent(s.name)))}" alt="">
+      <div class="t">${ts} ${esc((s.classes||[]).join(','))}</div>
       <div class="v"><button data-ok="1">✓</button><button data-ok="0">✗</button></div>
     </div>`;
   }).join('');
@@ -1135,8 +1139,8 @@ function openShot(i){
   q('#lb-meta').innerHTML = dets.length ? dets.map(d => {
       const z = d.xyz ? d.xyz[2].toFixed(2) + ' m away' : '';
       const len = d.len_m ? d.len_m.toFixed(2) + ' m long' : '';
-      const raw = d.raw ? ` <span class="d">(model said ${d.raw})</span>` : '';
-      return `<div class="row"><span class="cls ${d.c}">${d.c}</span>${raw}
+      const raw = d.raw ? ` <span class="d">(model said ${esc(d.raw)})</span>` : '';
+      return `<div class="row"><span class="cls ${esc(d.c)}">${esc(d.c)}</span>${raw}
         <span class="d">${Math.round(d.p*100)}%</span>
         <span class="d">${z}</span><span class="d">${len}</span></div>`;
     }).join('')
