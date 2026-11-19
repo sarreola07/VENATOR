@@ -50,7 +50,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-    <img alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
+    <img alt="System self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
   </picture>
 </p>
 
