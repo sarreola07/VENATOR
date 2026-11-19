@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Venator works: LoRa command link and onboard autonomy</title>
-<meta name="description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no cellular.">
+<title>How Venator works: long-range radio and onboard AI</title>
+<meta name="description" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -12,8 +12,8 @@
      JPEG, and a card nobody can decode is the same as no card. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
-<meta property="og:title" content="How Venator works: LoRa command link and onboard autonomy">
-<meta property="og:description" content="How the Venator quadcopter works: a 915 MHz LoRa command link from a laptop, a Jetson Orin Nano relaying MAVLink to a Pixhawk 6X, and the mission behaviours built on top of it. No internet, no cellular.">
+<meta property="og:title" content="How Venator works: long-range radio and onboard AI">
+<meta property="og:description" content="How Venator works: a long-range radio link from a laptop, an onboard AI computer, and the capabilities built on top of it. No internet. No cell service.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/how-it-works.html">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -415,8 +415,8 @@
   <div class="hero">
     <h1>Laptop to propeller, with no network in between.</h1>
     <div>
-      <p>What a command actually does on the way to the aircraft, and the four
-        behaviours built on top of it.</p>
+      <p>How a command travels from a laptop to the aircraft, and the four
+        capabilities built on that link.</p>
     </div>
   </div>
 
@@ -424,7 +424,7 @@
        both colour schemes, the same reason the lockup above is. -->
   <figure class="mission">
     <img src="assets/brand/mission-dark.svg" width="1000" height="500"
-      alt="A search and rescue mission from start to finish. An operator fences a search area; a coverage path is planned to sweep every metre inside it; the view tilts from a map to show the aircraft flying at 40 metres within the fence; it sweeps the area and reroutes in real time around a tree in its lane; it detects a deer and logs it with its position without raising an alert; it finds a person who is not moving, holds station and sends an emergency with their coordinates over 915 MHz LoRa so medical help is dispatched; it finds a second person who is moving and follows at 3 metres; then it returns home and lands with the track and every detection.">
+      alt="A search and rescue mission from start to finish. An operator fences a search area; a coverage path is planned to sweep every meter inside it; the view tilts from a map to show the aircraft flying at 40 meters within the fence; it sweeps the area and reroutes in real time around a tree in its lane; it detects a deer and logs it with its position without raising an alert; it finds a person who is not moving, holds station and sends an emergency with their coordinates over 915 MHz LoRa so medical help is dispatched; it finds a second person who is moving and follows at 3 meters; then it returns home and lands with the track and every detection.">
   </figure>
 
   </div><!-- /wrap -->
@@ -434,11 +434,10 @@
 
   <section id="how" class="stack">
     <p class="lab">How it works</p>
-    <h2>Three boxes and two links</h2>
-    <p class="cap">A command leaves the laptop over 915&nbsp;MHz LoRa, a long-range,
-      low-power radio that needs no network of any kind. The Jetson
-      relays it to the flight controller over MAVLink, the standard autopilot protocol, and sends the reply back the
-      same way. Nothing in the path touches a network.</p>
+    <h2>Three parts. Two links.</h2>
+    <p class="cap">The laptop sends a command over a 915&nbsp;MHz LoRa radio: long
+      range, low power, no network needed. The onboard computer passes it to the
+      flight controller and sends the answer back the same way.</p>
     <figure>
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="assets/brand/system-dark.svg">
@@ -449,8 +448,8 @@
     <div class="series">
       <div class="item">
         <div class="hd">
-          <h3>What is actually fitted</h3>
-          <p>Every line is a real part of the repository.</p>
+          <h3>Pre-flight check</h3>
+          <p>Every system reports in before the aircraft lifts off.</p>
         </div>
         <figure class="selftest">
           <picture>
@@ -463,16 +462,15 @@
   </section>
 
   <section>
-    <h2>What it is built to do</h2>
-    <p class="cap">Four behaviours, each built on the same command link. All of them
-      hold the same rule: if the radio link drops for more than four seconds, the
-      aircraft returns to launch without being told.</p>
+    <h2>What it does</h2>
+    <p class="cap">Four capabilities on one radio link, with one safety rule: if the
+      link drops for more than four seconds, the aircraft flies home on its own.</p>
 
     <div class="series">
       <div class="item">
         <div class="hd">
           <h3>Follow a person</h3>
-          <p>Holds 3&nbsp;m behind until a STOP arrives. Losing the camera makes it hover, not guess.</p>
+          <p>Stays 3&nbsp;m behind until told to stop. If it loses sight, it hovers instead of guessing.</p>
         </div>
         <figure>
           <picture>
@@ -485,7 +483,7 @@
       <div class="item">
         <div class="hd">
           <h3>Patrol a route</h3>
-          <p>Coordinates go up one packet at a time, each acknowledged, and a second confirmation is required before anything spins.</p>
+          <p>Send a route over the radio. Every point is confirmed, and nothing spins up until you confirm a second time.</p>
         </div>
         <figure>
           <picture>
@@ -497,8 +495,8 @@
 
       <div class="item">
         <div class="hd">
-          <h3>Reach every station at once</h3>
-          <p>LoRa is a broadcast medium, so one transmission arrives everywhere at the same instant.</p>
+          <h3>Message every station at once</h3>
+          <p>One radio message reaches every station in range at the same moment, and each one confirms it arrived.</p>
         </div>
         <figure>
           <picture>
@@ -510,8 +508,8 @@
 
       <div class="item">
         <div class="hd">
-          <h3>Deviate around what it sees</h3>
-          <p>The OAK-D&nbsp;Pro's forward depth finds a wall; the aircraft brakes, steps around it, and rejoins the line.</p>
+          <h3>Steer around obstacles</h3>
+          <p>The depth camera spots what&rsquo;s ahead. The aircraft brakes, goes around it, and gets back on course.</p>
         </div>
         <figure>
           <picture>
