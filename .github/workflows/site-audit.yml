@@ -93,7 +93,10 @@ jobs:
           import AxeBuilder from '@axe-core/playwright';
           const browser = await chromium.launch();
           let blocking = 0;
-          for (const slug of ['index.html', 'how-it-works.html']) {
+          // ?lang=es is the same page with the language switch applied, so the
+          // Spanish wording gets the same contrast, console and sideways-scroll
+          // checks as the English. Lighthouse above stays on the English URLs.
+          for (const slug of ['index.html', 'how-it-works.html', 'index.html?lang=es', 'how-it-works.html?lang=es']) {
           for (const scheme of ['light', 'dark']) {
             for (const [name, width, height] of [['phone', 390, 844], ['desktop', 1280, 900]]) {
               const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width, height } });

@@ -31,6 +31,11 @@
   var dots = [].slice.call(root.querySelectorAll("[data-shots-go]"));
   var nameEl = root.querySelector("[data-shots-name]");
   if (!stage || shots.length < 2) return;
+  // The current wording of a string, from the language switch when it is on
+  // the page (assets/lang.js), else this script's own English.
+  var t = function (key, fallback) {
+    return typeof window.VENATOR_T === "function" ? window.VENATOR_T(key, fallback) : fallback;
+  };
 
   var at = 0;
   var dlg = null;
@@ -72,7 +77,7 @@
       dlg = document.createElement("dialog");
       dlg.className = "shots-full";
       dlg.innerHTML =
-        '<button class="shots-close" type="button" aria-label="Close">&#10005;</button>' +
+        '<button class="shots-close" type="button" aria-label="' + t("shots.close", "Close") + '">&#10005;</button>' +
         '<img alt="">';
       dlg.addEventListener("click", function (e) {
         // the backdrop is the dialog itself; the image is not
@@ -89,7 +94,13 @@
 
   stage.setAttribute("tabindex", "0");
   stage.setAttribute("role", "button");
-  stage.setAttribute("aria-label", "Open this view at full size");
+  stage.setAttribute("aria-label", t("shots.open", "Open this view at full size"));
+  // The two strings above follow the language switch (assets/lang.js).
+  window.addEventListener("venator:lang", function () {
+    stage.setAttribute("aria-label", t("shots.open", "Open this view at full size"));
+    var close = dlg && dlg.querySelector(".shots-close");
+    if (close) close.setAttribute("aria-label", t("shots.close", "Close"));
+  });
   stage.addEventListener("keydown", function (e) {
     if (e.key === "Enter" || e.key === " ") { open(); e.preventDefault(); }
   });
