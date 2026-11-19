@@ -130,10 +130,14 @@ Phase 4. The yellow vest search, on the camera page.
         set to "vest match", stays above the match line while the decoys stay flat.
      4. I swap places with a decoy: TARGET stays with the yellow vest, not the spot.
      5. I leave the view for more than 30 s and come back: a new FOUND.
-  d. Summarise every CSV in ~/Pictures/wildlife/trials/ as a table: the note, the
-     seconds from the first row to the first "found" event, the distances, and
-     any row with role "target" on a vest that isn't yellow. That's a wrong lock,
-     the result that matters most, and there should be none.
+     If a decoy ever shows TARGET, I press "wrong lock" on my page at once.
+  d. Fetch the results table the camera computes itself:
+       curl -s "http://127.0.0.1:8080/api/trials/summary?k=$(bash deploy/field_mode.sh view-token)"
+     and show it as a table: the note, seconds_to_found, the distance range,
+     wrong_lock_rows and wrong_locks_marked. A wrong lock is the result that
+     matters most, and there should be none. Also show
+       curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+     and stop on anything in "problems".
   e. Phones: run `bash deploy/symposium_qr.sh --open`. On a phone, the view-only
      page shows the video, the boxes and the chart, and no Vest search row. On an
      iPhone, tap the page once with the silent switch off; the next FOUND, after
@@ -156,6 +160,11 @@ no token in it.
 ```
 
 ## Start the search at boot (optional)
+
+Usually unnecessary now: the service remembers the colour it was searching for
+in `~/.venator/gui-state.json` and comes back with it after any restart or
+reboot, so pressing **yellow** once on the page is enough. The drop-in below
+still forces yellow on every start regardless of what was pressed last.
 
 With this, the camera is already looking for the yellow vest when the Jetson
 powers on. Phones joining the hotspot get the view-only page straight away,

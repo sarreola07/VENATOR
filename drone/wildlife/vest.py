@@ -39,6 +39,7 @@ import json
 import math
 import os
 import socket
+import threading
 from pathlib import Path
 
 COLOURS = ("red", "yellow", "blue")
@@ -166,8 +167,12 @@ def chest_pixels(rgb, box, max_pixels=MAX_PIXELS):
     """Up to about max_pixels (r, g, b) values from the chest of a person box.
 
     `rgb` is the (h, w, 3) array from oak_wildlife.to_rgb. Slicing is the only
-    thing asked of it, so this module stays importable without numpy.
+    thing asked of it, so this module stays importable without numpy. Anything
+    that isn't such an array reads as no pixels, so a bad frame casts no vote
+    rather than ending the frame with a traceback.
     """
+    if not _is_rgb(rgb):
+        return []
     height, width = rgb.shape[:2]
     x1, y1, x2, y2 = chest_box(box)
     x0, x1 = max(0, int(x1 * width)), min(width, int(x2 * width))
@@ -176,6 +181,13 @@ def chest_pixels(rgb, box, max_pixels=MAX_PIXELS):
         return []
     step = max(1, math.ceil(math.sqrt((x1 - x0) * (y1 - y0) / max_pixels)))
     return rgb[y0:y1:step, x0:x1:step].reshape(-1, 3).tolist()
+
+
+def _is_rgb(rgb):
+    """True for an (h, w, 3+) array-like with a shape attribute."""
+    shape = getattr(rgb, "shape", None)
+    return (isinstance(shape, tuple) and len(shape) == 3
+            and shape[0] > 0 and shape[1] > 0 and shape[2] >= 3)
 
 
 def in_hue(hue, lo, hi):
@@ -266,6 +278,10 @@ class VestSearch:
         self.use_depth = use_depth
         self.target = None
         self._tracks = {}
+        #: The page's thread changes the target while the camera's thread is in
+        #: process(). Without this, a reset landing mid-frame left _locked set
+        #: and _target_seen_at None, and the frame ended in a TypeError.
+        self._lock = threading.Lock()
         self._reset()
         self.set_target(target)
 
@@ -284,9 +300,10 @@ class VestSearch:
         """
         if colour is not None and colour not in COLOURS:
             return False
-        if colour != self.target:
-            self.target = colour
-            self._reset()
+        with self._lock:
+            if colour != self.target:
+                self.target = colour
+                self._reset()
         return True
 
     def _eligible(self, det, track):
@@ -307,6 +324,10 @@ class VestSearch:
         Anything steering by the report must use `visible` and the coordinates.
         `state` stays "found" through a brief dropout, for people to read.
         """
+        with self._lock:
+            return self._process(dets, sample, now)
+
+    def _process(self, dets, sample, now):
         people = [d for d in dets
                   if d.get("c") == "person" and d.get("st") != "REMOVED"]
         in_frame = {d["id"] for d in people if d.get("st") in MEASURED}
@@ -376,7 +397,7 @@ class VestSearch:
                       vote_need=VOTE_CONFIRM)
         if self._locked is not None:
             visible = locked is not None and locked.get("st") in MEASURED
-            if visible:
+            if visible or self._target_seen_at is None:
                 self._target_seen_at = now
             recent = now - self._target_seen_at <= LOST_GRACE_S
             report.update(state="found" if recent else "lost",
@@ -456,7 +477,11 @@ def _depth(det):
     absence of a reading, not a person standing on the lens.
     """
     xyz = det.get("xyz")
-    return xyz[2] if xyz and xyz[2] > 0 else None
+    try:
+        z = xyz[2]
+    except (TypeError, IndexError, KeyError):
+        return None
+    return z if isinstance(z, (int, float)) and not isinstance(z, bool) and z > 0 else None
 
 
 def _nearness(det):
@@ -601,6 +626,8 @@ def centre_pixels(rgb, region=CENTRE):
 
     Like chest_pixels, slicing is the only thing asked of `rgb`.
     """
+    if not _is_rgb(rgb):
+        return []
     h, w = rgb.shape[:2]
     x1, y1, x2, y2 = region
     step = max(1, (int(y2 * h) - int(y1 * h)) // 25)
@@ -663,15 +690,19 @@ class SearchLink:
 
     def __init__(self, target_port, report_port, log=print):
         self._report_addr = ("127.0.0.1", report_port)
-        self._tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._rx.setblocking(False)
+        self._tx = self._rx = None
         try:
+            self._tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._rx.setblocking(False)
             self._rx.bind(("127.0.0.1", target_port))
         except OSError as exc:
+            # A box with no loopback, or out of descriptors. The search still
+            # runs for the page; only the flight-code link is silent.
             log(f"search target port {target_port} unavailable ({exc}); "
                 "the target stays as started")
-            self._rx.close()
+            if self._rx is not None:
+                self._rx.close()
             self._rx = None
 
     def poll_target(self, search):
@@ -687,8 +718,10 @@ class SearchLink:
                 pass
 
     def send(self, report):
+        if self._tx is None:
+            return
         try:
-            self._tx.sendto(json.dumps(report, separators=(",", ":")).encode(),
+            self._tx.sendto(json.dumps(report, separators=(",", ":"), default=str).encode(),
                             self._report_addr)
         except OSError:
             pass        # the flight code must treat silence as stale data

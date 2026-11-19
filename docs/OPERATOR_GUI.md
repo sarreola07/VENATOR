@@ -98,9 +98,12 @@ pane greys out, says so, and everything else keeps working.
 | GET | `/live.mjpg?q=hi\|lo` | VPU bytes, zero transcode |
 | GET | `/events` | SSE: `det` `status` `alert` `evidence` |
 | GET | `/api/status` | One-shot snapshot, for first paint and `curl` |
+| GET | `/api/health` | The demo-day report: camera live, numpy present, detector cached, disk, viewer counts against their caps, `ok` plus `problems[]`. View token allowed |
+| GET | `/api/metrics` | The judges' numbers for the running search: time to lock, finds, wrong locks, match share target vs best decoy |
+| GET | `/api/trials/summary` | One line per trial CSV: note, rows, seconds to the first FOUND, distance range, wrong-lock rows |
 | GET | `/api/evidence?n=40` | Newest first, with sidecar data merged in |
 | GET | `/api/evidence/<name>` | Basename only, allowlisted shape |
-| POST | `/api/config` | `{conf, classes[], quality, save}` |
+| POST | `/api/config` | `{conf, classes[], quality, save, search, calibrate, record, mark}` |
 | POST | `/api/ack` | Clears an alert banner server-side |
 | POST | `/api/verdict` | `{name, ok}` → sidecar. The active-learning loop |
 | GET | `/healthz` | `ok`. **Unauthenticated** — the boot fallback polls it |
@@ -150,13 +153,22 @@ verify a C2 message, which `tests/test_gui_auth.py` asserts.
 
 | Hazard | What was done |
 |---|---|
-| One thread per stream, phone locking and unlocking, **zero swap on this box** | `MAX_VIEWERS = 8`, then `503`. Verified: eight `200`s and two `503`s |
+| One thread per stream, phone locking and unlocking, **zero swap on this box** | `MAX_VIEWERS = 24` (env `GUI_MAX_VIEWERS`), then `503` with `Retry-After`. Slots are claimed under the lock, not checked then counted, so a burst of phones cannot overshoot. Event streams have their own cap, `GUI_MAX_SSE`, a little above the video cap |
+| A room of phones all retrying every 2 s after a `503` | The page backs off (2, 4, 8 … 30 s, jittered) on both the video and the event stream, and resets once something arrives. View-only phones start on the `lo` rung |
 | Operator walks out of range, TCP goes silent, a write blocks forever | `connection.settimeout(10)` turns it into an `OSError` the handler already catches. Verified: 60 connect/disconnect cycles, thread count flat at 26 |
+| A phone that connects and then says nothing holds its thread for good | `Handler.timeout = 30` on every keep-alive connection; a negative, oversized or chunked POST body is refused before a byte is read |
+| A stray `%C3%A9` in `?k=`, a list where a string belongs, `?n=abc` | Each used to raise inside the handler and end the request thread with a traceback. Token comparison is byte-wise and cannot raise; JSON values are type-checked; numbers are clamped with garbage falling back |
+| One phone with a stale `vt` cookie slowing everyone's captive probes | The failure delay is counted per client address and capped at 2 s. A cookie-only wrong token is answered at once with the cookie cleared |
+| Header writes and `json.dumps` outside the `try` | Both streaming routes and `_body` are wrapped whole; a numpy scalar in a payload serialises through `.item()` instead of killing the stream |
+| `iw` and sysfs reads inside the camera loop, once a second | A `Telemetry` thread refreshes them every 5 s; the loop reads a dict. A slow `iw` no longer stalls frames |
+| The OAK stops delivering frames without raising | The loop raises `camera stalled` after 15 s of silence (60 s before the first frame) and `main()` reopens the device as it already does for a USB dropout; the page says `stalled` after 5 s |
+| The page changing the search while the camera thread is inside `process()` | `VestSearch` holds a lock across `set_target()` and `process()`; a frame the search faults on re-sends the last report marked `stale`, so the FOUND banner holds instead of blinking off |
+| `Restart=always` bringing the service back with the search off, mid-demonstration | `~/.venator/gui-state.json` (env `VENATOR_STATE_FILE`) remembers the colour; `--search` on the command line wins, `GUI_RESUME_SEARCH=0` turns the memory off |
 | `BaseHTTPRequestHandler` defaults to HTTP/1.0 | `protocol_version = "HTTP/1.1"` plus `Connection: close` on both streaming routes |
 | Browsers cap ~6 connections per origin; MJPEG + SSE take two | Filmstrip thumbnails are `loading="lazy"` |
 | iOS Safari suspends `EventSource` on lock | `: ping` comment frames, SSE `id:` for `Last-Event-ID`, acked alert ids in `sessionStorage` so a reconnect does not re-alarm |
 | A slow viewer stalling the camera | `frames()` yields **outside** the lock and only ever reads the newest JPEG. Lifted verbatim from `camera_publisher.py:204-218`. Verified: 500 frames published past a stalled viewer in 1 ms |
-| A missed SAR alert | `det`/`status` coalesce and drop freely; `alert`/`evidence` go in a bounded per-viewer deque, delivered at least once. Verified: 3 alerts survive 200 intervening detections |
+| A missed SAR alert | `det`/`status` coalesce and drop freely; `alert`/`evidence` go in a bounded per-viewer deque (256), delivered at least once. A viewer that falls further behind is cut off and reconnects, and every connection is seeded with the alerts still unacked, so a phone that was locked when FOUND fired still gets it. Verified: 3 alerts survive 200 intervening detections |
 
 ---
 
@@ -168,13 +180,31 @@ up and find a drone afterwards. Dark is forced — there is no
 `prefers-color-scheme: light` branch, because a white screen here is a
 usability fault rather than a preference.
 
-- Background `#05070a`, text `#d8d2c6` — never pure white.
-- **Amber** `animal`, **magenta** `person` (highest salience, and it stays
-  distinct under a red filter), dim cyan `vehicle`.
+- The page wears `docs/BRAND.md`'s tokens, the same ones `index.html` uses:
+  Ink `#0A0A0A` page, Panel `#131314`, Line `#2A2A27` at 1 px, Muted `#8A8781`,
+  Paper `#F2F1EE` text — never pure white. No rounded corners. Section labels
+  and buttons are the product page's: 11 px, 700, tracked, uppercase; a toggled
+  control is filled paper, an action is outlined paper, off is a hairline.
+  Anything a machine produced is in mono.
+- **Signal `#E05316` is live state only:** the FOUND kicker and alert rule, the
+  target's box, a recording in progress, the live square in the masthead.
+  Nothing that merely exists is orange.
+- **Amber `#D9A441` is the one warning tone** — `animal` boxes, a camera that is
+  offline or stalled, a chip that needs attention — and the word in caps does
+  the work, because under the red filter every tone converges anyway. People
+  who are not the target are paper or muted: the target being the only loud
+  thing on screen is the point being demonstrated.
 - A red-filter toggle and a black-overlay dimmer, since a browser cannot reach
   the backlight.
+- **Simple mode is the default.** The first screen is the masthead, the alert,
+  the search state (kicker, heading, mono detail), the video with boxes, the
+  chart and the bottom bar. The **METRICS** button reveals the judges' numbers
+  band (time to lock, finds, wrong locks, match share against the best decoy),
+  the status chips, the tracks list and, for the operator, the trials table.
+  The choice is remembered per phone.
 - Status chips in one scrolling row: fps, model, power mode, board draw, SoC
-  temp, USB link speed, RSSI, GPS, detection counts.
+  temp, USB link speed, RSSI, GPS, detection counts, and `search faults`,
+  `search no colours` or `viewers full` when those apply.
 - **SAR banner: sticky, no auto-dismiss, explicit ack tap**, with vibration and
   a beep armed on first gesture (iOS blocks audio before interaction).
 - One-tap ✓/✗ on each evidence thumbnail → `POST /api/verdict` → sidecar JSON.

@@ -144,6 +144,7 @@ check("never opens an MJPEG stream", b"live.mjpg" not in r.body)
 check("never opens an EventSource", b"EventSource" not in r.body)
 check("offers a way out to the real browser", b"Open the live camera" in r.body)
 check("names the typed-URL fallback", b"venator.com" in r.body)
+check("wears the brand, like the camera page", b"--paper:#F2F1EE" in r.body and b"#05070a" not in r.body)
 
 print("\nfavicon is 204, not a redirect")
 # Some captive WebViews follow a 302 on /favicon.ico and loop forever.
@@ -185,7 +186,7 @@ check("/healthz with no Host -> 200", r.code, 200)
 print("\nThe gate still protects everything that matters")
 # Portal routes are the ONLY unauthenticated surface besides /healthz.
 for path in ("/", "/api/status", "/api/evidence", "/live.mjpg", "/events",
-             "/snapshot.jpg"):
+             "/snapshot.jpg", "/api/health", "/api/metrics", "/api/trials/summary"):
     r = request(path, host="10.42.0.1")
     check(f"{path} without a token -> 403", r.code, 403)
 

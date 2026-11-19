@@ -20,5 +20,18 @@ raising, retries on a timer rather than hammering the port, says so once instead
 of once per read, refuses sends with an error the caller can show, and comes
 back on its own when the port returns.
 
+`test_gui_auth.py` drives the camera page's HTTP handler with no socket. Besides
+the token and view-only rules it pins what used to end a request thread (a
+non-ASCII token, a list where a string belongs, a negative `Content-Length`),
+the per-client failure delay and the cleared stale cookie, the video and event
+stream caps, the re-seeding of unacked alerts, the cut-off of a viewer that fell
+too far behind, the search state file, and the `/api/health`, `/api/metrics` and
+`/api/trials/summary` routes.
+
+`test_vest.py` also covers the search surviving a reset from the page mid-frame,
+the judges' numbers in `search_metrics.py`, the trial summary, and on a fake
+camera: the fault counter, the stale re-send that holds the FOUND banner, and
+that host telemetry never runs inside the camera loop.
+
 Add a case here whenever a bug reaches the aircraft — that is what keeps it
 from coming back.

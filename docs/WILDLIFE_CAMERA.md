@@ -139,6 +139,10 @@ Classes are **animal, person, vehicle**, and `animal` is species-agnostic.
 publishes the model precompiled for RVC2, so `getModelFromZoo` fetches it on the
 Jetson with no ONNX export, no OpenVINO, no x86 host and no `pip`. The YOLOv10
 NMS-free head that was the stated risk is parsed natively (`subtype=yolov10`).
+The fetch happens once, with `gui_server.py --allow-zoo` on a network with
+internet; every later start loads the archive from `~/oak-venv/zoo-cache`, and
+a missing archive is reported on the page and by `/api/health` rather than
+fetched, because the zoo call holds the whole service on a stalled network.
 
 **Licence.** VENATOR's own code is MIT. This model variant is reported by the
 Luxonis zoo as **AGPL-3.0** (the YOLOv10/Ultralytics lineage), though

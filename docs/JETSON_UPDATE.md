@@ -40,6 +40,49 @@ I need to decide. Save it to ~/Desktop/venator-update-report.txt as well.
 
 ## What this update brings
 
+**Newest first.** The camera service and its page, for the demonstration:
+
+- **It holds up in front of a room.** Twenty-four video streams by default
+  instead of eight, event streams capped separately, phones back off their
+  retries, visitors start on the low-bandwidth rung. Nothing a phone can send
+  ends a request thread any more, and a phone with a stale cookie no longer
+  slows every other phone's captive-portal probes.
+- **The search survives a restart.** The colour is remembered in
+  `~/.venator/gui-state.json`; `Restart=always` brings the service back
+  searching. A camera that goes quiet is reopened by itself after 15 s and the
+  page says `stalled` meanwhile. The FOUND banner holds through a colour fault
+  instead of blinking off.
+- **The page wears the brand** (`docs/BRAND.md`, the same tokens as the product
+  page) and opens in simple mode: masthead, alert, search state, video, chart.
+  The **metrics** button reveals the judges' numbers, chips, tracks and the
+  trials table. A **wrong lock** button sits beside **record**.
+- **Two routes for the check:** `/api/health` (camera, numpy, cached detector,
+  disk, viewers, `ok` plus `problems[]`) and `/api/trials/summary` (the results
+  table, computed from the CSVs). Both take the view token. See step 7.
+
+**The upgrade is one pull and one restart.** No unit file, firmware, key or
+Python requirement changed; `search_metrics.py` is stdlib. After the pull:
+
+```bash
+sudo systemctl restart venator-gui
+journalctl -u venator-gui --since "-1 min" --no-pager | tail -5
+curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+```
+
+The journal should show `GUI token` and either `vest search: looking for ...`
+or nothing about the search (it is off until pressed). The health report
+should say `"ok": true` once the camera is live. `detector not cached` in
+`problems` means the archive is not in `~/oak-venv/zoo-cache`: the service no
+longer fetches it by itself (that fetch hung the whole service on a stalled
+network), so on a network with internet run, once,
+`~/oak-venv/bin/python drone/wildlife/gui_server.py --allow-zoo --no-save`
+until it logs `model from cache` or the download, then Ctrl+C and restart the
+service. Phones that had the old page open just reload it. The vest
+calibration in `~/.venator/vest-colours.json` is untouched.
+`bash deploy/symposium_check.sh` now reads the same health report.
+
+The previous update:
+
 - **Vest search from the website:** the operator's page turns the search on and
   off, picks the colour, calibrates each vest and records trials as CSV.
   View-only phones can watch but change nothing.
@@ -188,6 +231,8 @@ journalctl -u venator-gui --since "-20 min" --no-pager \
 ls -t ~/Pictures/wildlife/trials/ | head -3
 head -3 "$(ls -t ~/Pictures/wildlife/trials/*.csv | head -1)"
 bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p'
+curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+curl -s "http://127.0.0.1:8080/api/trials/summary?k=$(bash deploy/field_mode.sh view-token)"
 ```
 **Pass:**
 - **The log has:**
@@ -197,6 +242,10 @@ bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p
   - `trial … saved, N rows`.
 - **The CSV** starts with `time,note,target`.
 - **The check** says `vests calibrated today`.
+- **The health report** says `"ok": true`, or every entry in `problems` is one
+  you expect (`detector not cached` is a stop: the next start would need internet).
+- **The trials summary** shows `seconds_to_found` around 1 and
+  `wrong_lock_rows` 0 for the recording you just made.
 
 ### 8. Radio link and the new STOP
 **You:**
