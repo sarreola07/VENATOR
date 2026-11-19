@@ -31,7 +31,10 @@ on:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: when latest moved to 26.04, Playwright 1.56 could
+    # not install Chromium there, so the accessibility gate never ran at all.
+    # Move this forward together with the Playwright version below.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
