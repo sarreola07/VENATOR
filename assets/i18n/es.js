@@ -23,6 +23,8 @@ window.VENATOR_ES = {
   "nav.product": "Producto",
   // EN: How it works
   "nav.how": "Cómo funciona",
+  // EN: Timeline
+  "nav.timeline": "Cronología",
   // EN: MIT licensed. Built by Sergio Arreola.
   "foot.lic": "Licencia MIT. Hecho por Sergio Arreola.",
 
@@ -240,5 +242,217 @@ window.VENATOR_ES = {
   // EN: The depth camera spots what's ahead. The aircraft brakes, goes around it, and gets back on course.
   "cap.avoid.p": "La cámara de profundidad detecta lo que hay adelante. La aeronave frena, lo rodea y retoma el rumbo.",
   // EN: Forward depth from the camera finds an obstacle ahead; the aircraft brakes, deviates around it and returns to the original track
-  "cap.avoid.alt": "La profundidad frontal de la cámara encuentra un obstáculo adelante; la aeronave frena, lo rodea y vuelve a la trayectoria original"
+  "cap.avoid.alt": "La profundidad frontal de la cámara encuentra un obstáculo adelante; la aeronave frena, lo rodea y vuelve a la trayectoria original",
+
+  // ---- timeline.html ---------------------------------------------------
+  // EN: Timeline: the team behind Venator
+  "tl.title": "Cronología: el equipo detrás de Venator",
+  // EN: Who built Venator and what each of us did, in order: the circuit boards, the power board, the gimbal math, the telemetry link, the radio and the onboard AI. Team 6 at UTSA.
+  "tl.desc": "Quién construyó Venator y qué hizo cada uno, en orden: las placas de circuito, la placa de energía, las matemáticas del gimbal, el enlace de telemetría, la radio y la IA a bordo. Equipo 6 de UTSA.",
+  // EN: Team 6
+  "tl.team6": "Equipo 6",
+  // EN: Five engineers.
+  "tl.beat1": "Cinco ingenieros.",
+  // EN: One aircraft.
+  "tl.beat2": "Una aeronave.",
+  // EN: Venator is built by Team 6 at UTSA. Here is what each of us built, in the order it happened, and who we are.
+  "tl.p": "Venator lo construye el Equipo 6 de UTSA. Aquí está lo que construyó cada uno de nosotros, en el orden en que pasó, y quiénes somos.",
+  // EN: Meet the team
+  "tl.cta": "Conoce al equipo",
+  // EN: Who built what
+  "tl.h2": "Quién construyó qué",
+  // EN: One track per teammate, each in the order the work happened. Dates come from our Demo B review on October 23, 2026, and from the project's commit history.
+  "tl.cap": "Una línea por integrante, cada una en el orden en que se hizo el trabajo. Las fechas vienen de nuestra revisión Demo B del 23 de octubre de 2026 y del historial de commits del proyecto.",
+  // EN: Teammates
+  "tl.jump": "Integrantes",
+  // EN: Ground control & networking
+  "tl.david.role": "Control terrestre y redes",
+  // EN: Phase 3 · Implementation
+  "tl.when.p3": "Fase 3 · Implementación",
+  // EN: Two boards, in 3D
+  "tl.david.e1.h": "Dos placas, en 3D",
+  // EN: Modeled both of our radio boards in 3D: the ESP32 board in the handheld remote and the Pico board in the gateway.
+  "tl.david.e1.p": "Modeló en 3D nuestras dos placas de radio: la placa ESP32 del control remoto portátil y la placa Pico de la puerta de enlace.",
+  // EN: 3D model of the handheld remote's board: the Heltec ESP32 LoRa module with its screen, above a knob and a back button
+  "tl.david.e1.alt1": "Modelo 3D de la placa del control remoto portátil: el módulo LoRa Heltec ESP32 con su pantalla, sobre una perilla y un botón de regreso",
+  // EN: 3D model of the gateway board: a large 2.42 inch screen above a knob and a back button
+  "tl.david.e1.alt2": "Modelo 3D de la placa de la puerta de enlace: una pantalla grande de 2.42 pulgadas sobre una perilla y un botón de regreso",
+  // EN: Cases, designed and printed
+  "tl.david.e2.h": "Carcasas, diseñadas e impresas",
+  // EN: Designed a case for each board in Fusion 360, then 3D-printed them.
+  "tl.david.e2.p": "Diseñó una carcasa para cada placa en Fusion 360 y luego las imprimió en 3D.",
+  // EN: A 3D-printed case, blue on an orange base, with the board's screen and knob showing through the top, on a workbench
+  "tl.david.e2.alt": "Una carcasa impresa en 3D, azul sobre una base naranja, con la pantalla y la perilla de la placa asomando por arriba, sobre una mesa de trabajo",
+  // EN: Oct 23, 2026 · Demo B
+  "tl.when.demob": "23 oct 2026 · Demo B",
+  // EN: Firmware and the radio bridge
+  "tl.david.e3.h": "Firmware y el puente de radio",
+  // EN: Took on the ESP32 firmware and the link between the Pico board and the drone's Heltec radio, two radios that frame LoRa packets differently.
+  "tl.david.e3.p": "Se encargó del firmware del ESP32 y del enlace entre la placa Pico y la radio Heltec del dron, dos radios que arman los paquetes LoRa de forma distinta.",
+  // EN: Also worked on
+  "tl.also": "También trabajó en",
+  // EN: Power system and board fabrication, with Grant and Vincent
+  "tl.david.a1": "Sistema de energía y fabricación de placas, con Grant y Vincent",
+  // EN: Pixhawk setup and tuning, with Grant
+  "tl.david.a2": "Configuración y ajuste del Pixhawk, con Grant",
+  // EN: UART integration, with Grant
+  "tl.david.a3": "Integración UART, con Grant",
+  // EN: Ground control interface
+  "tl.david.a4": "Interfaz de control terrestre",
+  // EN: Video streaming, with Sergio
+  "tl.david.a5": "Transmisión de video, con Sergio",
+  // EN: Integration testing, with Grant and Leonel
+  "tl.david.a6": "Pruebas de integración, con Grant y Leonel",
+  // EN: Flight dynamics & avionics
+  "tl.grant.role": "Dinámica de vuelo y aviónica",
+  // EN: Where everything sits
+  "tl.grant.e1.h": "Dónde va cada cosa",
+  // EN: Sketched how the GPS, the Pixhawk, the downward lidar and the laser rangefinder on its servo sit relative to each other, so a distance measured from the drone can become a position on the ground.
+  "tl.grant.e1.p": "Dibujó cómo se ubican entre sí el GPS, el Pixhawk, el lidar hacia abajo y el telémetro láser sobre su servo, para que una distancia medida desde el dron se pueda convertir en una posición en el suelo.",
+  // EN: Whiteboard sketch of the drone from the side: the GPS, the Pixhawk, the downward lidar and the rangefinder on its servo, with notes on the offsets between them
+  "tl.grant.e1.alt": "Dibujo en pizarrón del dron de lado: el GPS, el Pixhawk, el lidar hacia abajo y el telémetro sobre su servo, con notas sobre las distancias entre ellos",
+  // EN: The math, then the test
+  "tl.grant.e2.h": "Primero las matemáticas, luego la prueba",
+  // EN: Worked out the geometry from the drone's height and the rangefinder's reading to the target's position, then tested the laser rangefinder and the equation that sets the servo's angle.
+  "tl.grant.e2.p": "Resolvió la geometría que va de la altura del dron y la lectura del telémetro a la posición del objetivo, y luego probó el telémetro láser y la ecuación que fija el ángulo del servo.",
+  // EN: Whiteboard math: the lidar's height and the rangefinder's reading form a right triangle, solved for the distance along the ground
+  "tl.grant.e2.alt": "Matemáticas en pizarrón: la altura del lidar y la lectura del telémetro forman un triángulo rectángulo, resuelto para la distancia sobre el suelo",
+  // EN: A servo stands in for the gimbal
+  "tl.grant.e3.h": "Un servo en lugar del gimbal",
+  // EN: Tested a servo standing in for the gimbal's own, with potentiometers simulating the values it will read from the Pixhawk.
+  "tl.grant.e3.p": "Probó un servo que simula el del gimbal, con potenciómetros que simulan los valores que leerá del Pixhawk.",
+  // EN: Whiteboard notes on the servo: how its angle follows the PWM signal, and how the potentiometer readings map onto it
+  "tl.grant.e3.alt": "Notas en pizarrón sobre el servo: cómo su ángulo sigue la señal PWM y cómo se traducen las lecturas del potenciómetro",
+  // EN: Onto the real gimbal
+  "tl.grant.e4.h": "Al gimbal real",
+  // EN: Testing the servos on the gimbal itself, and bringing the lidar's data into the Pixhawk and the ground station. Next: the test code onto the Jetson, and the infrared camera.
+  "tl.grant.e4.p": "Probando los servos en el propio gimbal e integrando los datos del lidar al Pixhawk y a la estación terrestre. Lo siguiente: pasar el código de prueba a la Jetson y la cámara infrarroja.",
+  // EN: Power system and board fabrication, with David and Vincent
+  "tl.grant.a1": "Sistema de energía y fabricación de placas, con David y Vincent",
+  // EN: Pixhawk setup and tuning, with David
+  "tl.grant.a2": "Configuración y ajuste del Pixhawk, con David",
+  // EN: UART integration, with David
+  "tl.grant.a3": "Integración UART, con David",
+  // EN: System integration, with Leonel and Vincent
+  "tl.grant.a4": "Integración del sistema, con Leonel y Vincent",
+  // EN: Sensor and power testing, with Vincent
+  "tl.grant.a5": "Pruebas de sensores y energía, con Vincent",
+  // EN: Integration testing, with David and Leonel
+  "tl.grant.a6": "Pruebas de integración, con David y Leonel",
+  // EN: Flight testing, with Leonel
+  "tl.grant.a7": "Pruebas de vuelo, con Leonel",
+  // EN: Electromechanical & power systems
+  "tl.vincent.role": "Sistemas electromecánicos y de energía",
+  // EN: The power distribution board
+  "tl.vincent.e1.h": "La placa de distribución de energía",
+  // EN: Designed the board that carries the 4S battery to the four ESCs and makes the 12 V, 5 V and 3.3 V rails for the Jetson, the servos and the sensors.
+  "tl.vincent.e1.p": "Diseñó la placa que lleva la batería 4S a los cuatro ESC y genera la alimentación de 12 V, 5 V y 3.3 V para la Jetson, los servos y los sensores.",
+  // EN: Render of the power distribution board: a green board with power connectors along its edges and its regulators near the center
+  "tl.vincent.e1.alt": "Imagen renderizada de la placa de distribución de energía: una placa verde con conectores de energía en sus bordes y los reguladores cerca del centro",
+  // EN: The board arrives
+  "tl.vincent.e2.h": "Llega la placa",
+  // EN: The fabricated board had just arrived, and soldering was under way. The smallest surface-mount parts were next, with David, a hot plate and a digital microscope.
+  "tl.vincent.e2.p": "La placa fabricada acababa de llegar y la soldadura estaba en marcha. Lo siguiente eran las piezas de montaje superficial más pequeñas, con David, una plancha caliente y un microscopio digital.",
+  // EN: Power system and board fabrication, with David and Grant
+  "tl.vincent.a1": "Sistema de energía y fabricación de placas, con David y Grant",
+  // EN: System integration, with Grant and Leonel
+  "tl.vincent.a2": "Integración del sistema, con Grant y Leonel",
+  // EN: Sensor and power testing, with Grant
+  "tl.vincent.a3": "Pruebas de sensores y energía, con Grant",
+  // EN: Middleware & system integration
+  "tl.leonel.role": "Middleware e integración de sistemas",
+  // EN: A home for the Jetson
+  "tl.leonel.e1.h": "Un lugar para la Jetson",
+  // EN: Designed and installed the Jetson Orin Nano's enclosure and its mount on the airframe.
+  "tl.leonel.e1.p": "Diseñó e instaló la carcasa de la Jetson Orin Nano y su soporte en la estructura de la aeronave.",
+  // EN: The Jetson in its orange 3D-printed enclosure, mounted under the drone's frame
+  "tl.leonel.e1.alt": "La Jetson en su carcasa naranja impresa en 3D, montada bajo la estructura del dron",
+  // EN: A two-axis camera gimbal
+  "tl.leonel.e2.h": "Un gimbal de cámara de dos ejes",
+  // EN: Designed, printed and assembled the servo gimbal that carries the camera.
+  "tl.leonel.e2.p": "Diseñó, imprimió y armó el gimbal de servos que lleva la cámara.",
+  // EN: The two-axis servo gimbal on the drone, holding the OAK-D Pro camera in a black frame under an orange mount
+  "tl.leonel.e2.alt": "El gimbal de servos de dos ejes en el dron, con la cámara OAK-D Pro en un marco negro bajo un soporte naranja",
+  // EN: Live telemetry in the GUI
+  "tl.leonel.e3.h": "Telemetría en vivo en la interfaz",
+  // EN: Connected the Pixhawk 6X to the VENATOR GUI over a SiK telemetry radio. The port is found on its own; roll, pitch, heading, battery and flight mode update 10 times a second, and the downward lidar's distance to the floor 5 times a second.
+  "tl.leonel.e3.p": "Conectó el Pixhawk 6X a la interfaz de VENATOR mediante una radio de telemetría SiK. El puerto se detecta solo; el alabeo, el cabeceo, el rumbo, la batería y el modo de vuelo se actualizan 10 veces por segundo, y la distancia al piso del lidar inferior, 5 veces por segundo.",
+  // EN: The SiK telemetry radio and its antenna, wired to the Pixhawk on the drone's top plate
+  "tl.leonel.e3.alt": "La radio de telemetría SiK y su antena, conectadas al Pixhawk en la placa superior del dron",
+  // EN: Checked on the bench
+  "tl.leonel.e4.h": "Verificado en el banco de pruebas",
+  // EN: Verified the wireless MAVLink connection and live telemetry through the SiK radio, and the lidar's readings feeding PX4's height estimate. Next: outdoor range tests, and the camera's view in the GUI.
+  "tl.leonel.e4.p": "Verificó la conexión MAVLink inalámbrica y la telemetría en vivo por la radio SiK, y que las lecturas del lidar alimentan la estimación de altura de PX4. Lo siguiente: pruebas de alcance en exteriores y la vista de la cámara en la interfaz.",
+  // EN: Jetson setup, ROS 2 and AI, with Sergio
+  "tl.leonel.a1": "Configuración de la Jetson, ROS 2 e IA, con Sergio",
+  // EN: System integration, with Grant and Vincent
+  "tl.leonel.a2": "Integración del sistema, con Grant y Vincent",
+  // EN: Integration testing, with David and Grant
+  "tl.leonel.a3": "Pruebas de integración, con David y Grant",
+  // EN: Flight testing, with Grant
+  "tl.leonel.a4": "Pruebas de vuelo, con Grant",
+  // EN: AI detection testing, with Sergio
+  "tl.leonel.a5": "Pruebas de detección con IA, con Sergio",
+  // EN: Perception & edge AI
+  "tl.sergio.role": "Percepción e IA embarcada",
+  // EN: Oct 9, 2026
+  "tl.sergio.e1.when": "9 oct 2026",
+  // EN: Finding people and animals
+  "tl.sergio.e1.h": "Encontrar personas y animales",
+  // EN: Switched the onboard detector to MegaDetector v6, which finds people and animals, and gave it a memory: each detection keeps a track ID, a confidence and a distance.
+  "tl.sergio.e1.p": "Cambió el detector a bordo a MegaDetector v6, que encuentra personas y animales, y le dio memoria: cada detección conserva un ID de seguimiento, una confianza y una distancia.",
+  // EN: Testing the detector: the OAK-D Pro camera held up to a laptop screen full of cattle photos, with the live dashboard on the monitor behind it
+  "tl.sergio.e1.alt": "Prueba del detector: la cámara OAK-D Pro frente a una laptop llena de fotos de ganado, con el panel en vivo en el monitor de atrás",
+  // EN: Oct 21, 2026
+  "tl.sergio.e2.when": "21 oct 2026",
+  // EN: Motors spin over our own radio
+  "tl.sergio.e2.h": "Los motores giran con nuestra propia radio",
+  // EN: Wrote the handheld remote's menu (test each motor, test all four, hover, status) and spun the motors on the real aircraft from it, over the 915 MHz link. The same day, the Pico gateway learned to talk to the drone.
+  "tl.sergio.e2.p": "Escribió el menú del control remoto portátil (probar cada motor, probar los cuatro, vuelo estacionario, estado) y desde él hizo girar los motores de la aeronave real por el enlace de 915 MHz. Ese mismo día, la puerta de enlace Pico aprendió a hablar con el dron.",
+  // EN: The handheld remote in its orange case, its screen reading VENATOR, Looking for the drone, wired to a Heltec Wireless Stick showing LINK UP
+  "tl.sergio.e2.alt": "El control remoto portátil en su carcasa naranja, con la pantalla que dice VENATOR, Looking for the drone, conectado a un Heltec Wireless Stick que muestra LINK UP",
+  // EN: The numbers at Demo B
+  "tl.sergio.e3.h": "Las cifras de la Demo B",
+  // EN: The LoRa link delivered 20 of 20 packets with no loss, at about 435 ms round trip. The OAK-D Pro drew about 3.1 W, and the whole system ran inside the Jetson's 7 W power mode, light enough for battery flight.
+  "tl.sergio.e3.p": "El enlace LoRa entregó 20 de 20 paquetes sin pérdidas, con unos 435 ms de ida y vuelta. La OAK-D Pro consumió unos 3.1 W y todo el sistema funcionó dentro del modo de 7 W de la Jetson, apto para volar con batería.",
+  // EN: A USB power meter reading 3.1 W, plugged in line with the OAK-D Pro camera on the drone
+  "tl.sergio.e3.alt1": "Un medidor de potencia USB que marca 3.1 W, conectado en línea con la cámara OAK-D Pro en el dron",
+  // EN: The Heltec Wireless Stick plugged into the Jetson's orange case on the bench
+  "tl.sergio.e3.alt2": "El Heltec Wireless Stick conectado a la carcasa naranja de la Jetson en el banco de pruebas",
+  // EN: Nov 6, 2026
+  "tl.sergio.e4.when": "6 nov 2026",
+  // EN: Find the worker in the yellow vest
+  "tl.sergio.e4.h": "Encontrar al trabajador del chaleco amarillo",
+  // EN: Taught the camera to lock onto a yellow construction vest and ignore everyone else, with search controls and calibration on the operator's page and an alert that sounds on iPhones too.
+  "tl.sergio.e4.p": "Enseñó a la cámara a fijarse en un chaleco amarillo de construcción e ignorar a todos los demás, con controles de búsqueda y calibración en la página del operador y una alerta que también suena en iPhone.",
+  // EN: Nov 19–20, 2026
+  "tl.sergio.e5.when": "19–20 nov 2026",
+  // EN: A tougher link, a 4 ft hover
+  "tl.sergio.e5.h": "Un enlace más robusto, un vuelo a 4 pies",
+  // EN: Hardened the LoRa command link end to end, added an indoor hover mode, and raised the remote's hover demo to 4 ft (1.22 m).
+  "tl.sergio.e5.p": "Reforzó de punta a punta el enlace de comandos LoRa, agregó un modo de vuelo estacionario en interiores y subió la demostración de vuelo del control remoto a 4 pies (1.22 m).",
+  // EN: Buying the parts
+  "tl.sergio.a1": "Compra de componentes",
+  // EN: Jetson setup, ROS 2 and AI, with Leonel
+  "tl.sergio.a2": "Configuración de la Jetson, ROS 2 e IA, con Leonel",
+  // EN: Video streaming, with David
+  "tl.sergio.a3": "Transmisión de video, con David",
+  // EN: AI detection testing, with Leonel
+  "tl.sergio.a4": "Pruebas de detección con IA, con Leonel",
+  // EN: The team
+  "tl.team.h2": "El equipo",
+  // EN: Five engineering students at UTSA, each owning one part of the system.
+  "tl.team.cap": "Cinco estudiantes de ingeniería de UTSA, cada uno a cargo de una parte del sistema.",
+  // EN: Experience
+  "tl.exp": "Experiencia",
+  // EN: EE intern at Modular One Tech; student engineer at Southwest Research Institute
+  "tl.david.exp": "Practicante de ingeniería eléctrica en Modular One Tech; ingeniero estudiante en Southwest Research Institute",
+  // EN: Motors and software protocols
+  "tl.grant.exp": "Motores y protocolos de software",
+  // EN: EE intern at TAMUCC; PCB design and fabrication
+  "tl.vincent.exp": "Practicante de ingeniería eléctrica en TAMUCC; diseño y fabricación de PCB",
+  // EN: Project designer at Alterman; embedded systems and robotics platforms
+  "tl.leonel.exp": "Diseñador de proyectos en Alterman; sistemas embebidos y plataformas robóticas",
+  // EN: DepthAI scripts, UART and MAVLink protocols
+  "tl.sergio.exp": "Scripts de DepthAI y protocolos UART y MAVLink"
 };
