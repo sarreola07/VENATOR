@@ -58,7 +58,7 @@ window.VENATOR_ES = {
   // EN: No internet or cell service
   "nums.networks_note": "Sin internet ni señal celular",
   // EN: Hover time
-  "nums.hover": "Tiempo en vuelo",
+  "nums.hover": "Tiempo de vuelo",
   // EN: Holybro spec, stock frame
   "nums.hover_note": "Especificación Holybro, estructura de serie",
   // EN: Payload
