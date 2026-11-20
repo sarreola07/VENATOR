@@ -10,6 +10,8 @@ name: Site audit
 #
 # Blocking: valid HTML, Lighthouse thresholds (.github/lighthouserc.json), and
 # zero WCAG 2.1 A/AA violations in light and dark mode at phone and desktop width.
+# Also blocking: a Spanish page, opened plain or at a #section, loads without a
+# layout shift and with the linked section in view.
 # Warnings only: axe best-practice rules, and diagram text that renders too small
 # to read on a phone.
 
@@ -122,6 +124,35 @@ jobs:
               await ctx.close();
             }
           }
+          }
+          // A Spanish page, opened plain or at a #section, must paint once and
+          // stay put. lang.js swaps the words in after parsing, which used to
+          // repaint English as Spanish and push the linked section down
+          // (CLS 0.11 at timeline.html?lang=es#team). The head of each page now
+          // holds a Spanish load unpainted until the swap; this keeps it so.
+          for (const url of ['index.html?lang=es', 'how-it-works.html?lang=es#how', 'timeline.html?lang=es#grant', 'timeline.html?lang=es#team']) {
+            for (const [name, width, height] of [['phone', 390, 844], ['desktop', 1280, 900]]) {
+              const ctx = await browser.newContext({ viewport: { width, height } });
+              const page = await ctx.newPage();
+              await page.addInitScript(() => {
+                window.__cls = 0;
+                new PerformanceObserver(l => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls += e.value; })
+                  .observe({ type: 'layout-shift', buffered: true });
+              });
+              await page.goto(`http://127.0.0.1:8765/${url}`, { waitUntil: 'networkidle' });
+              await page.waitForTimeout(500);
+              const r = await page.evaluate(() => {
+                const t = location.hash && document.getElementById(location.hash.slice(1));
+                const top = t ? t.getBoundingClientRect().top : 0;
+                return { cls: window.__cls, lang: document.documentElement.lang, inView: top > -2 && top < innerHeight / 2 };
+              });
+              if (r.cls > 0.01) console.log(`::error::${url} ${name}: the page shifted ${r.cls.toFixed(3)} as it loaded`);
+              if (r.lang !== 'es') console.log(`::error::${url} ${name}: the page did not switch to Spanish`);
+              if (!r.inView) console.log(`::error::${url} ${name}: the linked section is not in view after load`);
+              blocking += (r.cls > 0.01) + (r.lang !== 'es') + !r.inView;
+              console.log(`${url} ${name}: layout shift ${r.cls.toFixed(3)}, linked section in view ${r.inView}`);
+              await ctx.close();
+            }
           }
           await browser.close();
           process.exit(blocking ? 1 : 0);

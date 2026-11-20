@@ -22,6 +22,25 @@
 <meta property="og:image:alt" data-i18n-attr="content:shared.social_alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/brand/favicon.svg">
+<!-- Spanish was asked for (?lang=es, or picked before on this device): keep
+     the page unpainted until assets/lang.js has swapped the words in. It used
+     to paint English and then reflow to the longer Spanish, which jumped a
+     page opened at a #section (CLS 0.11 at timeline.html?lang=es#team). The
+     same test as wanted() in lang.js. lang.js removes the class; the timeout
+     shows the page anyway if lang.js never runs. With scripting off none of
+     this runs and the English page paints as it always has. -->
+<script>
+(function () {
+  try {
+    var m = /[?&]lang=(es|en)\b/.exec(location.search);
+    if ((m ? m[1] : localStorage.getItem("venator-lang")) === "es") {
+      var root = document.documentElement;
+      root.classList.add("i18n-wait");
+      setTimeout(function () { root.classList.remove("i18n-wait"); }, 3000);
+    }
+  } catch (e) { /* storage blocked: paint English first, as before */ }
+}());
+</script>
 <style>
   /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
      and nothing else, so it never carries small body text: at #E05316 it
@@ -94,6 +113,9 @@
      it loaded: CLS 0.22 against the 0.05 gate. With scripting off, the
      <noscript> rule in the head takes the empty place away again. */
   .mast nav .lang[hidden]{display:block; visibility:hidden}
+  /* A Spanish load stays unpainted until lang.js has swapped the words in;
+     see the script in the head. */
+  .i18n-wait body{visibility:hidden}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
