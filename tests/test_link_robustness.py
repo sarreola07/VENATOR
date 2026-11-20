@@ -721,7 +721,11 @@ def test_flight_under_loss():
         out_lines.clear()
         air, a, b = wire(loss=0.0, airtime=0.02)
         fc = CountingFC(gps=True)
-        srv.HOVER4_TIME_S = 1.0
+        # 3 s, not 1 s: STATUS rides on the ground's 1 s pings, so a 1 s hold
+        # (a ~3.3 s flight with the mock's climb and landing) gave 3 or 4 STATUS
+        # lines depending on where the pings fell, against the check of 4 below.
+        # A ~5.3 s flight gives 5 or 6.
+        srv.HOVER4_TIME_S = 3.0
         s, lb = start_server(b.port, fc=fc)
         la = SerialLink(a.port, 115200, settle=0.0, auth_key=None, send_gap=0.05, log=quiet)
         c = gc.Client(la)
