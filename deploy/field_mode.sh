@@ -293,14 +293,25 @@ field_on() {
     # `on` is the manual override and has to mean it. wifi_mode.sh on also
     # records the departing network so `off` knows where to go back to, which
     # the boot path deliberately does not do.
+    # The AI camera web stream (drone/camera.sh stream) holds the OAK and port
+    # 8080 and answers none of a phone's captive-portal probes, so while it runs
+    # the GUI cannot start and an Android phone never gets its sign-in window -
+    # which, with mobile data on, is the only place it can see the camera. One
+    # owner of the OAK at a time; `on` means the GUI.
+    if pgrep -f "${REPO}/drone/camera_publisher.py" >/dev/null 2>&1; then
+        say "stopping the AI camera stream (it holds the OAK and port 8080)..."
+        run bash "${REPO}/drone/camera.sh" stop
+    fi
     say "bringing up the access point..."
     if (( DRY )); then
         echo "  [dry-run] ${HERE}/wifi_mode.sh on"
     else
         bash "${HERE}/wifi_mode.sh" on || die "could not bring up the access point"
     fi
+    # restart, not start: `start` is a no-op on a unit that is already running,
+    # so after a `git pull` the GUI would go on serving the old code.
     say "starting the camera GUI..."
-    run sudo systemctl start "${GUI_UNIT}"
+    run sudo systemctl restart "${GUI_UNIT}"
     (( DRY )) || sleep 3
     status
 }

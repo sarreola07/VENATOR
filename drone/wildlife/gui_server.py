@@ -701,16 +701,19 @@ class Hub:
                     self._viewers.remove(viewer)
                     self._sse -= 1
 
-    def latest_jpeg(self):
-        """The newest encoded frame, preferring the high rung.
+    def latest_jpeg(self, quality=None):
+        """The newest encoded frame: the named rung if it has one, else the
+        high rung, else the low.
 
         Evidence frames come from here rather than from a raw passthrough:
         the bytes are already a JPEG off the camera's codec, so writing one
         costs no decode, no PIL and no USB bandwidth beyond the stream that
-        is running anyway.
+        is running anyway. The portal names "lo", because it polls this
+        several times a second per phone.
         """
         with self._cond:
-            return self._jpeg.get("hi") or self._jpeg.get("lo")
+            return (self._jpeg.get(quality) if quality else None) \
+                or self._jpeg.get("hi") or self._jpeg.get("lo")
 
     def snapshot(self):
         with self._cond:
@@ -977,7 +980,8 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 # that gets killed mid-stream holds a viewer slot until the
                 # socket timeout expires - and a restricted WebView may not
                 # render multipart/x-mixed-replace at all.
-                jpeg = hub.latest_jpeg()
+                q = parse_qs(url.query).get("q", [None])[0]
+                jpeg = hub.latest_jpeg(q if q in QUALITIES else None)
                 if jpeg is None:
                     return self._body(503, "text/plain; charset=utf-8",
                                       b"no frame yet\n")
