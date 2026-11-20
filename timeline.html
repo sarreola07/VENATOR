@@ -529,12 +529,12 @@
   }
 
   /* ---- behind the build -------------------------------------------------
-     Two bench photos side by side, stacked on a phone. The captions sit on
-     the photos in the same dark chip as the 360's labels, which stays well
-     past 4.5:1 over any photo. */
+     Three bench photos in a row, stacked on a phone. The captions sit on the
+     photos in the same dark chip as the 360's labels, which stays well past
+     4.5:1 over any photo. */
   .behind{
-    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
-    max-width:880px; margin-top:clamp(30px,4.5vw,46px);
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;
+    margin-top:clamp(30px,4.5vw,46px);
   }
   .behind figure{position:relative}
   .behind a{display:block}
@@ -542,6 +542,11 @@
     position:absolute; left:10px; bottom:10px; max-width:calc(100% - 20px);
     padding:5px 9px; font:11px/1.35 var(--mono); letter-spacing:.12em; text-transform:uppercase;
     color:#F2F1EE; background:rgba(10,10,10,.78); border:1px solid #2A2A27;
+  }
+  /* Three across on a tablet leaves each photo under 300 px wide, so the
+     captions there go smaller rather than covering a third of the photo. */
+  @media (min-width:561px) and (max-width:900px){
+    .behind figcaption{left:6px; bottom:6px; max-width:calc(100% - 12px); font-size:9.5px; letter-spacing:.08em}
   }
   @media (max-width:560px){ .behind{grid-template-columns:minmax(0,1fr)} }
 </style>
@@ -894,26 +899,33 @@
     </article>
   </section>
 
-  <!-- Two bench photos from the team, side by side, stacked on a phone. A tap
+  <!-- Three bench photos from the team in a row, stacked on a phone. A tap
        opens the larger copy. -->
   <section id="behind">
     <p class="lab" data-i18n="tl.fun.lab">Behind the build</p>
     <h2 data-i18n="tl.fun.h2">Building it, together</h2>
-    <p class="cap" data-i18n="tl.fun.cap">Bench sessions, code reviews and a lot of cables. The build, as it happened.</p>
+    <p class="cap" data-i18n="tl.fun.cap">Soldering, code reviews and a lot of cables. The build, as it happened.</p>
     <div class="behind">
       <figure>
         <a href="assets/timeline/lab-smiles-lg.webp"><img src="assets/timeline/lab-smiles.webp"
           srcset="assets/timeline/lab-smiles.webp 480w, assets/timeline/lab-smiles-lg.webp 1200w"
-          sizes="(max-width: 560px) 100vw, 440px" width="480" height="640" loading="lazy"
+          sizes="(max-width: 560px) 100vw, 370px" width="480" height="640" loading="lazy"
           data-i18n-attr="alt:tl.fun.alt1" alt="Two teammates at the workbench smiling at the camera, one seated with a yellow safety vest across their knee, the drone and a laptop of code beside them"></a>
         <figcaption data-i18n="tl.fun.c1">Mid-build, still smiling</figcaption>
       </figure>
       <figure>
         <a href="assets/timeline/lab-walkthrough-lg.webp"><img src="assets/timeline/lab-walkthrough.webp"
           srcset="assets/timeline/lab-walkthrough.webp 480w, assets/timeline/lab-walkthrough-lg.webp 1200w"
-          sizes="(max-width: 560px) 100vw, 440px" width="480" height="640" loading="lazy"
+          sizes="(max-width: 560px) 100vw, 370px" width="480" height="640" loading="lazy"
           data-i18n-attr="alt:tl.fun.alt2" alt="One teammate points at the screen while another looks on, the drone on the bench beside them"></a>
         <figcaption data-i18n="tl.fun.c2">Talking it through at the bench</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/timeline/lab-soldering-lg.webp"><img src="assets/timeline/lab-soldering.webp"
+          srcset="assets/timeline/lab-soldering.webp 480w, assets/timeline/lab-soldering-lg.webp 1086w"
+          sizes="(max-width: 560px) 100vw, 370px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt3" alt="A teammate in a cap and headphones solders a green circuit board on a hot plate, watching the work on a digital microscope&rsquo;s screen"></a>
+        <figcaption data-i18n="tl.fun.c3">Hot plate, microscope, steady hands</figcaption>
       </figure>
     </div>
   </section>

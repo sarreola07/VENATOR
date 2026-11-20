@@ -529,12 +529,12 @@
   }
 
   /* ---- behind the build -------------------------------------------------
-     Two bench photos side by side, stacked on a phone. The captions sit on
-     the photos in the same dark chip as the 360's labels, which stays well
-     past 4.5:1 over any photo. */
+     Three bench photos in a row, stacked on a phone. The captions sit on the
+     photos in the same dark chip as the 360's labels, which stays well past
+     4.5:1 over any photo. */
   .behind{
-    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
-    max-width:880px; margin-top:clamp(30px,4.5vw,46px);
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;
+    margin-top:clamp(30px,4.5vw,46px);
   }
   .behind figure{position:relative}
   .behind a{display:block}
@@ -542,6 +542,11 @@
     position:absolute; left:10px; bottom:10px; max-width:calc(100% - 20px);
     padding:5px 9px; font:11px/1.35 var(--mono); letter-spacing:.12em; text-transform:uppercase;
     color:#F2F1EE; background:rgba(10,10,10,.78); border:1px solid #2A2A27;
+  }
+  /* Three across on a tablet leaves each photo under 300 px wide, so the
+     captions there go smaller rather than covering a third of the photo. */
+  @media (min-width:561px) and (max-width:900px){
+    .behind figcaption{left:6px; bottom:6px; max-width:calc(100% - 12px); font-size:9.5px; letter-spacing:.08em}
   }
   @media (max-width:560px){ .behind{grid-template-columns:minmax(0,1fr)} }
 </style>

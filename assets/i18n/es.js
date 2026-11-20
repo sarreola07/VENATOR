@@ -443,8 +443,8 @@ window.VENATOR_ES = {
   "tl.fun.lab": "Detrás de la construcción",
   // EN: Building it, together
   "tl.fun.h2": "Construyéndolo juntos",
-  // EN: Bench sessions, code reviews and a lot of cables. The build, as it happened.
-  "tl.fun.cap": "Sesiones en el banco de trabajo, revisiones de código y muchos cables. La construcción, tal como pasó.",
+  // EN: Soldering, code reviews and a lot of cables. The build, as it happened.
+  "tl.fun.cap": "Soldadura, revisiones de código y muchos cables. La construcción, tal como pasó.",
   // EN: Mid-build, still smiling
   "tl.fun.c1": "A media construcción, y sonriendo",
   // EN: Two teammates at the workbench smiling at the camera, one seated with a yellow safety vest across their knee, the drone and a laptop of code beside them
@@ -453,6 +453,10 @@ window.VENATOR_ES = {
   "tl.fun.c2": "Revisándolo juntos en el banco",
   // EN: One teammate points at the screen while another looks on, the drone on the bench beside them
   "tl.fun.alt2": "Un integrante señala la pantalla mientras otro observa, con el dron en el banco a su lado",
+  // EN: Hot plate, microscope, steady hands
+  "tl.fun.c3": "Plancha caliente, microscopio y pulso firme",
+  // EN: A teammate in a cap and headphones solders a green circuit board on a hot plate, watching the work on a digital microscope's screen
+  "tl.fun.alt3": "Un integrante con gorra y audífonos suelda una placa verde sobre una plancha caliente, mirando el trabajo en la pantalla de un microscopio digital",
   // EN: The team
   "tl.team.h2": "El equipo",
   // EN: Five engineering students at UTSA, each owning one part of the system.
