@@ -75,6 +75,11 @@ BANNER = b"Venator LoRa transceiver ready"
 # own view of the link. Absorbed into stats(), never handed to callers.
 LINK_REPORT = "LINK"
 
+# Unreadable lines are logged, a few of them, so their source can be told from
+# the journal: this many at first, then every fiftieth, each cut to this length.
+BAD_LINE_SAMPLES = 3
+BAD_LINE_SHOW = 80
+
 _clock = time.monotonic
 
 
@@ -326,6 +331,13 @@ class SerialLink:
                 self._stats["banner_seen"] = True
             else:
                 self._stats["rx_bad"] += 1
+                # Show what the junk IS, a little of it: the counter alone cannot
+                # tell a second remote with a different framing from corrupted
+                # packets or a chatty stick. The first few, then one in fifty.
+                n = self._stats["rx_bad"]
+                if n <= BAD_LINE_SAMPLES or n % 50 == 0:
+                    self._log("unreadable line #{} from {}: {!r}".format(
+                        n, self.port, text[:BAD_LINE_SHOW]))
             return ("raw", text) if self.report_raw else None
         if msg.get("t") == LINK_REPORT:
             # The bridge's own report of the last packet it heard, when its
