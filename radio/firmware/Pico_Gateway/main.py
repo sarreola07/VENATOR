@@ -304,7 +304,7 @@ def draw(now):
                 ["Hover 4 ft?", "Drone checks", "props+position.",
                  "Click=ask BACK=no"]
                 if active[2] == "flight" else
-                ["ARK check?", "Props OFF. You", "lift the drone.",
+                ["ARK check?", "Kill switch ON.", "You lift it.",
                  "Click=ask BACK=no"]
                 if active[2] == "sensor" else
                 [active[1] + "?", "", "", "Click=ask BACK=no"])

@@ -68,9 +68,11 @@ cd /home/jetson/Desktop/VENATOR
 ```
 
 **During the check:**
-- Keep props OFF
-- When prompted (~5 seconds in), lift the drone about 0.5 m over a textured floor
-- Hold it there for about 5 seconds, then lower it
+- The aircraft stays disarmed; RC kill switch on. The check refuses an armed
+  aircraft and stops if it arms mid-way
+- The parameter reads come first (up to ~20 s). When the live readings start,
+  lift the drone about 0.5 m over a textured floor, carry it a step sideways,
+  hold it there for most of the watch (15 s standalone, 10 s from menu 9), then lower it
 - The validator will report ARK readiness
 
 **Expected output:** All checks should show `[OK]` or `[INFO]`
@@ -168,7 +170,11 @@ This will:
 - ABORT lands immediately
 
 **Mission ID: 9** ("ARK sensor check")
-- Requires props **OFF** — you handle the aircraft during it
+- No props gate: the check only reads, so it runs in flight mode too, right
+  before a hover. **RC kill switch ON before you touch the aircraft.** It
+  refuses while a flight awaits CONFIRM, refuses an armed (or unreadable)
+  aircraft, force-disarms and stops if it arms mid-check, and the server drops
+  anything that arrived on the link while it was busy
 - Reads the parameters above, then watches the sensor for 10 s. Wait for the
   `LIFT the drone` message before picking it up: the parameter reads come first.
 - Runs on the C2 server's own MAVLink connection, so `venator-c2` stays up

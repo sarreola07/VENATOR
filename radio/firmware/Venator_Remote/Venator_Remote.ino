@@ -501,7 +501,7 @@ static void draw() {
             display.drawString(0, 43, "white = menu");
         }
         else if (active->kind == SENSOR)
-            drawBody("ARK check?", "Props OFF. You lift the drone when it asks.  BACK = cancel");
+            drawBody("ARK check?", "Kill switch ON. You lift the drone when it asks.  BACK = cancel");
         else
             drawBody(active->name, "Click = ask   BACK = cancel");
         break;

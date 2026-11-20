@@ -220,6 +220,11 @@ def apply_params(m, want=WANT, readp=None, writep_fn=None, log=print):
 
 
 def watch(m, seconds):
+    """Collect the readings judge_readings() takes, for `seconds`.
+
+    The moment PX4's HEARTBEAT shows the vehicle armed, a force-disarm is
+    sent and RuntimeError raised: the operator is holding the aircraft during
+    this, and with COM_ARM_WO_GPS the RC sticks can arm it."""
     r = {
         "distance_m": [],
         "flow_quality": [],
@@ -244,10 +249,23 @@ def watch(m, seconds):
                     mavutil.mavlink.MAV_TYPE_GCS,
                     mavutil.mavlink.MAV_AUTOPILOT_INVALID, 0, 0, 0)
                 next_beat = time.time() + 1.0
-            msg = m.recv_match(type=list(STREAMS), blocking=True, timeout=0.5)
+            msg = m.recv_match(type=list(STREAMS) + ["HEARTBEAT"], blocking=True, timeout=0.5)
             if msg is None:
                 continue
             t = msg.get_type()
+            if t == "HEARTBEAT":
+                if (msg.get_srcSystem() == m.target_system
+                        and msg.type != mavutil.mavlink.MAV_TYPE_GCS
+                        and msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED):
+                    # 21196 is PX4's force code: disarm even in the air / with
+                    # motors turning. In hand, that is the point.
+                    m.mav.command_long_send(
+                        m.target_system, m.target_component,
+                        mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0,
+                        0, 21196, 0, 0, 0, 0, 0)
+                    raise RuntimeError("drone ARMED during the check — force-disarm sent; "
+                                       "set it down, kill switch ON")
+                continue
             if t == "DISTANCE_SENSOR":
                 r["distance_m"].append(msg.current_distance / 100.0)
             elif t == "OPTICAL_FLOW_RAD":

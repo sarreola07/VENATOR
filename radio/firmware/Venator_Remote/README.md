@@ -19,7 +19,7 @@ remote from `ground/gcs_client.py`.
 | Test all motors | `RUN 2` | all four together, 3 s at 15% | props declared **OFF** |
 | Hover 4 ft DEMO | `RUN 8` → `CONFIRM` | takeoff to 1.22 m, hold 10 s, land in place | props declared **ON**, a **position** (GPS 3D fix outdoors, or the ARK Flow position when the server runs with `--indoor`), PX4 pre-arm |
 | Drone status | `RUN 7` | GPS / battery / sensor readout | — |
-| ARK check | `RUN 9` | reads the flow/range settings, then watches the ARK Flow for 10 s while you lift the aircraft | props declared **OFF** |
+| ARK check | `RUN 9` | reads the flow/range settings, then watches the ARK Flow for 10 s while you lift the aircraft | aircraft **disarmed**, RC **kill switch ON** (either props state) |
 
 ## Controls
 
@@ -66,7 +66,10 @@ that is already flying behaves exactly as before.
 
 The **drone** decides. The props interlock, the position gate and PX4's own
 pre-arm checks are all in `drone/c2_server.py` and PX4. The remote cannot get
-around them.
+around them. The ARK check (9) has no props gate because it only reads; what
+protects the operator holding the aircraft is on the drone too: it refuses
+while a flight is awaiting CONFIRM, refuses an armed (or unreadable) aircraft,
+clears any pending flight around itself, and stops if the aircraft arms.
 It adds three things of its own:
 
 - a local "Spin motors?" / "Hover 4 ft?" / "ARK check?" confirm before it sends anything;

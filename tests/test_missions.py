@@ -24,6 +24,7 @@ import socket
 import sys
 import threading
 import time
+import types
 from pathlib import Path
 
 
@@ -184,21 +185,113 @@ def test_menu():
     # Both handhelds hardcode these ids (Venator_Remote.ino, Pico_Gateway).
     check("the remote's ids 1, 2, 7, 8, 9 are all on the menu",
           all(i in items for i in (1, 2, 7, 8, 9)), str(sorted(items)))
-    check("the hover (8) flies, the ARK check (9) wants props OFF",
-          items[8].get("needs") == "props_on" and items[9].get("needs") == "props_off",
+    check("the hover (8) flies; the ARK check (9) is read-only, no props gate",
+          items[8].get("needs") == "props_on" and items[9].get("needs") is None,
           f"{items[8]} {items[9]}")
 
 
 # ---------------------------------------------------------------- ARK check (9)
 def test_ark_check():
-    print("\n[ARK check: menu 9, the operator's hands on the aircraft]")
-    s = make_server(props_off=False)
+    print("\n[ARK check: menu 9, read-only, in either props state]")
+    # Props ON is the demo's resting state (one restart, then only flights), so
+    # the pre-flight sensor check must be reachable there too.
+    for props_off in (False, True):
+        s = make_server(props_off=props_off)
+        out = []
+        s.run_and_report(c2.message(c2.RUN, 1, id=9), out.append)
+        check(f"accepted with props {'OFF' if props_off else 'ON'}",
+              out[0].get("accepted") is True, str(out[:1]))
+    check("  and it never arms, flies or changes the props state",
+          s._pending is None and s.props_off is True and not s.fc._armed)
+
+    class ArmedFC(srv.MockFC):
+        master = object()                  # looks real enough to reach the armed check
+        def is_armed(self):
+            return True
+    s = srv.C2Server(ArmedFC(), props_off=False)
     out = []
-    s.run_and_report(c2.message(c2.RUN, 1, id=9), out.append)
-    check("refused with props ON (the operator has to lift the drone)",
-          out[-1].get("accepted") is False and "props OFF" in out[-1].get("reason", ""),
-          out[-1].get("reason", ""))
-    check("  and nothing else was sent", len(out) == 1, str(out))
+    s.run_and_report(c2.message(c2.RUN, 2, id=9), out.append)
+    check("an armed aircraft is refused before anything is read",
+          out[-1]["t"] == c2.DONE and "armed" in out[-1].get("result", ""), str(out[-1]))
+
+    class DeafFC(ArmedFC):
+        def is_armed(self):
+            return None                    # no HEARTBEAT in time
+    s = srv.C2Server(DeafFC(), props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 2, id=9), out.append)
+    check("no heartbeat is a refusal, not 'disarmed' (fail closed)",
+          out[-1]["t"] == c2.DONE and "HEARTBEAT" in out[-1].get("result", ""), str(out[-1]))
+
+    # The hazard the review found: a hover prepared by RUN 8 waits 60 s for
+    # CONFIRM; the check blocks the single-threaded loop ~30 s with the operator
+    # holding the aircraft; a CONFIRM queued meanwhile would launch on return.
+    s = srv.C2Server(srv.MockFC(gps=True), props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+    check("(hover prepared)", s._pending == "hover")
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 2, id=9), out.append)
+    check("the check is refused while a flight awaits CONFIRM",
+          out[-1].get("accepted") is False and "CONFIRM" in out[-1].get("reason", ""),
+          str(out[-1]))
+    check("  and the prepared flight is left as it was", s._pending == "hover")
+    s._pending = None
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 3, id=9), out.append)
+    check("after a check nothing is pending, so a queued CONFIRM flies nothing",
+          s._pending is None and out[-1]["t"] == c2.DONE)
+    link = FakeLink(ping_for=1.0)
+    s.confirm(link, link.send)
+    check("  (CONFIRM right after the check is refused)",
+          any(m["t"] == c2.ACK and m.get("accepted") is False for m in link.sent), str(link.sent[-1:]))
+
+    # A RUN 8 + CONFIRM pair that queued while the server was deaf: serve()
+    # throws away everything behind the check, so neither is acted on.
+    import threading
+    class QueueLink:
+        def __init__(self, msgs):
+            self.q, self.sent, self.authenticated = list(msgs), [], False
+        def poll(self):
+            return self.q.pop(0) if self.q else None
+        def send(self, m):
+            self.sent.append(m); return True
+    fc = srv.MockFC(gps=True)
+    s = srv.C2Server(fc, props_off=False, log=lambda *a: None)
+    lk = QueueLink([c2.message(c2.RUN, 5, id=9), c2.message(c2.RUN, 6, id=8), c2.message(c2.CONFIRM, 7)])
+    threading.Thread(target=lambda: srv.serve(s, lk, log=lambda *a: None), daemon=True).start()
+    deadline = time.time() + 5
+    while time.time() < deadline and not any(m["t"] == c2.DONE for m in lk.sent):
+        time.sleep(0.05)
+    time.sleep(0.3)
+    check("serve() drops the RUN 8 + CONFIRM that queued behind the check",
+          not lk.q and s._pending is None and not fc._armed
+          and not any(m.get("confirm_required") for m in lk.sent), str(lk.sent))
+
+    # The armed reading comes from the autopilot's heartbeat alone.
+    class HB:
+        def __init__(self, src, vtype, base_mode): self._s, self.type, self.base_mode = src, vtype, base_mode
+        def get_srcSystem(self): return self._s
+    class FakeMaster:
+        target_system = 1
+        def __init__(self, hbs): self.hbs = list(hbs)
+        def recv_match(self, **kw): return self.hbs.pop(0) if self.hbs else None
+    # The suite is stdlib-only (CI has no pymavlink), so stand in for the two
+    # MAVLink constants is_armed() reads, exactly as test_takeoff_height does.
+    GCS, QUAD, ARMED_FLAG = 6, 2, 128
+    real_mavutil = srv.mavutil
+    srv.mavutil = types.SimpleNamespace(mavlink=types.SimpleNamespace(
+        MAV_TYPE_GCS=GCS, MAV_MODE_FLAG_SAFETY_ARMED=ARMED_FLAG))
+    try:
+        rf = srv.RealFC.__new__(srv.RealFC)
+        rf.master = FakeMaster([HB(255, GCS, ARMED_FLAG), HB(1, QUAD, 0)])
+        check("is_armed skips a GCS heartbeat and reads the vehicle's", rf.is_armed(timeout=1) is False)
+        rf.master = FakeMaster([HB(1, QUAD, ARMED_FLAG)])
+        check("  armed vehicle -> True", rf.is_armed(timeout=1) is True)
+        rf.master = FakeMaster([HB(255, GCS, 0)])
+        check("  only a GCS heartbeat -> None (fail closed)", rf.is_armed(timeout=0.5) is None)
+    finally:
+        srv.mavutil = real_mavutil
 
     s = make_server(props_off=True)
     out = []

@@ -188,6 +188,44 @@ else:
     check("a write that does not read back is reported, not hidden",
           [r for r in results if not r[3]][0][0], "EKF2_HGT_REF")
     check("WANT covers every PARAMS entry", sorted(ark.WANT), sorted(n for n, *_ in ark.PARAMS))
+
+    # The watch stops the moment PX4 reports the vehicle armed: the operator is
+    # holding it. A fake connection that answers every read with an armed
+    # HEARTBEAT from the autopilot.
+    class Msg:
+        def __init__(self, src, vtype, base_mode):
+            self._src, self.type, self.base_mode = src, vtype, base_mode
+        def get_type(self): return "HEARTBEAT"
+        def get_srcSystem(self): return self._src
+    class Mav:
+        def __init__(self): self.sent = []
+        def command_long_send(self, *a): self.sent.append(a)
+        def heartbeat_send(self, *a): pass
+    class FakeMaster:
+        target_system, target_component = 1, 1
+        def __init__(self, msg): self.msg, self.mav = msg, Mav()
+        def recv_match(self, **kw): return self.msg
+    ARMED = ark.mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+    QUAD, GCS = ark.mavutil.mavlink.MAV_TYPE_QUADROTOR, ark.mavutil.mavlink.MAV_TYPE_GCS
+    fm = FakeMaster(Msg(1, QUAD, ARMED))
+    try:
+        ark.watch(fm, 0.3)
+        armed_raised = False
+    except RuntimeError as e:
+        armed_raised = "ARMED" in str(e)
+    check("the watch aborts when the autopilot's HEARTBEAT says armed", armed_raised, True)
+    disarm = [a for a in fm.mav.sent if a[2] == ark.mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM]
+    check("  and sends a force-disarm first (param1 0, force code 21196)",
+          bool(disarm) and disarm[0][4] == 0 and disarm[0][5] == 21196, True)
+    check("  and still hands the streams back to PX4 (interval 0 after the raise)",
+          fm.mav.sent[-1][4:6] == (ark.STREAMS["ESTIMATOR_STATUS"], 0), True)
+    try:
+        ark.watch(FakeMaster(Msg(1, QUAD, 0)), 0.3)
+        ark.watch(FakeMaster(Msg(255, GCS, ARMED)), 0.3)   # a GCS's own flags are not the vehicle's
+        ok = True
+    except RuntimeError:
+        ok = False
+    check("  a disarmed vehicle, or another GCS's heartbeat, does not", ok, True)
     check("  and every WANT value passes its own test",
           all(t(ark.WANT[n]) for n, t, *_ in ark.PARAMS), True)
 

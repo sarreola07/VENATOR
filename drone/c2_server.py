@@ -212,6 +212,9 @@ class MockFC:
     def has_gps_fix(self):
         return self._gps
 
+    def is_armed(self):
+        return self._armed
+
     def has_position(self):
         return self._position
 
@@ -377,6 +380,22 @@ class RealFC:
     def has_gps_fix(self):
         g = self.master.recv_match(type="GPS_RAW_INT", blocking=True, timeout=2)
         return bool(g and g.fix_type >= 3)
+
+    def is_armed(self, timeout=3):
+        """True / False from PX4's own HEARTBEAT, or None when none came in
+        time. None is not "disarmed": status() reads a missing heartbeat as
+        armed=False, which is fine for a display and wrong for a gate."""
+        end = _clock() + timeout
+        while _clock() < end:
+            hb = self.master.recv_match(type="HEARTBEAT", blocking=True,
+                                        timeout=max(0.1, end - _clock()))
+            if hb is None:
+                break
+            # The autopilot's heartbeat, not a GCS's or a peripheral's.
+            if (hb.get_srcSystem() == self.master.target_system
+                    and hb.type != mavutil.mavlink.MAV_TYPE_GCS):
+                return bool(hb.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
+        return None
 
     def has_mission(self):
         self.master.mav.mission_request_list_send(
@@ -648,6 +667,9 @@ class C2Server:
         # diagnostics reply. Plain defaults so the tests' direct calls work.
         self.link_authenticated = None
         self.link_stats = None
+        # Set by a long blocking action (the ARK check): serve() then throws
+        # away everything that queued on the link while it was deaf.
+        self.drain_link = False
         self._wp = []
         # A validated flight waiting for CONFIRM: None / "waypoints" / "mission1" /
         # "mission2" / "hover", and when it was prepared (it lapses, see confirm()).
@@ -676,12 +698,13 @@ class C2Server:
             # the ARK Flow position for this item alone.
             {"id": 8, "name": "Hover 4 ft, then land", "needs": "props_on",
              "gps": True, "fly": "hover"},
-            # ARK Flow readiness for an indoor, GPS-less hover. props_off because
-            # the operator has to pick the aircraft up during the check. Ids stay
-            # ints: the remote's menu is `struct Item { int id; ... }`, so a
-            # string id could never be sent from it.
-            {"id": 9, "name": "ARK sensor check (indoor flight)",
-             "needs": "props_off", "action": "ark_check"},
+            # ARK Flow readiness for an indoor, GPS-less hover. No props gate:
+            # the check only reads, never arms, and refuses an armed aircraft
+            # (_ark_check), so it can run in flight mode right before a hover
+            # without a service restart. The operator lifts the aircraft during
+            # it, disarmed. Ids stay ints: the remote's menu is `struct Item
+            # { int id; ... }`, so a string id could never be sent from it.
+            {"id": 9, "name": "ARK sensor check (indoor flight)", "action": "ark_check"},
         ]
 
     def _validate(self, mid):
@@ -690,9 +713,7 @@ class C2Server:
         if item is None:
             return False, "unknown mission"
         if item.get("needs") == "props_off" and not self.props_off:
-            # Motor tests and the ARK check both land here: either way the
-            # operator's hands are on the aircraft.
-            return False, "props are ON — this needs props OFF"
+            return False, "props are ON — motor tests need props OFF"
         if item.get("needs") == "props_on" and self.props_off:
             return False, "props are OFF — flight needs props ON"
         if item.get("gps"):
@@ -864,28 +885,56 @@ class C2Server:
         """Menu 9: read the ARK Flow parameters and watch the sensor while the
         operator lifts the aircraft, on the server's own MAVLink connection.
 
+        Read-only: nothing here arms, writes a parameter or changes a mode, so
+        it needs no props gate and runs in flight mode too, right before a
+        hover. What must hold is that nothing can arm while the operator holds
+        the aircraft, and three things see to that:
+
+        * No prepared flight may be waiting. serve() is single-threaded and
+          this blocks it for ~30 s, so a CONFIRM queued meanwhile would launch
+          the instant the check returned -- with hands still on the airframe,
+          and a position estimate made fresh by the lift itself. A pending
+          flight refuses the check, _pending is cleared before and after it so
+          a lone CONFIRM that arrived during the block finds nothing to fly,
+          and serve() discards everything that queued while this blocked
+          (drain_link), so a RUN 8 + CONFIRM pair queued behind it is dropped
+          too. Both clients have long timed out on those by then.
+        * The aircraft must be disarmed, read fail-closed from PX4's own
+          HEARTBEAT: no heartbeat is a refusal, not "disarmed".
+        * The watch itself stops if a HEARTBEAT shows it armed (RC arming
+          with COM_ARM_WO_GPS=1 is possible with the transmitter on).
+
         ACK before the check, never after it. validate() reads eight parameters
         and then watches the sensor for watch_seconds, which takes far longer
         than the remote's ACK_TIMEOUT_MS (10 s): ACKing at the end means the
         handheld gives up and calls a good check failed. DONE carries the
         verdict, inside DONE_TIMEOUT_MS (90 s). Every issue also goes to the
         journal: over the radio alone it is gone once the screen clears."""
+        if self._pending:
+            reason = f"a flight ({self._pending}) is awaiting CONFIRM — ABORT it (BACK) first"
+            send(p.message(p.ACK, seq, id=mid, accepted=False, reason=reason))
+            self.log(f"RUN {mid} rejected: {reason}")
+            return
         send(p.message(p.ACK, seq, id=mid, accepted=True,
                        reason="checking ARK sensor — reading settings first"))
         self.log("ARK check: started")
+        self._prepare(None)
         try:
             master = getattr(self.fc, "master", None)
             if master is None:
                 raise RuntimeError("no real FC attached (mock)")
-            if self.fc.status().get("armed"):
+            armed = self.fc.is_armed() if hasattr(self.fc, "is_armed") else None
+            if armed is None:
+                raise RuntimeError("no HEARTBEAT from PX4 — cannot tell it is disarmed")
+            if armed:
                 raise RuntimeError("drone is armed — disarm before handling it")
             from drone.ark_setup import ARKSetup
 
             def lift_now(secs):
                 # The parameter reads come first and take their time, so the
                 # cue to pick the aircraft up has to wait for the watch.
-                send(p.message(p.LOG, 0, text="LIFT the drone ~0.5 m now for "
-                                              f"{int(secs)} s, then a step sideways"))
+                send(p.message(p.LOG, 0, text="kill switch ON, then LIFT the drone ~0.5 m "
+                                              f"for {int(secs)} s and step sideways"))
 
             # Borrow the server's own connection. A second mavlink_connection
             # on the same tty leaves two readers stealing each other's bytes
@@ -905,6 +954,12 @@ class C2Server:
             msg_text = f"ARK check failed: {short_error(exc)}"
             self.log(msg_text)
             send(p.message(p.DONE, seq, id=mid, result=msg_text))
+        finally:
+            # Whatever queued on the link during the block is thrown away by
+            # serve() (drain_link) and no flight is armed for it: a RUN 8 that
+            # arrives after that starts its own 60 s window.
+            self._prepare(None)
+            self.drain_link = True
 
     def run_and_report(self, msg, send):
         """Handle a RUN. Motor tests and runtime actions execute immediately;
@@ -912,11 +967,9 @@ class C2Server:
         seq = msg.get("seq", 0)
         mid = msg.get("id")
 
-        # The gates run first, for runtime actions as well. An action that
-        # declares `needs` -- the ARK check wants props OFF, because the
-        # operator has to pick the aircraft up during it -- used to be
-        # dispatched before _validate() was ever called, so its own interlock
-        # never bound. Items 6 and 7 declare no gates, so nothing else moves.
+        # The gates run first, for runtime actions as well, so an action that
+        # declares `needs` gets its interlock (they used to be dispatched before
+        # _validate() was ever called). Items 6, 7 and 9 declare no gates.
         accepted, reason = self._validate(mid)
         if not accepted:
             send(p.message(p.ACK, seq, id=mid, accepted=False, reason=reason))
@@ -1542,6 +1595,16 @@ def serve(server, link, log=print):
                         and _clock() - last_done["at"] < DONE_REPEAT_S):
                     last_done["n"] += 1
                     link.send(last_done["msg"])
+            if getattr(server, "drain_link", False):
+                # The server was deaf for a long action with the operator's
+                # hands on the aircraft. Commands that queued meanwhile are
+                # stale (their senders timed out) and must not run now.
+                server.drain_link = False
+                dropped = 0
+                while link.poll() is not None:
+                    dropped += 1
+                if dropped:
+                    log(f"dropped {dropped} message(s) that queued during the check")
         except Exception as exc:
             # One bad message must not take the server down. Exiting is a restart
             # under systemd, and the new server knows nothing of a flight this

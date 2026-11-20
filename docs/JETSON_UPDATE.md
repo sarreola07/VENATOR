@@ -350,9 +350,12 @@ thing that does not pass.
 
 **11a. Claude:** `check_flow.py` must PASS (section 9d). Not WARN. Its FAIL and
 WARN lines are the to-do list; nothing below is worth doing before it passes.
-The same check runs from the handheld as **9 ARK check** (props OFF, service
-running): the remote shows `LIFT the drone`, then the verdict, and every FAIL
-line goes to the journal as `ARK check: ...`. Expect `EKF2_HGT_REF = 1, want 2`
+The same check runs from the handheld as **9 ARK check** (service running, in
+either props state; it is read-only, refuses an armed aircraft or one with a
+flight awaiting CONFIRM, and force-disarms if the aircraft arms mid-check).
+**Kill switch ON before you lift**, props fitted or not. The remote shows
+`LIFT the drone`, then the verdict, and every FAIL line goes to the journal as
+`ARK check: ...`. Expect `EKF2_HGT_REF = 1, want 2`
 until the indoor parameters are set (`docs/ARK_SETUP.md`), and set them only
 once `DISTANCE_SENSOR` and `OPTICAL_FLOW_RAD` both read OK.
 
@@ -381,8 +384,10 @@ screen after a HELLO shows `indoor: position OK`.
 **refused** with `props are OFF — flight needs props ON`. That proves the props
 gate is checked before the position gate and that nothing arms on the bench.
 
-**11f. You, props ON (`bash deploy/flight_mode.sh on indoor`), in the flight
-space, RC kill switch in hand:** stand clear, send **8 Hover 4 ft DEMO**, and
+**11f. You, props ON (`bash deploy/flight_mode.sh on indoor`, once: the
+service then stays up for every flight of the day, and **9** still works for a
+check before each one), in the flight space, RC kill switch in hand:** stand
+clear, send **8 Hover 4 ft DEMO**, and
 when the drone accepts it, HOLD the knob 1 s (the bar fills). It arms, climbs
 to 1.22 m, holds 10 s, lands. Click = STOP lands it early; BACK = ABORT lands
 it too; 4 s without the remote's pings lands it; the kill switch is yours.
