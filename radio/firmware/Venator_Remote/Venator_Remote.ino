@@ -10,12 +10,14 @@
  *                                              BACK  = ABORT (land now)
  *
  * Menu (ids are drone/c2_server.py's):
- *   1 Test each motor   2 Test all motors   8 Hover 3 ft   7 Drone status
+ *   1 Test each motor   2 Test all motors   8 Hover 4 ft   7 Drone status
+ *   9 ARK check
  *
  * Safety lives on the drone, not here: the server refuses motor tests unless
- * props are declared OFF, and the hover unless props are ON and GPS has a 3D
- * fix. This remote adds a local confirm before anything moves, and the hover
- * launches only on a 3 s HOLD of the knob after the drone has accepted it. In
+ * props are declared OFF, and the hover unless props are ON and the drone has a
+ * position estimate (a GPS fix outdoors, or trusted optical flow indoors). This
+ * remote adds a local confirm before anything moves, and the hover launches only
+ * on a LAUNCH_HOLD_MS HOLD of the knob after the drone has accepted it. In
  * flight it pings every second; if those stop, the drone lands by itself.
  *
  * The link is not authenticated (radio/auth.py is not implemented here), so run
@@ -54,7 +56,12 @@
 #define LINK_STALE_MS     12000
 #define ACK_TIMEOUT_MS    10000    // the hover's GPS check alone can take 2 s
 #define DONE_TIMEOUT_MS   90000    // the sequential test is ~20 s on a quad
-#define LAUNCH_HOLD_MS     3000
+// A hold, not a click, is what launches: a click can arrive from a press begun
+// on the previous screen, and the filling bar makes the commitment visible.
+// Shortened from 3 s for the demo -- short enough to feel like a click, long
+// enough that a knock on the knob cannot put the aircraft in the air. The screen
+// text is derived from this, so the two cannot drift apart.
+#define LAUNCH_HOLD_MS     1000
 #define CONFIRM_WINDOW_MS 45000    // < the server's PENDING_CONFIRM_S (60 s)
 #define CONFIRM_RETRY_MS   5000    // no word from the drone after CONFIRM -> resend
 #define CONFIRM_TRIES         3    // then ABORT: the drone never said it launched
@@ -66,13 +73,15 @@ static RadioEvents_t RadioEvents;
 // ---------------------------------------------------------------------------
 // Menu
 // ---------------------------------------------------------------------------
-enum Kind { MOTORS, FLIGHT, INFO };
+// SENSOR is appended so every existing enumerator keeps its value.
+enum Kind { MOTORS, FLIGHT, INFO, SENSOR };
 struct Item { int id; const char *name; Kind kind; };
 static const Item MENU[] = {
     {1, "Test each motor", MOTORS},
     {2, "Test all motors", MOTORS},
-    {8, "Hover 3 ft",      FLIGHT},
+    {8, "Hover 4 ft DEMO", FLIGHT},
     {7, "Drone status",    INFO},
+    {9, "ARK check",       SENSOR},
 };
 static const int MENU_N = sizeof(MENU) / sizeof(MENU[0]);
 
@@ -449,8 +458,22 @@ static void draw() {
     case LOCAL_CONFIRM:
         if (active->kind == MOTORS)
             drawBody("Spin motors?", "Props must be OFF.  Click = GO   BACK = cancel");
-        else if (active->kind == FLIGHT)
-            drawBody("Hover 3 ft?", "Click = ask the drone. It checks props + GPS first.  BACK = cancel");
+        else if (active->kind == FLIGHT) {
+            // Two explicit lines, not drawBody: its drawStringMaxWidth wraps
+            // greedily on the last space that fits, which splits this as
+            // "CLICK TO START white =" / "menu". Newlines are no help either --
+            // drawStringMaxWidth only breaks on space or dash, and '\n' is below
+            // the font's first character, so it would index outside the jump
+            // table. The click only sends RUN; HOLD = LAUNCH on the next screen
+            // is what names the committing action.
+            display.setFont(ArialMT_Plain_16);
+            display.drawString(0, 13, "HOVER 10 SEC");
+            display.setFont(ArialMT_Plain_10);
+            display.drawString(0, 31, "CLICK TO START");
+            display.drawString(0, 43, "white = menu");
+        }
+        else if (active->kind == SENSOR)
+            drawBody("ARK check?", "Props OFF. You lift the drone when it asks.  BACK = cancel");
         else
             drawBody(active->name, "Click = ask   BACK = cancel");
         break;
@@ -462,14 +485,16 @@ static void draw() {
     case WAIT_DONE:
         snprintf(buf, sizeof(buf), "%lus  %s", (unsigned long)((now - stateAt) / 1000),
                  lastLog[0] ? lastLog : active->name);
-        drawBody(active->kind == MOTORS ? "SPINNING" : "Running", buf);
+        drawBody(active->kind == MOTORS ? "SPINNING"
+                 : active->kind == SENSOR ? "Checking" : "Running", buf);
         break;
     case FLY_CONFIRM: {
         uint32_t left = CONFIRM_WINDOW_MS - (now - stateAt);
         display.setFont(ArialMT_Plain_16);
         display.drawString(0, 13, "HOLD = LAUNCH");
         display.setFont(ArialMT_Plain_10);
-        snprintf(buf, sizeof(buf), "hold knob 3 s. BACK cancels (%lus)", (unsigned long)(left / 1000));
+        snprintf(buf, sizeof(buf), "hold knob %lu s. BACK cancels (%lus)",
+                 (unsigned long)(LAUNCH_HOLD_MS / 1000), (unsigned long)(left / 1000));
         display.drawString(0, 31, buf);
         if (!(knob.down && knob.downIn == FLY_CONFIRM)) {
             display.drawStringMaxWidth(0, 43, 128, reason);   // what the drone will do

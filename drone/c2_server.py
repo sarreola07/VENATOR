@@ -41,8 +41,9 @@ FLIGHT_MAX_S = 600.0    # hard cap on a monitored flight -> same failsafe
 STATUS_INTERVAL_S = 1.0 # how often to push in-flight status to the client
 
 # --- Mission 1: hover & detect ---
-# GPS-safe hover altitude. A true 3 ft (0.91 m) hold is unsafe on GPS alone
-# (several-metre vertical error); set this to 0.91 once the downward lidar is in.
+# GPS-safe hover altitude. A low hold is unsafe on GPS alone (several-metre
+# vertical error), which is why this sits at 2 m while the Hover 4 ft mission
+# goes down to HOVER4_ALT_M on the ARK Flow rangefinder instead.
 HOVER_ALT_M = 2.0
 HOVER_TIME_S = 60.0     # how long to hover and detect people
 CAMERA_UDP_PORT = 5005  # OAK-D publisher (ai_camera.sh) broadcasts person X/Y/Z here
@@ -55,16 +56,31 @@ FOLLOW_FWD_MPS = 0.5    # forward/back speed
 FOLLOW_YAW_RPS = 0.35   # yaw rate (rad/s, ~20 deg/s)
 CAMERA_LOSS_S = 1.0     # no person for this long -> hover in place (don't drift)
 
-# --- Hover 3 ft (the LoRa remote's flight) ---
-# Takeoff to 3 ft, hold, land in place. Every failsafe LANDs instead of RTL:
-# hovering over the launch point, PX4's RTL would first climb to RTL_DESCEND_ALT
-# / RTL_RETURN_ALT (10 m / 30 m on this vehicle) -- the opposite of what a 3 ft
-# test wants. Height is baro-based until the downward lidar is fitted, so expect
-# tens of centimetres of drift at this altitude; fly it with the RC kill switch
-# in hand.
-HOVER3_ALT_M = 0.91     # 3 ft
-HOVER3_TIME_S = 10.0    # hold this long, then land
-HOVER3_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
+# --- Hover 4 ft (the LoRa remote's flight) ---
+# Takeoff, hold, land in place. Every failsafe LANDs instead of RTL: hovering
+# over the launch point, PX4's RTL would first climb to RTL_DESCEND_ALT /
+# RTL_RETURN_ALT (10 m / 30 m on this vehicle) -- the opposite of what a 4 ft
+# test wants.
+#
+# Height comes from whatever EKF2_HGT_REF selects. With the ARK Flow fitted and
+# EKF2_HGT_REF=2 that is its rangefinder, which is what makes this altitude hold
+# honestly; set to 0, or with no range sensor answering, PX4 falls back to the
+# barometer and drifts tens of centimetres at this height. Either way, fly it
+# with the RC kill switch in hand.
+#
+# Feet are derived from the metres below, never written twice -- a hardcoded
+# "3 ft" next to a formatted 0.91 is how the two came apart before.
+HOVER4_ALT_M = 1.22     # 4 ft
+HOVER4_TIME_S = 10.0    # hold this long, then land
+HOVER4_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
+FEET_PER_M = 3.28084
+
+# ESTIMATOR_STATUS flag bits (MAV_ESTIMATOR_STATUS_FLAGS). PX4's own verdict on
+# whether it trusts a position, which is what lets an indoor flow-only hover pass
+# a position gate that no GPS fix will ever satisfy. Same bits drone/ark_setup.py
+# judges the ARK Flow on.
+POS_HORIZ_REL = 8       # horizontal position relative to its starting point
+POS_VERT_AGL = 64       # height above ground
 
 # A flight that was prepared (ACK confirm_required) but not CONFIRMed within
 # this long lapses, so a confirm screen walked away from -- or a cancel lost on
@@ -160,12 +176,15 @@ class MockFC:
 
     Includes a tiny flight simulator (arm -> climb -> hover -> land/RTL -> disarm)
     so the flight trigger and link-loss failsafe can be exercised without a drone.
-    Pass gps=True to simulate a 3D fix (needed to test the flight path).
+    Pass gps=True to simulate a 3D fix, or flow=True to simulate a trusted
+    optical-flow position with no GPS at all (the indoor case). Either one is
+    enough for a mission gated on "position"; only gps=True passes a "gps" gate.
     """
     name = "mock"
 
-    def __init__(self, gps=False):
+    def __init__(self, gps=False, flow=False):
         self._gps = gps
+        self._flow = flow
         self._armed = False
         self._mode = "HOLD"
         self._t_arm = 0.0
@@ -177,6 +196,12 @@ class MockFC:
 
     def has_gps_fix(self):
         return self._gps
+
+    def has_local_position(self):
+        return self._flow
+
+    def has_position_estimate(self):
+        return self._gps or self._flow
 
     def run_mission(self, mid, motors=4):
         time.sleep(0.1)
@@ -280,6 +305,24 @@ class RealFC:
     def has_gps_fix(self):
         g = self.master.recv_match(type="GPS_RAW_INT", blocking=True, timeout=2)
         return bool(g and g.fix_type >= 3)
+
+    def has_local_position(self):
+        """Does PX4 itself trust a local position right now?
+
+        ESTIMATOR_STATUS carries the EKF's own verdict, which is the thing
+        AUTO.TAKEOFF actually consults -- not the sensor readings. Indoors on the
+        ARK Flow this is the only way a position gate can pass; a GPS fix is
+        never coming. Both bits are required: POS_HORIZ_REL alone would let a
+        mission climb to a commanded height on an untrusted altitude."""
+        s = self.master.recv_match(type="ESTIMATOR_STATUS", blocking=True, timeout=2)
+        return bool(s and s.flags & POS_HORIZ_REL and s.flags & POS_VERT_AGL)
+
+    def has_position_estimate(self):
+        """A position from any source: satellites outdoors, optical flow indoors.
+
+        Checked in the GPS order deliberately -- outdoors with a fix this costs
+        one GPS_RAW_INT and never waits on ESTIMATOR_STATUS."""
+        return self.has_gps_fix() or self.has_local_position()
 
     def has_mission(self):
         self.master.mav.mission_request_list_send(
@@ -556,8 +599,14 @@ class C2Server:
             {"id": 7, "name": "Drone status (GPS / battery / sensors)",
              "action": "diagnostics"},
             # The LoRa remote's flight (radio/firmware/Venator_Remote).
-            {"id": 8, "name": "Hover 3 ft, then land", "needs": "props_on",
-             "gps": True, "fly": "hover"},
+            {"id": 8, "name": "Hover 4 ft, then land", "needs": "props_on",
+             "position": True, "fly": "hover"},
+            # ARK Flow readiness for an indoor, GPS-less hover. props_off because
+            # the operator has to pick the aircraft up during the check. Ids stay
+            # ints: the remote's menu is `struct Item { int id; ... }`, so a
+            # string id could never be sent from it.
+            {"id": 9, "name": "ARK sensor check (indoor flight)",
+             "needs": "props_off", "action": "ark_check"},
         ]
 
     def _validate(self, mid):
@@ -566,11 +615,19 @@ class C2Server:
         if item is None:
             return False, "unknown mission"
         if item.get("needs") == "props_off" and not self.props_off:
-            return False, "props are ON — motor tests need props OFF"
+            # Motor tests and the ARK check both land here: either way the
+            # operator's hands are on the aircraft.
+            return False, "props are ON — this needs props OFF"
         if item.get("needs") == "props_on" and self.props_off:
             return False, "props are OFF — flight needs props ON"
         if item.get("gps") and not self.fc.has_gps_fix():
             return False, "no GPS fix"
+        # "position" is the weaker requirement: a position from any source. The
+        # hover holds over its launch point and needs no map, so flow indoors is
+        # as good as satellites outdoors. Waypoint missions keep "gps", because
+        # flying to a coordinate does need a global fix.
+        if item.get("position") and not self.fc.has_position_estimate():
+            return False, "no position estimate — no GPS fix and no optical flow"
         return True, "ok"
 
     # -- message handling -----------------------------------------------------
@@ -686,19 +743,36 @@ class C2Server:
         send(p.message(p.DONE, 0, id={"waypoints": "fly"}.get(kind, kind) or "fly",
                        result=f"FAILED: {short_error(exc)} — {what}"))
 
+    def _pending_item(self):
+        """The menu item behind self._pending, so the CONFIRM-time gates are the
+        same ones the RUN was accepted under rather than a second, divergent
+        list. "waypoints" is item 3, which carries no "fly" key because it is
+        flown by FLY_REQ instead of being prepared by a RUN."""
+        kind = self._pending
+        if kind == "waypoints":
+            return next((i for i in self.menu() if i["id"] == 3), {})
+        return next((i for i in self.menu() if i.get("fly") == kind), {})
+
     def _validate_pending(self):
         """The gates that must still hold at CONFIRM time, for any flight.
 
         Deliberately not _validate_fly(): that also demands an uploaded mission,
         which only the waypoints flight has — and which, once uploaded, cannot
         be lost inside the confirm window anyway. What *can* change in that
-        window is the props declaration and the GPS fix, so those are what get
-        re-read here.
+        window is the props declaration and the position estimate, so those are
+        what get re-read here, under whichever requirement that flight declared.
         """
         if self.props_off:
             return False, "props are OFF — flight needs props ON"
-        if not self.fc.has_gps_fix():
+        item = self._pending_item()
+        if not item:
+            # Fail closed. A flight kind with no menu item behind it would
+            # otherwise arm with no position gate applied at all.
+            return False, "unknown flight pending"
+        if item.get("gps") and not self.fc.has_gps_fix():
             return False, "no GPS 3D fix"
+        if item.get("position") and not self.fc.has_position_estimate():
+            return False, "no position estimate — no GPS fix and no optical flow"
         return True, "ok"
 
     def _validate_fly(self):
@@ -712,14 +786,24 @@ class C2Server:
         return True, "ready — arm + fly takeoff->waypoints->RTL"
 
     def run_and_report(self, msg, send):
-        """Handle a RUN. Motor tests execute immediately; flight missions are
-        *prepared* and wait for a CONFIRM (two-step arm)."""
+        """Handle a RUN. Motor tests and runtime actions execute immediately;
+        flight missions are *prepared* and wait for a CONFIRM (two-step arm)."""
         seq = msg.get("seq", 0)
         mid = msg.get("id")
 
-        # Runtime actions (no props/GPS gate) — handled before validation.
-        item0 = next((i for i in self.menu() if i["id"] == mid), {})
-        if item0.get("action") == "diagnostics":
+        # The gates run first, for runtime actions as well. An action that
+        # declares `needs` -- the ARK check wants props OFF, because the
+        # operator has to pick the aircraft up during it -- used to be
+        # dispatched before _validate() was ever called, so its own interlock
+        # never bound. Items 6 and 7 declare no gates, so nothing else moves.
+        accepted, reason = self._validate(mid)
+        if not accepted:
+            send(p.message(p.ACK, seq, id=mid, accepted=False, reason=reason))
+            self.log(f"RUN {mid} rejected: {reason}")
+            return
+
+        item = next((i for i in self.menu() if i["id"] == mid), {})
+        if item.get("action") == "diagnostics":
             try:
                 text = self.fc.diagnostics()
             except Exception as exc:
@@ -728,7 +812,7 @@ class C2Server:
             send(p.message(p.ACK, seq, id=mid, accepted=True, reason="reading telemetry"))
             send(p.message(p.DONE, seq, id=mid, result=text))
             return
-        if item0.get("action") == "toggle_props":
+        if item.get("action") == "toggle_props":
             self.props_off = not self.props_off
             state = "OFF" if self.props_off else "ON"
             self.log(f"props state toggled -> {state}")
@@ -738,13 +822,48 @@ class C2Server:
                            result=f"props now {state} — "
                                   f"{'motor tests' if self.props_off else 'flight missions'} enabled"))
             return
+        if item.get("action") == "ark_check":
+            # ACK before the check, never after it. validate() reads eight
+            # parameters and then watches the sensor for watch_seconds, which
+            # takes far longer than the remote's ACK_TIMEOUT_MS (10 s): ACKing
+            # at the end means the handheld gives up and calls a good check
+            # failed. DONE carries the verdict, inside DONE_TIMEOUT_MS (90 s).
+            send(p.message(p.ACK, seq, id=mid, accepted=True,
+                           reason="checking ARK sensor — reading settings first"))
+            self.log("ARK check: started")
+            try:
+                master = getattr(self.fc, "master", None)
+                if master is None:
+                    raise RuntimeError("no real FC attached (mock)")
+                if self.fc.status().get("armed"):
+                    raise RuntimeError("drone is armed — disarm before handling it")
+                from drone.ark_setup import ARKSetup
 
-        accepted, reason = self._validate(mid)
-        if not accepted:
-            send(p.message(p.ACK, seq, id=mid, accepted=False, reason=reason))
-            self.log(f"RUN {mid} rejected: {reason}")
+                def lift_now(secs):
+                    # The parameter reads come first and take their time, so the
+                    # cue to pick the aircraft up has to wait for the watch.
+                    send(p.message(p.LOG, 0, text="LIFT the drone ~0.5 m now for "
+                                                  f"{int(secs)} s, then a step sideways"))
+
+                # Borrow the server's own connection. A second mavlink_connection
+                # on the same tty leaves two readers stealing each other's bytes
+                # for the length of the check, which breaks the C2 link too.
+                result = ARKSetup(master=master).validate(watch_seconds=10.0,
+                                                          on_watch=lift_now)
+                for issue in result.get("issues", []):
+                    send(p.message(p.LOG, 0, text=f"  {issue}"))
+                status = ("ARK ready for indoor flight" if result["ready"]
+                          else "ARK NOT ready — see the issues above")
+                self.log(f"ARK check: {status} (flow quality {result.get('quality', 0)})")
+                send(p.message(p.DONE, seq, id=mid, result=status))
+            except Exception as exc:
+                # The ACK already went out, so a failure has to come back as
+                # DONE or the remote sits in WAIT_DONE until it times out.
+                msg_text = f"ARK check failed: {short_error(exc)}"
+                self.log(msg_text)
+                send(p.message(p.DONE, seq, id=mid, result=msg_text))
             return
-        item = next((i for i in self.menu() if i["id"] == mid), {})
+
         fly = item.get("fly")
         if fly in ("mission1", "mission2", "hover"):
             self._prepare(fly)
@@ -752,8 +871,9 @@ class C2Server:
                 reason = ("Mission 1: takeoff to {:g} m, hover {:d} s + detect people, "
                           "land in place. Confirm to launch.".format(HOVER_ALT_M, int(HOVER_TIME_S)))
             elif fly == "hover":
-                reason = ("Hover: takeoff to {:g} m (3 ft), hold {:d} s, land in place. "
-                          "Confirm to launch.".format(HOVER3_ALT_M, int(HOVER3_TIME_S)))
+                reason = ("Hover: takeoff to {:g} m ({:.0f} ft), hold {:d} s, land in "
+                          "place. Confirm to launch.".format(
+                              HOVER4_ALT_M, HOVER4_ALT_M * FEET_PER_M, int(HOVER4_TIME_S)))
             else:
                 reason = ("Mission 2: takeoff to {:g} m, then FOLLOW the person "
                           "(keep {:g} m). Send STOP to land. Confirm to launch.".format(
@@ -987,14 +1107,14 @@ class C2Server:
         self.log("MISSION2: landed & disarmed")
 
     def run_hover(self, link, send):
-        """Hover 3 ft: arm -> takeoff to HOVER3_ALT_M -> hold HOVER3_TIME_S ->
+        """Hover 4 ft: arm -> takeoff to HOVER4_ALT_M -> hold HOVER4_TIME_S ->
         land in place. STOP lands early. Link loss, ABORT and the time cap all
-        LAND rather than RTL -- see HOVER3_ALT_M."""
+        LAND rather than RTL -- see HOVER4_ALT_M."""
         if self._pending != "hover":
             send(p.message(p.ACK, 0, accepted=False, reason="no confirmed flight pending"))
             return
         self._pending = None
-        if not self._arm_and_takeoff(send, "hover", "Hover", HOVER3_ALT_M):
+        if not self._arm_and_takeoff(send, "hover", "Hover", HOVER4_ALT_M):
             return
 
         climb_start = time.time()
@@ -1005,17 +1125,17 @@ class C2Server:
             if not flight.flying:
                 continue
             if flight.phase == "takeoff":
-                if st["alt"] >= HOVER3_ALT_M * 0.9:
+                if st["alt"] >= HOVER4_ALT_M * 0.9:
                     flight.phase = "hover"
                     hold_start = now
                     send(p.message(p.LOG, 0, text="at {:g} m — holding {:d} s".format(
-                        HOVER3_ALT_M, int(HOVER3_TIME_S))))
-                elif now - climb_start > HOVER3_CLIMB_S:
+                        HOVER4_ALT_M, int(HOVER4_TIME_S))))
+                elif now - climb_start > HOVER4_CLIMB_S:
                     flight.phase = "land"
                     self.fc.set_flight_mode("LAND")
                     send(p.message(p.LOG, 0, text="never reached {:g} m — landing".format(
-                        HOVER3_ALT_M)))
-            elif flight.phase == "hover" and now - hold_start > HOVER3_TIME_S:
+                        HOVER4_ALT_M)))
+            elif flight.phase == "hover" and now - hold_start > HOVER4_TIME_S:
                 flight.phase = "land"
                 self.fc.set_flight_mode("LAND")
                 send(p.message(p.LOG, 0, text="hold complete — landing in place"))
@@ -1280,6 +1400,15 @@ def main():
                     help="declare props OFF (enables motor tests, blocks flight)")
     ap.add_argument("--props-on", action="store_true",
                     help="(default) declare props ON — kept for compatibility")
+    # The mock FC reports no position at all, so every mission gated on one is
+    # refused and the hover cannot be rehearsed off the aircraft. These give the
+    # mock a position to report: --mock-flow is the indoor case (trusted optical
+    # flow, still no satellites), --mock-gps the outdoor one. Mock only; neither
+    # does anything with --real.
+    ap.add_argument("--mock-flow", action="store_true",
+                    help="mock FC reports a trusted optical-flow position (no GPS)")
+    ap.add_argument("--mock-gps", action="store_true",
+                    help="mock FC reports a GPS 3D fix")
     args = ap.parse_args()
 
     # Line-buffer stdout so logs reach the journal immediately under systemd.
@@ -1304,9 +1433,14 @@ def main():
     if args.real:
         if missions is None:
             sys.exit("pymavlink/missions unavailable — run with the venv, or drop --real")
+        if args.mock_flow or args.mock_gps:
+            sys.exit("--mock-flow/--mock-gps are for the mock FC — drop --real to use them")
         fc = wait_for_fc(link, args)
     else:
-        fc = MockFC()
+        fc = MockFC(gps=args.mock_gps, flow=args.mock_flow)
+        if args.mock_flow or args.mock_gps:
+            print("mock FC reporting a {} position — flight missions will be "
+                  "accepted".format("flow" if args.mock_flow else "GPS"), flush=True)
 
     server = C2Server(fc, props_off=args.props_off, motors=args.motors)
 

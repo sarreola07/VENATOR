@@ -67,12 +67,14 @@ print("\nLive readings: a working sensor, lifted by hand")
 good = {"distance_m": [0.15, 0.16, 0.40, 0.62, 0.61, 0.30, 0.15],
         "flow_quality": [180, 200, 210, 190, 205],
         "local_z_m": [-0.1 - 0.5 * (i % 2) for i in range(150)],
+        # carried a step sideways: x/y drift ~0.4 m over the watch
+        "local_xy_m": [(0.4 * i / 149, -0.3 * i / 149) for i in range(150)],
         "global_alt_m": [],
         "est_flags": [cf.CONST_POS_MODE] * 20
                      + [cf.POS_HORIZ_REL | cf.POS_VERT_AGL] * 30}
 results = cf.judge_readings(good, 15.0)
-check("distance, flow, position and estimator all pass",
-      [lv for lv in levels(results) if lv != "INFO"], ["OK", "OK", "OK", "OK"])
+check("distance, flow, height, horizontal position and estimator all pass",
+      [lv for lv in levels(results) if lv != "INFO"], ["OK"] * 5)
 check("constant-position mode on the bench is fine once it leaves it while lifted",
       reading(results, "ESTIMATOR_STATUS")[0], "OK")
 check("no GPS position indoors is information, not a failure",
@@ -117,8 +119,9 @@ check("no ESTIMATOR_STATUS at all only warns",
 check("a GPS position, if there is one, is reported with its altitude",
       "0.10 to 0.60" in reading(cf.judge_readings(dict(good, global_alt_m=[0.1, 0.6]), 15.0),
                                 "GLOBAL_POSITION_INT")[1])
-check("nothing at all from PX4: distance, flow and position fail, the estimator warns",
-      levels(cf.judge_readings({}, 15.0)), ["FAIL", "FAIL", "FAIL", "WARN", "INFO"])
+check("nothing at all from PX4: distance, flow, height and x/y fail, the estimator warns",
+      levels(cf.judge_readings({}, 15.0)),
+      ["FAIL", "FAIL", "FAIL", "FAIL", "WARN", "INFO"])
 check("any FAIL exits 1", cf.exit_code([("OK", "a"), ("FAIL", "b")]), 1)
 check("WARNs alone exit 0", cf.exit_code([("WARN", "a"), ("INFO", "b")]), 0)
 check("a zero-length watch can't divide by zero",

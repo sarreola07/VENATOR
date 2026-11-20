@@ -31,8 +31,9 @@ RYLR_SETUP = ["AT", "AT+BAND=915000000", "AT+NETWORKID=18",
 MENU = [  # (server mission id, label, kind)
     (1, "Test each motor", "motors"),
     (2, "Test all motors", "motors"),
-    (8, "Hover 3 ft",      "flight"),
+    (8, "Hover 4 ft",      "flight"),
     (7, "Drone status",    "info"),
+    (9, "ARK check",       "sensor"),
 ]
 
 HELLO_EVERY_MS, IDLE_PING_MS, FLIGHT_PING_MS = 3000, 5000, 1000
@@ -293,18 +294,25 @@ def draw(now):
     if state == "menu":
         fb.text(("props %s" % ("OFF" if drone.get("props_off") else "ON"))
                 if drone else "linking...", 0, 12)
+        # 8 px pitch, not 10: the font is 8 px tall and five items at 10 px
+        # would put the last one at y=64, off the bottom of a 64 px panel.
         for i, (_, label, _) in enumerate(MENU):
-            fb.text((">" if i == sel else " ") + label[:15], 0, 24 + i * 10)
+            fb.text((">" if i == sel else " ") + label[:15], 0, 24 + i * 8)
     elif state == "local_confirm":
         rows = (["Spin motors?", "Props must be", "OFF.", "Click=GO BACK=no"]
                 if active[2] == "motors" else
-                ["Hover 3 ft?", "Drone checks", "props + GPS.", "Click=ask BACK=no"]
+                ["Hover 4 ft?", "Drone checks", "props+position.",
+                 "Click=ask BACK=no"]
                 if active[2] == "flight" else
+                ["ARK check?", "Props OFF. You", "lift the drone.",
+                 "Click=ask BACK=no"]
+                if active[2] == "sensor" else
                 [active[1] + "?", "", "", "Click=ask BACK=no"])
     elif state == "wait_ack":
         rows = ["Sending...", active[1], "%ds" % (utime.ticks_diff(now, state_at) // 1000)]
     elif state == "wait_done":
-        rows = ["SPINNING" if active[2] == "motors" else "Running",
+        rows = ["SPINNING" if active[2] == "motors"
+                else "Checking" if active[2] == "sensor" else "Running",
                 "%ds" % (utime.ticks_diff(now, state_at) // 1000)] + wrap(last_log, rows=3)
     elif state == "fly_confirm":
         rows = ["HOLD = LAUNCH", "hold knob 3 s", "BACK cancels"] + wrap(reason, rows=2)

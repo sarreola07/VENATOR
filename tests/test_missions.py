@@ -10,7 +10,7 @@ Covers the paths that must not break before a field test:
   * Mission 1: takeoff -> hover + person detection -> land
   * Mission 2: takeoff -> OFFBOARD follow -> STOP -> land
   * link-loss -> RTL failsafe on both missions
-  * Hover 3 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
+  * Hover 4 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
   * a RUN never flies; a 0 m (no depth) reading never moves the drone
   * an error mid-flight triggers the failsafe and the server lives on; STOP
     lands an armed drone no flight loop is watching
@@ -283,13 +283,13 @@ def test_mission2():
           str(getattr(s.fc, "_last_vel", None)))
 
 
-# ---------------------------------------------------------------- hover 3 ft
+# ---------------------------------------------------------------- hover 4 ft
 class ModeLogFC(srv.MockFC):
     """MockFC that remembers every flight mode it was put in, and can be told
     never to climb (a takeoff that stalls)."""
 
-    def __init__(self, gps=True, climbs=True):
-        super().__init__(gps=gps)
+    def __init__(self, gps=True, climbs=True, flow=False):
+        super().__init__(gps=gps, flow=flow)
         self.modes, self.climbs = [], climbs
 
     def set_flight_mode(self, mode):
@@ -303,8 +303,8 @@ class ModeLogFC(srv.MockFC):
         return st
 
 
-def run_hover(ping_for=100.0, stop_at=None, climbs=True):
-    fc = ModeLogFC(climbs=climbs)
+def run_hover(ping_for=100.0, stop_at=None, climbs=True, gps=True, flow=False):
+    fc = ModeLogFC(climbs=climbs, gps=gps, flow=flow)
     s = srv.C2Server(fc, props_off=False)
     out = []
     s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
@@ -314,32 +314,57 @@ def run_hover(ping_for=100.0, stop_at=None, climbs=True):
 
 
 def test_hover():
-    print("\n[Hover 3 ft: the LoRa remote's flight]")
+    print("\n[Hover 4 ft: the LoRa remote's flight]")
     srv.STATUS_INTERVAL_S = 0.25
-    hold_was, loss_was, climb_was = srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S
+    hold_was, loss_was, climb_was = srv.HOVER4_TIME_S, srv.LINK_LOSS_S, srv.HOVER4_CLIMB_S
     try:
-        srv.HOVER3_TIME_S = 1.0
+        srv.HOVER4_TIME_S = 1.0
 
         # Gates: a remote with a knob must not be able to launch past these.
-        for gps, props_off, why in ((True, True, "props OFF"), (False, False, "no GPS")):
-            s = srv.C2Server(srv.MockFC(gps=gps), props_off=props_off)
+        for fc_kw, props_off, why in (({"gps": True}, True, "props OFF"),
+                                      ({}, False, "no position estimate")):
+            s = srv.C2Server(srv.MockFC(**fc_kw), props_off=props_off)
             out = []
             s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
             check(f"hover refused: {why}", out[-1].get("accepted") is False,
                   out[-1].get("reason", ""))
             check(f"  and nothing is left pending ({why})", s._pending is None)
 
+        # The indoor case. The hover holds over its launch point, so a trusted
+        # optical-flow position is as good as satellites -- but only for it.
+        s = srv.C2Server(srv.MockFC(flow=True), props_off=False)
+        out = []
+        s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+        check("hover accepted on optical flow with no GPS at all",
+              out[-1].get("accepted") is True, out[-1].get("reason", ""))
+        out = []
+        s.run_and_report(c2.message(c2.RUN, 1, id=4), out.append)
+        check("  but flying to a coordinate still demands a fix",
+              out[-1].get("accepted") is False, out[-1].get("reason", ""))
+
         fc, ack, link = run_hover()
         check("hover accepted only with a second confirmation",
               ack.get("accepted") is True and ack.get("confirm_required") is True,
               ack.get("reason", "")[:50])
-        check("PX4 told 3 ft (0.91 m)", getattr(fc, "_takeoff_alt", None) == 0.91,
-              f"MIS_TAKEOFF_ALT={getattr(fc, '_takeoff_alt', None)}")
+        # Against the constant, not a literal: a hardcoded height here is what
+        # turned the suite red the last time the hover altitude moved.
+        check("PX4 told the hover height (4 ft)",
+              getattr(fc, "_takeoff_alt", None) == srv.HOVER4_ALT_M,
+              f"MIS_TAKEOFF_ALT={getattr(fc, '_takeoff_alt', None)}, "
+              f"want {srv.HOVER4_ALT_M}")
         check("phases takeoff -> hover -> land",
               link.phases() == ["takeoff", "hover", "land"], str(link.phases()))
         check("ends landed & disarmed", link.done() == "landed & disarmed", link.done())
         check("never RTL (it would climb to RTL_DESCEND_ALT)", "RTL" not in fc.modes,
               str(fc.modes))
+
+        # The whole indoor path, through CONFIRM: _validate_pending re-reads the
+        # gates up to 60 s after the RUN, so it has to accept flow as well or the
+        # flight is refused at the moment it would arm.
+        fc, ack, link = run_hover(gps=False, flow=True)
+        check("indoor hover gets through CONFIRM on flow alone",
+              ack.get("confirm_required") is True and link.done() == "landed & disarmed",
+              f"{ack.get('reason', '')[:40]} / {link.done()}")
 
         srv.LINK_LOSS_S = 1.0
         fc, _, link = run_hover(ping_for=0.5)
@@ -350,18 +375,18 @@ def test_hover():
         check("  DONE names the cause", link.done() == "landed (link lost)", link.done())
         srv.LINK_LOSS_S = loss_was
 
-        srv.HOVER3_TIME_S = 30.0
+        srv.HOVER4_TIME_S = 30.0
         fc, _, link = run_hover(stop_at=1.0)
         check("STOP from the remote lands early", link.done() == "landed (stopped early)",
               link.done())
 
-        srv.HOVER3_CLIMB_S = 1.0
+        srv.HOVER4_CLIMB_S = 1.0
         fc, _, link = run_hover(climbs=False)
-        check("a takeoff that never reaches 3 ft lands instead of waiting",
+        check("a takeoff that never reaches 4 ft lands instead of waiting",
               any("never reached" in t for t in link.texts()) and "LAND" in fc.modes,
               str(link.texts()[-2:]))
     finally:
-        srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S = hold_was, loss_was, climb_was
+        srv.HOVER4_TIME_S, srv.LINK_LOSS_S, srv.HOVER4_CLIMB_S = hold_was, loss_was, climb_was
 
     print("\n[confirm step: cancel and expiry]")
     s = srv.C2Server(ModeLogFC(), props_off=False)
@@ -718,9 +743,9 @@ def test_takeoff_height():
             self.calls.append("arm")
             return super().arm(timeout)
 
-    hold_was = srv.HOVER3_TIME_S
+    hold_was = srv.HOVER4_TIME_S
     try:
-        srv.HOVER3_TIME_S = 0.5
+        srv.HOVER4_TIME_S = 0.5
         for confirms in (False, True):
             fc = HeightFC(confirms)
             s = srv.C2Server(fc, props_off=False)
@@ -736,7 +761,7 @@ def test_takeoff_height():
                       fc.calls == ["height"] and not fc._armed
                       and "takeoff height" in (link.done() or ""), f"{fc.calls} {link.done()}")
     finally:
-        srv.HOVER3_TIME_S = hold_was
+        srv.HOVER4_TIME_S = hold_was
 
 
 # ---------------------------------------------------------------- radio line budget

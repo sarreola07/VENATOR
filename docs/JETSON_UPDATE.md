@@ -236,7 +236,7 @@ sudo systemctl stop venator-c2        # one owner per serial port
 ./venv/bin/python drone/checks/check_flow.py
 ```
 **9e. Optional, and only after I say yes.** Run it while venator-c2 is still
-stopped. It writes one PX4 setting, MIS_TAKEOFF_ALT = 0.91 m, which is the value
+stopped. It writes one PX4 setting, MIS_TAKEOFF_ALT = 1.22 m, which is the value
 the hover writes anyway. Nothing arms. It proves the takeoff-height safety fix
 against the real PX4:
 ```bash
@@ -296,5 +296,5 @@ chart), use the master prompt in `docs/YELLOW_VEST_PROMPT.md`.
 ## What this doesn't cover
 
 - **Flying:** the props are off, and GPS is a known fault.
-- **The 3 ft hover:** it waits on `check_flow.py`'s output.
+- **The 4 ft hover:** it waits on `check_flow.py`'s output.
 - **Missions 1 and 2:** they need GPS outdoors, and `camera_publisher.py` on depthai 2.32.

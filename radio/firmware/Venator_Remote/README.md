@@ -17,8 +17,9 @@ remote from `ground/gcs_client.py`.
 |---|---|---|---|
 | Test each motor | `RUN 1` | each motor 3 s at 15%, one after another | props declared **OFF** |
 | Test all motors | `RUN 2` | all four together, 3 s at 15% | props declared **OFF** |
-| Hover 3 ft | `RUN 8` → `CONFIRM` | takeoff to 0.91 m, hold 10 s, land in place | props declared **ON**, GPS **3D fix**, PX4 pre-arm |
+| Hover 4 ft | `RUN 8` → `CONFIRM` | takeoff to 1.22 m, hold 10 s, land in place | props declared **ON**, a **position estimate** (GPS fix *or* trusted optical flow), PX4 pre-arm |
 | Drone status | `RUN 7` | GPS / battery / sensor readout | — |
+| ARK check | `RUN 9` | reads the flow/range settings, then watches the ARK Flow for 10 s while you lift the aircraft | props declared **OFF** |
 
 ## Controls
 
@@ -26,7 +27,7 @@ remote from `ground/gcs_client.py`.
 |---|---|---|---|---|
 | Knob turn | 1, 2 | choose | — | — |
 | Knob click | 3 | select | click = go | **STOP** (land now) |
-| Knob **hold 3 s** | 3 | — | **launch** the hover (bar fills) | — |
+| Knob **hold 1 s** | 3 | — | **launch** the hover (bar fills) | — |
 | BACK button | 4 | re-link / refresh status | cancel | **ABORT** (land now) |
 
 The encoder's `+` is on 3V3. Clockwise runs A/B `11 → 01 → 00 → 10 → 11`, four
@@ -63,12 +64,14 @@ that is already flying behaves exactly as before.
 
 ## Safety, and where it lives
 
-The **drone** decides. The props interlock, the GPS gate and PX4's own pre-arm
-checks are all in `drone/c2_server.py` and PX4. The remote cannot get around them.
+The **drone** decides. The props interlock, the position gate and PX4's own
+pre-arm checks are all in `drone/c2_server.py` and PX4. The remote cannot get
+around them.
 It adds three things of its own:
 
-- a local "Spin motors?" / "Hover 3 ft?" confirm before it sends anything;
-- the hover launches only on a **3 s hold**, and only after the drone has
+- a local "Spin motors?" / "Hover 4 ft?" / "ARK check?" confirm before it sends anything;
+- the hover launches only on a **1 s hold** (`LAUNCH_HOLD_MS`), and only after
+  the drone has
   accepted it (`ACK confirm_required`). A cancel or 45 s of nothing sends
   `ABORT`, which drops the prepared flight on the drone. The drone also lets an
   unconfirmed flight lapse after 60 s by itself (`PENDING_CONFIRM_S`).
@@ -95,10 +98,11 @@ the server must run without `~/.venator/key` while you use it. Anything in
 radio range that speaks this protocol can command the aircraft. See
 [../../../docs/SECURITY.md](../../../docs/SECURITY.md).
 
-**3 ft on a barometer.** No downward lidar is fitted yet, and `EKF2_HGT_REF=2`
-(range sensor) falls back to the baro, so expect tens of centimetres of height
-drift at 0.91 m. Fly it in the open, with the RC transmitter's kill switch
-(`RC_MAP_KILL_SW = 5`) in hand.
+**Where the height comes from.** `EKF2_HGT_REF=2` selects the range sensor. With
+the ARK Flow fitted that is its rangefinder, which is what makes a 1.22 m hold
+honest. With no range sensor answering, PX4 falls back to the barometer and you
+should expect tens of centimetres of height drift. Either way, fly it with the RC
+transmitter's kill switch (`RC_MAP_KILL_SW = 5`) in hand.
 
 ## Flash it
 
@@ -135,7 +139,7 @@ Do the steps in order. The first two need no motors.
    ```
 
    The remote's header should go from `no link yet` to `LINK -NNdB`, showing
-   `props OFF`. "Test all motors" should end `DONE ok (mock)`, and "Hover 3 ft"
+   `props OFF`. "Test all motors" should end `DONE ok (mock)`, and "Hover 4 ft"
    should be `REFUSED: props are OFF`.
 
 3. **Real Pixhawk, props OFF, battery in.** Same, plus `--real`:

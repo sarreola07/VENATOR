@@ -44,7 +44,8 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 | 4 | Jetson C2 server + systemd boot service (zero-touch) | ✅ **motors spun on the real aircraft from the handheld remote, 2026-10-21** — this needed `MAV_CMD_ACTUATOR_TEST`; `DO_MOTOR_TEST` is ArduPilot-only and PX4 answered it UNSUPPORTED, so nothing had ever actually turned through this path |
 | 4b | Boot services for camera + hotspot + C2 (`field_mode.sh`) | 🔵 units, key split and crash-loop guards done; **not yet verified across a reboot with hardware attached** |
 | 5 | GPS + waypoint flight | 🔵 upload + flight trigger + two-step arm + link-loss RTL built & bench-tested, but **blocked: PX4 reports `fix_type 0`, 0 sats** with `GPS_1_CONFIG=201` — an M10 cable/port fault. No outdoor flight has happened |
-| — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first; true 3 ft needs the downward lidar, since `EKF2_HGT_REF=2` currently falls back to the baro |
+| — | Mission 1: hover + detect people + land | 🔵 built & bench-tested (mock only); hover 2 m on GPS, person detection over LoRa. Needs the GPS fixed first |
+| — | Hover 4 ft indoors, commanded from the handheld remote (menu id 8) | 🔵 **ARK Flow now fitted and wired to CAN.** Mission retuned to 1.22 m and its gate widened from "GPS 3D fix" to "a position estimate from any source", so a trusted optical-flow position passes where no satellite ever will. `EKF2_HGT_REF=2` now means the ARK's rangefinder rather than falling back to the baro. **Not yet flown:** blocked on `drone/ark_setup.py` proving `POS_HORIZ_REL` on this aircraft |
 | — | Vest search: find the person in the yellow construction vest, ignore the decoys (`drone/wildlife/vest.py`) | 🔵 colour check, vote and lock, switched on, calibrated and recorded from the operator's page; tested in simulation and on a laptop webcam, **not yet on the real OAK-D or Jetson**, and nothing commands the aircraft from it yet. A yellow shirt fools it: it matches a description |
 | — | Mission 2: follow the person until LoRa STOP | 🔵 built & bench-tested (mock only); OFFBOARD velocity follow (keep 3 m), STOP->land, camera-loss->hover, link-loss->RTL |
 | 6 | Polish: auto-launch agents, saved "places", browser GUI, OFFBOARD follow | ⬜ |
@@ -96,9 +97,16 @@ Mission 2 as designed — the goal this is all pointed at — is on the
 - **5 — Waypoint flight:** ⚠️ **blocked on GPS hardware.** The Holybro M10 is
   fitted and `GPS_1_CONFIG=201` is set, but PX4 reports `fix_type 0` with 0
   satellites and `XY_POSITION_CONTROL` unhealthy — an M10 cable or port fault,
-  not configuration. Nothing that needs a position estimate can run until that
-  is fixed. The plumbing is built: upload via `MISSION_ITEM_INT` →
+  not configuration. Nothing that flies to a *coordinate* can run until that is
+  fixed. The plumbing is built: upload via `MISSION_ITEM_INT` →
   `AUTO.MISSION`, altitude cap + RTL-last, bench-validated acceptance.
+
+  Note the M10 has only ever been read **indoors**, where no fix is expected
+  anyway. Indoors cannot distinguish "indoors" from "broken cable", so the
+  cable/port diagnosis above is still unconfirmed — verify it outside before
+  counting on GPS. The 4 ft hover no longer waits on it either way: it holds
+  over its launch point, so it is gated on a position estimate from any source
+  rather than on satellites.
 - **6 — Polish:** zero-click launch agents on your own Win/Mac, a saved places
   library, a browser GUI, and the OFFBOARD-mode camera-follow port.
 - **6 — Obstacle avoidance** *(not started):* nothing in this repo avoids

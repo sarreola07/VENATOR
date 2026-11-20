@@ -39,6 +39,11 @@ LIFT_SPAN_M = 0.3
 FLOW_QUALITY_MIN = 100
 #: A position PX4 can hold should arrive at least this often.
 LOCAL_RATE_MIN_HZ = 5.0
+#: The waypoint calculation starts from LOCAL_POSITION_NED x/y, so those must
+#: move when the drone is carried. Less than this over the whole watch means the
+#: estimate is pinned to the origin and every waypoint would come out at the
+#: launch point, however right the trigonometry is.
+HORIZ_SPAN_MIN_M = 0.05
 WATCH_S = 15.0
 
 #: ESTIMATOR_STATUS flags (MAVLink ESTIMATOR_STATUS_FLAGS).
@@ -88,7 +93,8 @@ def judge_readings(r, seconds):
     """[(level, text)] for what PX4 sent while the drone was lifted.
 
     r holds plain lists: distance_m, flow_quality, local_z_m (NED, so up is
-    negative), global_alt_m, est_flags (one int per ESTIMATOR_STATUS)."""
+    negative), local_xy_m ((x, y) pairs, NED metres), global_alt_m, est_flags
+    (one int per ESTIMATOR_STATUS)."""
     out = []
     lifted = False
 
@@ -135,6 +141,29 @@ def judge_readings(r, seconds):
                                 f"{span:.2f} m while the distance sensor saw the lift"))
         else:
             out.append(("OK", f"LOCAL_POSITION_NED: {rate:.0f} Hz, height moved {span:.2f} m"))
+
+    # The waypoint work needs x/y specifically, not just the height above: it
+    # adds its camera offsets to them. Streaming x/y is not the same as x/y
+    # meaning anything, so this judges the estimator's own claim first.
+    xy = r.get("local_xy_m") or []
+    trusted_horiz = any(f & POS_HORIZ_REL for f in (r.get("est_flags") or []))
+    if not xy:
+        out.append(("FAIL", "Horizontal position: no LOCAL_POSITION_NED, so the waypoint "
+                            "calculation has no x/y to start from"))
+    elif not trusted_horiz:
+        out.append(("FAIL", f"Horizontal position: x/y arrived ({len(xy)} readings) but PX4 never "
+                            f"trusted a horizontal position, so they are not a fix. Waypoints "
+                            f"built on them would all read near the launch point"))
+    else:
+        xs = [p[0] for p in xy]
+        ys = [p[1] for p in xy]
+        span = max(max(xs) - min(xs), max(ys) - min(ys))
+        if span < HORIZ_SPAN_MIN_M:
+            out.append(("WARN", f"Horizontal position: trusted, but x/y moved only {span:.3f} m. "
+                                f"Carry the drone a step sideways while this runs to see it follow"))
+        else:
+            out.append(("OK", f"Horizontal position: x {min(xs):+.2f} to {max(xs):+.2f} m, "
+                              f"y {min(ys):+.2f} to {max(ys):+.2f} m — usable as a waypoint origin"))
 
     flags = r.get("est_flags") or []
     if not flags:
@@ -194,8 +223,8 @@ def show(results):
 
 def watch(m, mavutil, seconds):
     """Collect the readings judge_readings() takes, for `seconds`."""
-    r = {"distance_m": [], "flow_quality": [], "local_z_m": [], "global_alt_m": [],
-         "est_flags": []}
+    r = {"distance_m": [], "flow_quality": [], "local_z_m": [], "local_xy_m": [],
+         "global_alt_m": [], "est_flags": []}
     for msg_id in STREAMS.values():
         m.mav.command_long_send(m.target_system, m.target_component,
                                 mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
@@ -217,6 +246,7 @@ def watch(m, mavutil, seconds):
             r["flow_quality"].append(msg.quality)
         elif t == "LOCAL_POSITION_NED":
             r["local_z_m"].append(msg.z)
+            r["local_xy_m"].append((msg.x, msg.y))
         elif t == "GLOBAL_POSITION_INT":
             r["global_alt_m"].append(msg.relative_alt / 1000.0)
         elif t == "ESTIMATOR_STATUS":

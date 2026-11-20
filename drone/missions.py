@@ -11,7 +11,7 @@ exist.
 Missions:
   1) Spin each motor one at a time for 3 s (props MUST be off)
   2) Spin all motors together for 3 s   (props MUST be off)
-  3) Arm, take off to 3 ft, land, disarm (props on — REAL FLIGHT)
+  3) Arm, take off to 4 ft, land, disarm (props on — REAL FLIGHT)
   4) RC manual flight: Stabilized mode, arm, you fly with the
      transmitter while this script monitors (props on — REAL FLIGHT)
   5) Camera tracking display: show the OAK-D person X/Y/Z (no flight)
@@ -48,7 +48,8 @@ FAIL = "\033[91m[FAIL]\033[0m"
 INFO = "\033[94m[INFO]\033[0m"
 WARN = "\033[93m[WARN]\033[0m"
 
-TAKEOFF_ALT_M = 0.91          # 3 feet
+TAKEOFF_ALT_M = 1.22          # 4 feet
+FEET_PER_M = 3.28084          # mirrors c2_server.py; feet are never a second literal
 MOTOR_TEST_THROTTLE = 15      # percent — low, just enough to spin
 MOTOR_TEST_SECONDS = 3
 
@@ -209,6 +210,43 @@ def mission_2(master, motors):
     return True
 
 
+def param_name(pid):
+    """A PARAM_VALUE's name as text. pymavlink hands it over as str or bytes
+    depending on the version, padded with NULs to 16 characters."""
+    if isinstance(pid, (bytes, bytearray)):
+        pid = pid.decode("ascii", "replace")
+    return str(pid).split("\x00", 1)[0]
+
+
+def set_takeoff_alt(master, alt_m, tries=2):
+    """Tell PX4 what AUTO.TAKEOFF should climb to, and confirm it took.
+
+    PX4 answers a PARAM_SET with the parameter's new value, and only that answer
+    counts. Any other PARAM_VALUE -- one from a parameter list being streamed to
+    a ground station, say -- says nothing about this one. Unconfirmed, PX4 keeps
+    whatever MIS_TAKEOFF_ALT it has stored (2.5 m by default) and climbs to that
+    instead of the height the mission intends.
+
+    Mirrors RealFC.set_takeoff_alt in c2_server.py. The two cannot share one
+    copy: c2_server imports this module, so importing it back would be a cycle."""
+    for _ in range(tries):
+        master.mav.param_set_send(
+            master.target_system, master.target_component,
+            b"MIS_TAKEOFF_ALT", float(alt_m),
+            mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
+        end = time.time() + 3
+        while time.time() < end:
+            ack = master.recv_match(type="PARAM_VALUE", blocking=True,
+                                    timeout=max(0.1, end - time.time()))
+            if ack is None:
+                break
+            if param_name(ack.param_id) == "MIS_TAKEOFF_ALT":
+                if abs(ack.param_value - float(alt_m)) < 0.01:
+                    return True
+                break               # answered with another value: send it again
+    return False
+
+
 def wait_altitude(master, target_m, timeout=30):
     """Watch relative altitude until target reached or timeout. Returns reached alt."""
     best = 0.0
@@ -230,7 +268,8 @@ def wait_altitude(master, target_m, timeout=30):
 
 
 def mission_3(master):
-    print(f"\n{INFO} Mission 3: arm → take off to {TAKEOFF_ALT_M:.2f} m (3 ft) → land → disarm.")
+    print(f"\n{INFO} Mission 3: arm → take off to {TAKEOFF_ALT_M:.2f} m "
+          f"({TAKEOFF_ALT_M * FEET_PER_M:.0f} ft) → land → disarm.")
     print(f"{WARN} THIS FLIES THE DRONE. Clear the area. Be ready to cut power.")
     # Always asked here, at the keyboard. This used to take require_confirm=False
     # for radio triggers (the C2 server's menu item 3 and the listener's "4"),
@@ -240,19 +279,27 @@ def mission_3(master):
         print(f"{INFO} Aborted.")
         return
 
-    # AUTO.TAKEOFF needs a position estimate (GPS/optical flow); check before arming
+    # AUTO.TAKEOFF needs a position estimate (GPS or optical flow); check first.
+    # LOCAL_POSITION_NED arriving only means the EKF is publishing one, not that
+    # it trusts it -- drone/ark_setup.py is what judges that, via POS_HORIZ_REL.
     print(f"{INFO} Checking position estimate ...")
     if master.recv_match(type="LOCAL_POSITION_NED", blocking=True, timeout=3) is None:
         print(f"{FAIL} No position estimate — PX4 cannot do an automatic takeoff.")
-        print(f"{WARN} This vehicle has no GPS/optical flow. Fit a GPS module and go")
-        print(f"{WARN} outdoors, or fly manually with the RC transmitter instead.")
+        print(f"{WARN} Indoors that is expected without the ARK Flow aiding the EKF:")
+        print(f"{WARN} run ./venv/bin/python drone/ark_setup.py to see what it reports.")
+        print(f"{WARN} Otherwise go outdoors for GPS, or fly manually on the RC.")
         return
 
-    # Takeoff altitude used by PX4's AUTO.TAKEOFF mode
-    master.mav.param_set_send(
-        master.target_system, master.target_component,
-        b"MIS_TAKEOFF_ALT", TAKEOFF_ALT_M, mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
-    master.recv_match(type="PARAM_VALUE", blocking=True, timeout=3)
+    # Takeoff altitude used by PX4's AUTO.TAKEOFF mode. Confirmed, not merely
+    # sent: unconfirmed, PX4 keeps whatever MIS_TAKEOFF_ALT it has stored (2.5 m
+    # by default) and AUTO.TAKEOFF climbs to that instead -- twice the intended
+    # height, which indoors means the ceiling. Same reasoning and same check as
+    # RealFC.set_takeoff_alt in c2_server.py.
+    print(f"{INFO} Setting MIS_TAKEOFF_ALT = {TAKEOFF_ALT_M:.2f} m ...")
+    if not set_takeoff_alt(master, TAKEOFF_ALT_M):
+        print(f"{FAIL} PX4 did not confirm MIS_TAKEOFF_ALT — not arming.")
+        print(f"{WARN} It would climb to its own stored height, not {TAKEOFF_ALT_M:.2f} m.")
+        return
 
     print(f"{INFO} Arming ...")
     if not send_command(master, mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 1,
@@ -518,7 +565,7 @@ def main():
 
         print("\n  1) Test each motor for 3 s, one at a time")
         print("  2) Test all motors at the same time")
-        print("  3) Arm, take off 3 ft, land, shut off (automatic — needs GPS)")
+        print("  3) Arm, take off 4 ft, land, shut off (automatic — needs a position estimate)")
         print("  4) Manual RC flight in Stabilized mode (script arms + monitors)")
         print("  5) Camera tracking display — show OAK-D person X/Y/Z (no flight)")
         print("  6) LoRa remote — run missions from LoRa commands")
