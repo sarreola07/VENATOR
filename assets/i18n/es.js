@@ -259,8 +259,8 @@ window.VENATOR_ES = {
   "tl.p": "Venator lo construye el Equipo 6 de UTSA. Aquí está lo que construyó cada uno de nosotros, en el orden en que pasó, y quiénes somos.",
   // EN: Meet the team
   "tl.cta": "Conoce al equipo",
-  // EN: Who built what
-  "tl.h2": "Quién construyó qué",
+  // EN: Built part by part
+  "tl.h2": "Construido pieza por pieza",
   // EN: One track per teammate, each in the order the work happened. Dates come from our Demo B review on October 23, 2026, and from the project's commit history.
   "tl.cap": "Una línea por integrante, cada una en el orden en que se hizo el trabajo. Las fechas vienen de nuestra revisión Demo B del 23 de octubre de 2026 y del historial de commits del proyecto.",
   // EN: Teammates
