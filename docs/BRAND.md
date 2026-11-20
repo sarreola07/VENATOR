@@ -177,12 +177,15 @@ written down here rather than left to memory.
 | NVIDIA `Orin_Nano_Dev_Kit.STEP` | the companion computer under the payload shelf | NVIDIA's own CAD for the Developer Kit |
 | Pixhawk `PIXHAWK 5X-6X.STEP` | the flight controller on the top plate | vendor CAD; exact source to be recorded |
 | Venator `Drone Propeller` | the four propellers, 254 mm span | modelled in Onshape for this project; ours outright |
-| Luxonis `DM9098Pro_enclosure.stp` | the OAK-D Pro on the nose bracket | vendor CAD for the enclosure |
+| Luxonis `DM9098Pro_enclosure.stp` | the OAK-D Pro: on the nose bracket in the hero frames, the views and `assets/social-card.jpg`, and in the gimbal in `cu-oakd.webp` | vendor CAD for the enclosure |
+| Venator `VENATOR_Comps.stl` (rail block, yoke with its side cages, cradle) | the camera gimbal in `cu-oakd.webp` | designed and 3D-printed for this project; ours outright. The STL is a print plate with no assembly positions, so the parts were placed for the render from their mating features: the rail block's bores on the two payload rails, the cradle's two holes, 75 mm apart, on the camera's VESA 75 back holes, the pivots on the servo axes. The servos are plain stand-ins modelled in Blender for the render |
 | Venator `wireless_stick_litev3.3mf` | the LoRa radio on the shelf edge | modelled in Onshape for this project; ours outright |
 | Venator `Rev1.kicad_pcb` (silkscreen "VENATOR PCB Rev 2") | the power distribution board, `cu-pdb.webp` | designed in KiCad for this project; ours outright. The parts on it are the 3D models attached to its footprints |
 | Venator `VENATOR_Gateway_RevD_ESP32.kicad_pcb` | the handheld remote, `cu-remote.webp` | designed in KiCad for this project; ours outright. The Heltec board, its screen, the knob and the button were modelled in Blender for the render |
 
-None of those CAD files are committed here. Only the rendered images are, and a
+None of those CAD files are committed here, apart from the assembled model
+`blender/x500_cad.blend`, a deliberate exception whose vendor geometry is not
+MIT (see `blender/README.md`). Otherwise only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
 
 - **The manufacturers' marks appear on their parts.** "Holybro" is embossed on
@@ -206,6 +209,13 @@ render of hardware we own is our own picture of our own aircraft. That said:
   solder mask, so the copper rails show, and `cu-remote.webp` shows the handheld
   remote without its antenna. Their gallery captions say so, the same way the
   radio caption does.
+- **Only the camera close-up shows the gimbal so far.** `cu-oakd.webp` shows
+  the OAK-D Pro in the 3D-printed pan-and-tilt gimbal hanging from the payload
+  rails. The hero frames, the views and the link preview
+  `assets/social-card.jpg` were rendered before it, with the camera on the
+  stock nose bracket, and `blender/x500_cad.blend` still has it there: the
+  gimbal is added to a copy at render time, never saved into the master. Its servos are generic stand-ins, not the real parts,
+  and the gallery caption says so, the same way the radio caption does.
 - The Pixhawk CAD is now the one open item. Its exact source is not written
   down, and should be before these renders are used anywhere beyond this
   repository.

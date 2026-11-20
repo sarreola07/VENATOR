@@ -4,6 +4,10 @@
 frame of the hero and mission animations comes from. 1069 objects, 2.31 M polys,
 13 materials, four hand-placed lights and two cameras. It holds **no animation**:
 the hero sequence is generated onto a copy at build time, never saved back here.
+The camera gimbal in `assets/renders/cu-oakd.webp` is handled the same way: it
+is added to a copy at render time from the team's `VENATOR_Comps.stl`, so this
+file still has the OAK-D Pro on the stock nose bracket, and re-rendering
+`cu-oakd.webp` from it alone brings the bracket back. See `docs/BRAND.md`.
 
 Stored with **[Git LFS](https://git-lfs.com)** — it is 49 MB. `git clone` on a
 machine without LFS gives you a pointer file instead of the model:
