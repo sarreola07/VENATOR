@@ -5,7 +5,7 @@ assets/lang.js swaps text and attributes in place from the keys in the markup
 (data-i18n, data-i18n-attr) and the dictionary in assets/i18n/es.js. A key on a
 page with no entry leaves that string in English, silently; an entry with no
 key on any page is dead weight that drifts. This pins both directions, and
-that the switch itself is on both pages with scripting-off safety intact.
+that the switch itself is on every page with scripting-off safety intact.
 
 Stdlib only: the dictionary is read as text, not executed.
 """
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = ("index.html", "how-it-works.html")
+PAGES = ("index.html", "how-it-works.html", "timeline.html")
 PASS = FAIL = 0
 
 
@@ -76,7 +76,7 @@ check("every dictionary entry is used on a page or by the gallery",
 check("the gallery script's two strings have keys", {"shots.close", "shots.open"} <= set(entries))
 check("and the gallery reads them through the switch", 't("shots.close"' in gallery and 't("shots.open"' in gallery)
 styles = [re.search(r"<style>.*?</style>", (ROOT / p).read_text(encoding="utf-8"), re.S).group(0) for p in PAGES]
-check("both pages still carry the same stylesheet", styles[0] == styles[1])
+check("every page still carries the same stylesheet", all(s == styles[0] for s in styles))
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

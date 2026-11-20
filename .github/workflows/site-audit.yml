@@ -1,11 +1,12 @@
 name: Site audit
 
-# The site is two static pages — index.html (the product) and how-it-works.html
-# (the explanation) — plus the animated SVGs in assets/brand, served by GitHub
-# Pages straight from main. This audits BOTH pages on every change, so a
-# regression shows up on the commit that caused it instead of on someone's
-# phone. Every step below must name both pages: a page missing from any one of
-# them ships unaudited while this workflow stays green.
+# The site is three static pages — index.html (the product), how-it-works.html
+# (the explanation) and timeline.html (the team and its work) — plus the
+# animated SVGs in assets/brand, served by GitHub Pages straight from main.
+# This audits EVERY page on every change, so a regression shows up on the
+# commit that caused it instead of on someone's phone. Every step below must
+# name every page: a page missing from any one of them ships unaudited while
+# this workflow stays green.
 #
 # Blocking: valid HTML, Lighthouse thresholds (.github/lighthouserc.json), and
 # zero WCAG 2.1 A/AA violations in light and dark mode at phone and desktop width.
@@ -17,6 +18,7 @@ on:
     paths:
       - "index.html"
       - "how-it-works.html"
+      - "timeline.html"
       - "assets/**"
       - ".github/lighthouserc.json"
       - ".github/workflows/site-audit.yml"
@@ -24,6 +26,7 @@ on:
     paths:
       - "index.html"
       - "how-it-works.html"
+      - "timeline.html"
       - "assets/**"
       - ".github/lighthouserc.json"
       - ".github/workflows/site-audit.yml"
@@ -43,31 +46,33 @@ jobs:
 
       # The lowercase <!doctype html> is valid HTML5; only the style rule objects.
       - name: HTML is valid
-        run: npx --yes html-validate@11 --rule 'doctype-style:off' index.html how-it-works.html
+        run: npx --yes html-validate@11 --rule 'doctype-style:off' index.html how-it-works.html timeline.html
 
-      # Both pages carry the whole stylesheet inline, because an external one is
-      # render-blocking and the performance score here is a blocking assertion.
-      # The cost of that choice is duplication, so the duplication is checked
-      # rather than trusted: if the two <style> blocks ever drift — a colour
+      # Every page carries the whole stylesheet inline, because an external one
+      # is render-blocking and the performance score here is a blocking
+      # assertion. The cost of that choice is duplication, so the duplication is
+      # checked rather than trusted: if the <style> blocks ever drift — a colour
       # token changed on one page only is the obvious way — this fails loudly.
-      - name: Both pages carry the same stylesheet
+      - name: Every page carries the same stylesheet
         run: |
           python3 - <<'EOF'
           import pathlib, re, sys, hashlib
           blocks = {}
-          for f in ("index.html", "how-it-works.html"):
+          for f in ("index.html", "how-it-works.html", "timeline.html"):
               m = re.search(r"<style>.*?</style>", pathlib.Path(f).read_text(encoding="utf-8"), re.S)
               if not m:
                   print(f"::error::{f} has no <style> block"); sys.exit(1)
               blocks[f] = m.group(0)
               print(f"{f}: {len(m.group(0)):,} chars, sha {hashlib.sha256(m.group(0).encode()).hexdigest()[:12]}")
-          a, b = blocks.values()
-          if a != b:
+          first, *rest = blocks
+          drifted = [f for f in rest if blocks[f] != blocks[first]]
+          for f in drifted:
               import difflib
-              for line in list(difflib.unified_diff(a.splitlines(), b.splitlines(),
-                                                    "index.html", "how-it-works.html", lineterm=""))[:40]:
+              for line in list(difflib.unified_diff(blocks[first].splitlines(), blocks[f].splitlines(),
+                                                    first, f, lineterm=""))[:40]:
                   print(line)
-              print("::error::the two pages' stylesheets have drifted apart")
+              print(f"::error::{f}'s stylesheet has drifted from {first}'s")
+          if drifted:
               sys.exit(1)
           print("stylesheets match")
           EOF
@@ -96,7 +101,7 @@ jobs:
           // ?lang=es is the same page with the language switch applied, so the
           // Spanish wording gets the same contrast, console and sideways-scroll
           // checks as the English. Lighthouse above stays on the English URLs.
-          for (const slug of ['index.html', 'how-it-works.html', 'index.html?lang=es', 'how-it-works.html?lang=es']) {
+          for (const slug of ['index.html', 'how-it-works.html', 'timeline.html', 'index.html?lang=es', 'how-it-works.html?lang=es', 'timeline.html?lang=es']) {
           for (const scheme of ['light', 'dark']) {
             for (const [name, width, height] of [['phone', 390, 844], ['desktop', 1280, 900]]) {
               const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width, height } });
@@ -129,7 +134,7 @@ jobs:
         run: |
           python3 - <<'EOF'
           import pathlib, re
-          pages = [pathlib.Path(p).read_text(encoding="utf-8") for p in ("index.html", "how-it-works.html")]
+          pages = [pathlib.Path(p).read_text(encoding="utf-8") for p in ("index.html", "how-it-works.html", "timeline.html")]
           used = sorted({m for t in pages for m in re.findall(r'src="(assets/brand/[\w-]+-light\.svg)"', t)})
           for svg in map(pathlib.Path, used):
               s = svg.read_text()

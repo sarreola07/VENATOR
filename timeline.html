@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="tl.title">Timeline: the team behind Venator</title>
+<meta name="description" data-i18n-attr="content:tl.desc" content="Who built Venator and what each of us did, in order: the circuit boards, the power board, the gimbal math, the telemetry link, the radio and the onboard AI. Team 6 at UTSA.">
+<link rel="canonical" href="https://sarreola07.github.io/VENATOR/timeline.html">
+<!-- Shared links used to render as a bare URL with no preview. Twitter reads the
+     og: tags for everything except the card type, so only that one is doubled.
+     The image is a JPEG rather than the WebP beside it: every crawler handles
+     JPEG, and a card nobody can decode is the same as no card. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Venator">
+<meta property="og:title" data-i18n-attr="content:tl.title" content="Timeline: the team behind Venator">
+<meta property="og:description" data-i18n-attr="content:tl.desc" content="Who built Venator and what each of us did, in order: the circuit boards, the power board, the gimbal math, the telemetry link, the radio and the onboard AI. Team 6 at UTSA.">
+<meta property="og:url" content="https://sarreola07.github.io/VENATOR/timeline.html">
+<meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" data-i18n-attr="content:shared.social_alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/brand/favicon.svg">
+<style>
+  /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
+     and nothing else, so it never carries small body text: at #E05316 it
+     measures 3.43:1 on paper, which clears the 3:1 bar for graphics and large
+     display type but not the 4.5:1 bar for body copy. */
+  :root{
+    --ink:#0A0A0A; --panel:#FFFFFF; --line:#DAD8D3; --muted:#6E6B66;
+    --paper:#F2F1EE; --signal:#E05316;
+    --gut:clamp(20px,5vw,64px);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#F2F1EE; --panel:#131314; --line:#2A2A27; --muted:#8A8781;
+      --paper:#0A0A0A;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.6 var(--sans);
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1240px; margin:0 auto; padding:0 var(--gut)}
+  a{color:inherit}
+  img{max-width:100%; height:auto; display:block}
+
+  /* ---- the dark band ----------------------------------------------------
+     Masthead and hero sit on near-black in BOTH colour schemes, the way
+     hero-*.svg already does. It is one fixed band at the top of the page,
+     not a section that inverts with the theme, so colours here are literal
+     rather than tokens: paper on #0A0A0A measures 17.5:1 and the muted grey
+     5.5:1, both clear of AA. */
+  .band{background:#0A0A0A; color:#F2F1EE}
+  .band .wrap{padding-top:0; padding-bottom:0}
+
+  /* ---- masthead: one line, 64px ---------------------------------------- */
+  .mast{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:24px; height:64px; border-bottom:1px solid #2A2A27;
+  }
+  .mast img{width:clamp(132px,19vw,168px)}
+  .mast nav{display:flex; gap:clamp(14px,3vw,28px)}
+  .mast nav a{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    text-decoration:none; color:#8A8781; white-space:nowrap;
+    padding:6px 0; border-bottom:1px solid transparent;
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .mast nav a:hover,.mast nav a:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
+  /* The page you are on holds the bright state, so the nav says where you are
+     rather than only announcing it to a screen reader via aria-current. */
+  .mast nav a[aria-current="page"]{color:#F2F1EE; border-color:#2A2A27}
+  /* The language switch sits in the nav and dresses like a link. It is hidden
+     until assets/lang.js removes the attribute, so with scripting off there is
+     no control that does nothing. */
+  .mast nav .lang{
+    background:none; border:0; border-bottom:1px solid transparent; padding:6px 0;
+    cursor:pointer; font:inherit; font-size:12px; letter-spacing:.14em; line-height:inherit;
+    text-transform:uppercase; color:#8A8781; white-space:nowrap;
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .mast nav .lang:hover,.mast nav .lang:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
+  /* Until then it holds its place, invisible and out of the tab order. On a
+     phone the five items wrap to two rows where the four links alone fit on
+     one, so a switch that appeared from nothing pushed the page down a row as
+     it loaded: CLS 0.22 against the 0.05 gate. With scripting off, the
+     <noscript> rule in the head takes the empty place away again. */
+  .mast nav .lang[hidden]{display:block; visibility:hidden}
+
+  /* ---- hero: asymmetric split ------------------------------------------ */
+  .hero{
+    display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
+    gap:clamp(28px,6vw,72px); align-items:end;
+    /* Tighter than it looks like it wants to be, because every pixel here is a
+       pixel of the numbers band pushed below the fold. */
+    padding:clamp(26px,4vw,44px) 0 clamp(18px,2.4vw,28px);
+  }
+  .hero h1{
+    margin:0; font-size:clamp(2.6rem,8.4vw,6rem); line-height:.96;
+    font-weight:700; letter-spacing:-.035em; text-wrap:balance;
+  }
+  /* The small label above the headline. It sits inside the <h1> so the hero
+     grid keeps its two children, and so the heading reads "Autonomy, fence an
+     area..." to a screen reader. Signal orange, used decoratively by the
+     owner's choice (BRAND.md keeps it for live state). Hard-coded like the nav:
+     the band is near-black in both themes, where #E05316 measures 5.11:1, so it
+     passes AA even at this 12px size. */
+  .hero h1 .kicker{
+    display:block; margin:0 0 18px; font-size:12px; line-height:1;
+    font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#E05316;
+  }
+  /* The Product page headline is three short beats, one per line. The longest,
+     "Find who's in it.", is 6.92em wide, so this size keeps each beat on one
+     line in the hero column from 375px up to the 1240px cap (the general
+     8.4vw/6rem above would break them mid-phrase). The &nbsp;s in the markup
+     keep a beat from leaving a single word behind on narrower screens. */
+  .hero h1.beats{font-size:clamp(2.6rem,7vw,5.6rem)}
+  .hero p{
+    margin:0; max-width:36ch;
+    font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
+  }
+
+  /* ---- the mission banner ----------------------------------------------
+     Sits inside the dark band, so like the lockup it is one fixed dark asset
+     rather than a <picture> pair: this band does not invert with the theme.
+     width/height on the img give the intrinsic ratio, so the banner reserves
+     its own box before the SVG arrives and costs nothing in CLS. */
+  .mission{margin:0 0 clamp(20px,3vw,34px); border-color:#2A2A27; background:#0A0A0A}
+  .mission img{display:block; width:100%; height:auto}
+  .act{display:flex; flex-wrap:wrap; gap:10px; margin-top:clamp(20px,2.6vw,26px)}
+  .act a{
+    display:inline-block; padding:12px 22px; text-decoration:none;
+    font-size:12.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+    border:1.5px solid #F2F1EE; color:#F2F1EE; white-space:nowrap;
+    transition:transform .14s ease, background .18s ease, color .18s ease;
+  }
+  .act a.key{background:#F2F1EE; color:#0A0A0A}
+  .act a:hover,.act a:focus-visible{transform:translateY(-1px)}
+  .act a:active{transform:translateY(1px)}
+  /* The same button at the foot of the page, where the background is paper
+     rather than the near-black band: the hero's near-white fill would be
+     invisible there, so it inverts. Both tokens flip for dark mode, so this
+     stays the right way round in either scheme. */
+  .act-foot{margin:clamp(34px,5vw,56px) 0 0}
+  .act-foot a.key{
+    background:var(--ink); color:var(--paper); border-color:var(--ink);
+  }
+
+  /* the aircraft, full bleed, closing the dark band */
+
+  /* ---- figures ---------------------------------------------------------- */
+  figure{margin:0; border:1px solid var(--line); background:var(--panel); overflow:hidden}
+  /* width, not just max-width: these SVGs carry intrinsic 900-1000 px sizes,
+     so max-width alone leaves them at natural size with a band of figure
+     background beside them. */
+  figure img{width:100%}
+  /* The self-test is dark in both schemes by design, so it carries its own
+     frame rather than the paper-coloured one. */
+  .selftest{border-color:var(--line); background:#0A0A0A}
+
+  /* ---- numbers band ----------------------------------------------------- */
+  .nums{
+    margin-top:clamp(40px,6vw,72px);
+    border-top:1px solid var(--ink); border-bottom:1px solid var(--line);
+    display:grid; grid-template-columns:repeat(4,1fr);
+  }
+  .nums > div{padding:clamp(22px,3.4vw,34px) clamp(16px,2vw,28px) clamp(24px,3.4vw,36px)}
+  .nums > div + div{border-left:1px solid var(--line)}
+  .nums b{
+    display:block; font-size:clamp(2rem,4.4vw,3.25rem); line-height:1;
+    font-weight:700; letter-spacing:-.03em;
+  }
+  .nums b i{font-style:normal; font-size:.42em; letter-spacing:0; margin-left:.22em; color:var(--muted)}
+  .nums span{
+    display:block; margin-top:12px; font-size:13px; color:var(--ink);
+  }
+  .nums em{
+    display:block; margin-top:7px; font-style:normal;
+    font:10.5px/1.45 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  /* ---- generic section rhythm ------------------------------------------- */
+  section{padding:clamp(56px,9vw,104px) 0 0}
+  .lab{
+    margin:0 0 14px; font-size:11px; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--muted); font-weight:700;
+  }
+  h2{
+    margin:0; font-size:clamp(1.55rem,3.4vw,2.4rem); line-height:1.1;
+    font-weight:700; letter-spacing:-.022em; max-width:20ch; text-wrap:balance;
+  }
+  .cap{margin:16px 0 0; max-width:62ch; color:var(--muted)}
+
+  /* family: full-bleed media with the text above it */
+  .stack h2 + .cap{margin-bottom:clamp(26px,4vw,38px)}
+
+  /* family: a run of capabilities. Each diagram is drawn 1000 units wide, so
+     it gets the full column: at half width its labels render near 5 px, under
+     the 7 px the site audit warns at. Variety comes from the heading rhythm,
+     not from shrinking the artwork. */
+  .series{margin-top:clamp(30px,4.5vw,46px)}
+  .item + .item{margin-top:clamp(34px,5vw,58px)}
+  .item .hd{
+    display:flex; align-items:baseline; gap:14px; margin-bottom:14px;
+    padding-bottom:12px; border-bottom:1px solid var(--line);
+  }
+  .item h3{margin:0; font-size:1.125rem; font-weight:700; letter-spacing:-.012em; white-space:nowrap}
+  .item .hd p{margin:0; font-size:14px; color:var(--muted)}
+  @media (max-width:680px){
+    .item .hd{display:block}
+    .item h3{white-space:normal; margin-bottom:6px}
+  }
+
+  /* family: status band */
+  .status{margin-top:clamp(28px,4vw,40px); border-top:1px solid var(--ink); padding-top:clamp(24px,3.4vw,34px)}
+  .status .cap{max-width:70ch}
+  .status figure{margin-top:clamp(22px,3vw,30px)}
+
+  /* ---- missions --------------------------------------------------------
+     Native <details>: they open with no script, from the keyboard, and
+     announce open/closed to a screen reader. The number and the +/- are
+     aria-hidden spans, so neither is read out as part of the summary; the
+     grey teaser (.t) is, which is the point of it. The numbers use signal
+     orange decoratively, a deliberate exception to BRAND.md's live-state-only
+     rule; at 28px bold they are large text, so 3.43:1 on paper clears 3:1. */
+  .missions-list{margin-top:clamp(24px,3.4vw,34px); max-width:78ch; border-bottom:1px solid var(--line)}
+  .missions-list details{border-top:1px solid var(--line)}
+  .missions-list details:first-child{border-top-color:var(--ink)}
+  .missions-list summary{
+    position:relative; display:block; cursor:pointer; list-style:none;
+    padding:20px 44px 20px 64px; font-size:1.125rem; font-weight:700; line-height:1.3;
+  }
+  .missions-list summary::-webkit-details-marker{display:none}
+  .missions-list .n{
+    position:absolute; left:0; top:19px;
+    font:700 28px/1 var(--mono); letter-spacing:-.02em; color:var(--signal);
+  }
+  .missions-list .t{display:block; margin-top:4px; font-size:14px; font-weight:400; line-height:1.45; color:var(--muted)}
+  .missions-list .pm{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    font:400 20px/1 var(--mono); color:var(--muted);
+  }
+  .missions-list .pm::before{content:"+"}
+  .missions-list details[open] .pm::before{content:"\2212"}
+  .missions-list summary:hover .pm{color:var(--ink)}
+  .missions-list details p{margin:0 0 24px; padding-left:64px; max-width:66ch; color:var(--muted)}
+  @media (max-width:420px){
+    .missions-list summary{padding-left:44px}
+    .missions-list .n{font-size:22px; top:21px}
+    .missions-list details p{padding-left:44px}
+  }
+
+  footer{
+    margin-top:clamp(64px,9vw,112px); padding:26px 0 56px;
+    border-top:1px solid var(--line); color:var(--muted); font-size:13px;
+    display:flex; gap:16px; justify-content:space-between; flex-wrap:wrap;
+  }
+  footer a{color:var(--ink)}
+
+  :focus-visible{outline:2px solid var(--signal); outline-offset:3px}
+
+  /* ---- phone ------------------------------------------------------------ */
+  /* Below this the lockup and the nav no longer fit on one line. They used to
+     overflow the band, which also dragged the nav colour off the dark
+     background and onto paper, where #8A8781 measures 3.17:1 and fails. With
+     Timeline added, the Spanish masthead needs a 574 px window to fit on one
+     line, so the break sits at 620 to leave room for fonts that set wider
+     than Linux's Arial. */
+  @media (max-width:620px){
+    .mast{height:auto; flex-wrap:wrap; justify-content:flex-start; padding:14px 0 0}
+    .mast picture,.mast img{flex:0 0 auto}
+    /* Five items now, and the Spanish ones are longer: let the row wrap rather
+       than overflow, which the audit counts as sideways scroll. */
+    .mast nav{flex:1 0 100%; flex-wrap:wrap; margin-top:12px; padding-bottom:10px; gap:6px 18px}
+  }
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr; gap:34px; align-items:start}
+    .nums{grid-template-columns:1fr 1fr}
+    .nums > div:nth-child(odd){border-left:0}
+    .nums > div:nth-child(n+3){border-top:1px solid var(--line)}
+  }
+  @media (max-width:420px){
+    .nums{grid-template-columns:1fr}
+    .nums > div + div{border-left:0; border-top:1px solid var(--line)}
+  }
+
+  /* ---- the hardware gallery --------------------------------------------
+     Captions are real HTML, not text burned into the render: a screen reader
+     reads them, they rescale at 390 px where the audit tests, and they swap
+     for dark mode on their own. */
+  .grid{
+    display:grid; grid-template-columns:repeat(2,1fr);
+    gap:clamp(18px,2.6vw,30px); margin-top:clamp(30px,4.5vw,46px);
+  }
+  .tile h3{margin:14px 0 4px; font-size:1rem; font-weight:700; letter-spacing:-.012em}
+  .tile p{margin:0; font-size:14px; color:var(--muted)}
+  @media (max-width:620px){ .grid{grid-template-columns:1fr} }
+
+  /* ---- the plate viewer -------------------------------------------------
+     One box, one render at a time. The four views are different shapes -- the
+     plan is square, the elevations are 16:9 -- so the stage carries its aspect
+     ratio in a custom property and eases between them. A fixed box would have
+     to letterbox the square one into 56% of its width, which is the empty
+     space this page has spent its life removing.
+
+     The height change happens on a click, and layout shifts within 500 ms of
+     user input are excluded from cumulative-layout-shift, so this costs nothing
+     against a gate that blocks the build. */
+  .shots{margin-top:clamp(30px,4.5vw,46px)}
+  .shots-stage{
+    position:relative; width:100%;
+    aspect-ratio:var(--ar, 16/9);
+    transition:aspect-ratio .45s cubic-bezier(.4,0,.2,1);
+    background:#0A0A0A; border:1px solid var(--line);
+    cursor:zoom-in;
+  }
+  .shot{
+    position:absolute; inset:0; width:100%; height:100%;
+    object-fit:contain; image-rendering:high-quality;
+    opacity:0; transition:opacity .45s ease;
+    will-change:opacity;            /* keeps the crossfade off the main thread */
+  }
+  .shot[data-on]{opacity:1}
+  .shots-bar{
+    display:flex; align-items:center; justify-content:center; gap:18px;
+    margin-top:14px; min-height:34px;
+  }
+  .shots-arrow{
+    width:34px; height:34px; padding:0; cursor:pointer;
+    display:grid; place-items:center;
+    background:none; border:1px solid var(--line); color:var(--ink);
+    font:14px/1 var(--mono);
+    transition:border-color .18s ease, color .18s ease;
+  }
+  .shots-arrow:hover,.shots-arrow:focus-visible{border-color:var(--ink)}
+  .shots-dots{display:flex; gap:2px}
+  /* The dot you see is 8 px; the button you hit is 24, which is the smallest
+     thing a thumb should be asked to find. Drawing the dot as a pseudo-element
+     is what lets those two be different numbers. */
+  .shots-dot{
+    width:24px; height:24px; padding:0; cursor:pointer;
+    display:grid; place-items:center;
+    background:none; border:0;
+  }
+  .shots-dot::before{
+    content:""; width:8px; height:8px; border-radius:50%;
+    border:1px solid var(--muted);
+    transition:background .18s ease, border-color .18s ease;
+  }
+  .shots-dot[aria-current="true"]::before{background:var(--ink); border-color:var(--ink)}
+  .shots-dot:focus-visible::before{border-color:var(--ink)}
+  .shots-name{
+    margin:10px 0 0; text-align:center;
+    font:11px/1.6 var(--mono); letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  /* the full-size view */
+  .shots-full{
+    border:0; padding:0; max-width:100vw; max-height:100vh;
+    width:100%; height:100%; background:#0A0A0A;
+  }
+  .shots-full::backdrop{background:rgba(10,10,10,.92)}
+  .shots-full img{
+    display:block; width:100%; height:100%;
+    object-fit:contain; image-rendering:high-quality;
+  }
+  .shots-close{
+    position:fixed; top:14px; right:14px; z-index:1;
+    width:40px; height:40px; cursor:pointer;
+    display:grid; place-items:center;
+    background:rgba(10,10,10,.7); border:1px solid #2A2A27; color:#F2F1EE;
+    font:16px/1 var(--mono);
+  }
+
+  /* ---- the hero sequence -------------------------------------------------
+     120 frames played once, on a clock, when the aircraft comes into view.
+
+     aspect-ratio and the img's width/height attributes both matter:
+     cumulative-layout-shift <= 0.05 is a blocking assertion and a swapping
+     image is the classic way to fail it. */
+  /* The aircraft stays put and the sequence plays itself once, on a clock.
+     It used to scrub against scroll, and the cost of that was not the scrubbing
+     but the arithmetic: a scroll-driven animation reserves its length as
+     document space, and that space sat between the aircraft and the numbers,
+     pushing them nearly two screens below the fold. On a clock it costs no page
+     height at all, so both are on the first screen.
+
+     --cine-h is the one number to turn. It is the SMALLER of what the width
+     allows and the cap, so a phone is limited by its width and a desktop by the
+     cap, with no media query between them. */
+  .cine{
+    --cine-h:min(100vw * 877 / 1279, 46vh);
+    position:relative;
+  }
+  .cine-stick{display:flex; justify-content:center}
+  /* The labels are placed in the render's own coordinates, so they have to
+     share a box with the image exactly. The sticky pane is 100vh tall and the
+     image is letterboxed inside it, so anchoring labels to the pane pulls them
+     away from their parts on every viewport that is not 16:9. This wrapper IS
+     the image box. */
+  .cine-frame{
+    position:relative; width:100%;
+    max-width:calc(var(--cine-h) * 1279 / 877); aspect-ratio:1279/877;
+  }
+  .cine-stick picture{display:block}
+  .cine-stick img{display:block; width:100%; height:100%}
+
+
+  /* ---- labels on the 360 ------------------------------------------------
+     Real text, not pixels burned into the render: a screen reader reads them,
+     they stay crisp at any size, and they do not need re-rendering to change.
+     Blender exported where each part sits in every frame; cine-play.js puts
+     these over it.
+
+     The colours are hardcoded rather than tokens because the band behind is
+     near-black in BOTH schemes -- the same reason .mast nav a is hardcoded. */
+  .cine-labels{position:absolute; inset:0; pointer-events:none}
+  .cine-label{
+    position:absolute; transform:translate(-50%,-50%);
+    padding:5px 9px; white-space:nowrap;
+    font:11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+    color:#F2F1EE; background:rgba(10,10,10,.74); border:1px solid #2A2A27;
+  }
+  /* On a phone the frame is barely 200px tall, and four chips at desktop size
+     stack into a ladder that hides the aircraft they are naming. */
+  @media (max-width:680px){
+    .cine-label{font-size:9px; letter-spacing:.06em; padding:2px 5px}
+  }
+
+  /* ---- the timeline page ------------------------------------------------
+     One track per teammate: a rule down the left with a square on it for
+     every step, then the team. The rule runs through the centre of the
+     teammate's photo, and each step's text lines up with their name. */
+  .hero h1.pair{font-size:clamp(2.3rem,6vw,4.6rem)}
+  .tl-jump{
+    display:flex; flex-wrap:wrap; gap:8px; list-style:none;
+    margin:clamp(22px,3vw,30px) 0 0; padding:0;
+  }
+  .tl-jump a{
+    display:block; padding:9px 14px; text-decoration:none;
+    font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    border:1px solid var(--line); transition:border-color .18s ease;
+  }
+  .tl-jump a:hover,.tl-jump a:focus-visible{border-color:var(--ink)}
+  .track{
+    margin-top:clamp(40px,6vw,64px); padding-top:clamp(20px,3vw,28px);
+    border-top:1px solid var(--ink); scroll-margin-top:12px;
+  }
+  .track-hd{display:flex; align-items:center; gap:16px}
+  .track-hd img{flex:0 0 auto; width:56px; height:56px; border-radius:50%}
+  .track-hd h3{
+    margin:0; font-size:clamp(1.25rem,2.4vw,1.6rem); line-height:1.15;
+    font-weight:700; letter-spacing:-.02em;
+  }
+  .role{
+    margin:6px 0 0; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .tl{
+    list-style:none; margin:clamp(24px,3.4vw,32px) 0 0 27px; padding:0 0 0 44px;
+    border-left:1px solid var(--line);
+  }
+  .tl > li{
+    position:relative; display:grid; align-items:start;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:clamp(16px,3vw,40px);
+  }
+  .tl > li.solo{display:block}
+  .tl > li + li{margin-top:clamp(30px,4.4vw,44px)}
+  .tl > li::before{
+    content:""; position:absolute; left:-49px; top:5px;
+    width:9px; height:9px; background:var(--ink);
+  }
+  .tl-when{
+    display:block; margin:0 0 6px; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .tl h4{margin:0; font-size:1.0625rem; line-height:1.3; font-weight:700; letter-spacing:-.01em}
+  .tl-txt p{margin:8px 0 0; max-width:56ch; font-size:15px; color:var(--muted)}
+  /* The photos in a step share one height and keep their own shapes. Each
+     link's width is its photo's aspect ratio times the row height (the .ar-*
+     classes, since the site carries no inline styles), and when the row is
+     too narrow they shrink in proportion, so the heights stay equal. A tap
+     opens the larger copy. */
+  .tl-photos{--row-h:280px; display:flex; gap:10px}
+  .tl-photos a{flex:0 1 calc(var(--ar) * var(--row-h)); min-width:0}
+  .tl-photos img{width:100%; border:1px solid var(--line); background:var(--panel); transition:border-color .18s ease}
+  .tl-photos a:hover img,.tl-photos a:focus-visible img{border-color:var(--ink)}
+  .ar-34{--ar:.75} .ar-43{--ar:1.3333} .ar-56{--ar:.8333} .ar-98{--ar:1.125}
+  .also{margin:clamp(26px,3.6vw,34px) 0 0 72px}
+  .also-k{
+    margin:0 0 10px; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .also ul{display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0}
+  .also li{padding:5px 10px; border:1px solid var(--line); font-size:13px; line-height:1.4}
+  .team{
+    list-style:none; margin:clamp(30px,4.5vw,46px) 0 0; padding:0;
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:clamp(18px,2.6vw,30px);
+  }
+  .team img{width:100%; max-width:180px; border-radius:50%}
+  .team h3{margin:16px 0 0; font-size:1.0625rem; font-weight:700; letter-spacing:-.012em}
+  .team .role{margin-top:4px}
+  .bio{margin:12px 0 0; font-size:14px; color:var(--muted)}
+  .bio-k{
+    display:block; margin-bottom:2px; font:10.5px/1.5 var(--mono); letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink);
+  }
+  @media (max-width:980px){ .team{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media (max-width:860px){
+    .tl > li{grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:620px){ .team{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:560px){
+    .track-hd{gap:12px}
+    .track-hd img{width:44px; height:44px}
+    .tl{margin-left:21px; padding-left:34px}
+    .tl > li::before{left:-39px}
+    .tl-photos{--row-h:200px}
+    .also{margin-left:56px}
+  }
+</style>
+<!-- Rules that only apply with scripting off. -->
+<noscript><style>
+  /* No script, no language switch: give its reserved place back. */
+  .mast nav .lang[hidden]{display:none}
+</style></noscript>
+</head>
+<body>
+
+<div class="band">
+<div class="wrap">
+
+  <header class="mast">
+    <!-- The masthead band is near-black in both colour schemes, so the lockup
+         is always the near-white one. BRAND.md: "dark" means the ink is
+         near-white, for dark backgrounds. -->
+    <a href="index.html"><img src="assets/brand/lockup-dark.svg" data-i18n-attr="alt:nav.lockup" alt="Venator, autonomous flight systems" width="168" height="30"></a>
+    <nav aria-label="Primary" data-i18n-attr="aria-label:nav.primary">
+      <button class="lang" type="button" hidden lang="es">Español</button>
+      <a href="index.html" data-i18n="nav.product">Product</a>
+      <a href="how-it-works.html" data-i18n="nav.how">How it works</a>
+      <a href="timeline.html" aria-current="page" data-i18n="nav.timeline">Timeline</a>
+      <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1 class="pair"><span class="kicker" data-i18n="tl.team6">Team 6</span><span data-i18n="tl.beat1">Five engineers.</span><br><span data-i18n="tl.beat2">One aircraft.</span></h1>
+    <div>
+      <p data-i18n="tl.p">Venator is built by Team 6 at UTSA. Here is what each of us built, in the order it happened, and who we are.</p>
+      <p class="act">
+        <a class="key" href="#team" data-i18n="tl.cta">Meet the team</a>
+      </p>
+    </div>
+  </div>
+
+  </div><!-- /wrap -->
+</div><!-- /band -->
+
+<div class="wrap">
+
+  <!-- One track per teammate, each in the order the work happened. The steps
+       come from the Demo B deck (Oct 23, 2026), where each of us reported what
+       was done and what was under way; the dated steps after it come from the
+       commit history. "Also worked on" is the deck's work breakdown, which
+       names the owners of every task. The photos are the deck's own, cut to
+       640 px tall; a tap opens the larger copy beside each one. -->
+  <section id="timeline">
+    <p class="lab" data-i18n="nav.timeline">Timeline</p>
+    <h2 data-i18n="tl.h2">Who built what</h2>
+    <p class="cap" data-i18n="tl.cap">One track per teammate, each in the order the work happened. Dates come from our Demo B review on October 23, 2026, and from the project&rsquo;s commit history.</p>
+    <nav aria-label="Teammates" data-i18n-attr="aria-label:tl.jump">
+      <ul class="tl-jump">
+        <li><a href="#david">David Ritter</a></li>
+        <li><a href="#grant">Grant Navarro</a></li>
+        <li><a href="#vincent">Vincent Munoz</a></li>
+        <li><a href="#leonel">Leonel Cordova</a></li>
+        <li><a href="#sergio">Sergio Arreola</a></li>
+      </ul>
+    </nav>
+
+    <article class="track" id="david">
+      <div class="track-hd">
+        <img src="assets/timeline/team-david.webp" width="480" height="480" alt="">
+        <div>
+          <h3>David Ritter</h3>
+          <p class="role" data-i18n="tl.david.role">Ground control &amp; networking</p>
+        </div>
+      </div>
+      <ol class="tl">
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.david.e1.h">Two boards, in 3D</h4>
+            <p data-i18n="tl.david.e1.p">Modeled both of our radio boards in 3D: the ESP32 board in the handheld remote and the Pico board in the gateway.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-56" href="assets/timeline/david-remote-board-lg.webp"><img src="assets/timeline/david-remote-board.webp" width="533" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.david.e1.alt1" alt="3D model of the handheld remote&rsquo;s board: the Heltec ESP32 LoRa module with its screen, above a knob and a back button"></a>
+            <a class="ar-56" href="assets/timeline/david-gateway-board-lg.webp"><img src="assets/timeline/david-gateway-board.webp" width="533" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.david.e1.alt2" alt="3D model of the gateway board: a large 2.42 inch screen above a knob and a back button"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.david.e2.h">Cases, designed and printed</h4>
+            <p data-i18n="tl.david.e2.p">Designed a case for each board in Fusion 360, then 3D-printed them.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/david-printed-case-lg.webp"><img src="assets/timeline/david-printed-case.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.david.e2.alt" alt="A 3D-printed case, blue on an orange base, with the board&rsquo;s screen and knob showing through the top, on a workbench"></a>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-23" data-i18n="tl.when.demob">Oct 23, 2026 · Demo B</time>
+            <h4 data-i18n="tl.david.e3.h">Firmware and the radio bridge</h4>
+            <p data-i18n="tl.david.e3.p">Took on the ESP32 firmware and the link between the Pico board and the drone&rsquo;s Heltec radio, two radios that frame LoRa packets differently.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="also">
+        <p class="also-k" data-i18n="tl.also">Also worked on</p>
+        <ul>
+          <li data-i18n="tl.david.a1">Power system and board fabrication, with Grant and Vincent</li>
+          <li data-i18n="tl.david.a2">Pixhawk setup and tuning, with Grant</li>
+          <li data-i18n="tl.david.a3">UART integration, with Grant</li>
+          <li data-i18n="tl.david.a4">Ground control interface</li>
+          <li data-i18n="tl.david.a5">Video streaming, with Sergio</li>
+          <li data-i18n="tl.david.a6">Integration testing, with Grant and Leonel</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="track" id="grant">
+      <div class="track-hd">
+        <img src="assets/timeline/team-grant.webp" width="480" height="480" loading="lazy" alt="">
+        <div>
+          <h3>Grant Navarro</h3>
+          <p class="role" data-i18n="tl.grant.role">Flight dynamics &amp; avionics</p>
+        </div>
+      </div>
+      <ol class="tl">
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.grant.e1.h">Where everything sits</h4>
+            <p data-i18n="tl.grant.e1.p">Sketched how the GPS, the Pixhawk, the downward lidar and the laser rangefinder on its servo sit relative to each other, so a distance measured from the drone can become a position on the ground.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/grant-sketch-lg.webp"><img src="assets/timeline/grant-sketch.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.grant.e1.alt" alt="Whiteboard sketch of the drone from the side: the GPS, the Pixhawk, the downward lidar and the rangefinder on its servo, with notes on the offsets between them"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.grant.e2.h">The math, then the test</h4>
+            <p data-i18n="tl.grant.e2.p">Worked out the geometry from the drone&rsquo;s height and the rangefinder&rsquo;s reading to the target&rsquo;s position, then tested the laser rangefinder and the equation that sets the servo&rsquo;s angle.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/grant-rangefinder-math-lg.webp"><img src="assets/timeline/grant-rangefinder-math.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.grant.e2.alt" alt="Whiteboard math: the lidar&rsquo;s height and the rangefinder&rsquo;s reading form a right triangle, solved for the distance along the ground"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.grant.e3.h">A servo stands in for the gimbal</h4>
+            <p data-i18n="tl.grant.e3.p">Tested a servo standing in for the gimbal&rsquo;s own, with potentiometers simulating the values it will read from the Pixhawk.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/grant-servo-math-lg.webp"><img src="assets/timeline/grant-servo-math.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.grant.e3.alt" alt="Whiteboard notes on the servo: how its angle follows the PWM signal, and how the potentiometer readings map onto it"></a>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-23" data-i18n="tl.when.demob">Oct 23, 2026 · Demo B</time>
+            <h4 data-i18n="tl.grant.e4.h">Onto the real gimbal</h4>
+            <p data-i18n="tl.grant.e4.p">Testing the servos on the gimbal itself, and bringing the lidar&rsquo;s data into the Pixhawk and the ground station. Next: the test code onto the Jetson, and the infrared camera.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="also">
+        <p class="also-k" data-i18n="tl.also">Also worked on</p>
+        <ul>
+          <li data-i18n="tl.grant.a1">Power system and board fabrication, with David and Vincent</li>
+          <li data-i18n="tl.grant.a2">Pixhawk setup and tuning, with David</li>
+          <li data-i18n="tl.grant.a3">UART integration, with David</li>
+          <li data-i18n="tl.grant.a4">System integration, with Leonel and Vincent</li>
+          <li data-i18n="tl.grant.a5">Sensor and power testing, with Vincent</li>
+          <li data-i18n="tl.grant.a6">Integration testing, with David and Leonel</li>
+          <li data-i18n="tl.grant.a7">Flight testing, with Leonel</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="track" id="vincent">
+      <div class="track-hd">
+        <img src="assets/timeline/team-vincent.webp" width="480" height="480" loading="lazy" alt="">
+        <div>
+          <h3>Vincent Munoz</h3>
+          <p class="role" data-i18n="tl.vincent.role">Electromechanical &amp; power systems</p>
+        </div>
+      </div>
+      <ol class="tl">
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.vincent.e1.h">The power distribution board</h4>
+            <p data-i18n="tl.vincent.e1.p">Designed the board that carries the 4S battery to the four ESCs and makes the 12&nbsp;V, 5&nbsp;V and 3.3&nbsp;V rails for the Jetson, the servos and the sensors.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-98" href="assets/timeline/vincent-pdb-lg.webp"><img src="assets/timeline/vincent-pdb.webp" width="720" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.vincent.e1.alt" alt="Render of the power distribution board: a green board with power connectors along its edges and its regulators near the center"></a>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-23" data-i18n="tl.when.demob">Oct 23, 2026 · Demo B</time>
+            <h4 data-i18n="tl.vincent.e2.h">The board arrives</h4>
+            <p data-i18n="tl.vincent.e2.p">The fabricated board had just arrived, and soldering was under way. The smallest surface-mount parts were next, with David, a hot plate and a digital microscope.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="also">
+        <p class="also-k" data-i18n="tl.also">Also worked on</p>
+        <ul>
+          <li data-i18n="tl.vincent.a1">Power system and board fabrication, with David and Grant</li>
+          <li data-i18n="tl.vincent.a2">System integration, with Grant and Leonel</li>
+          <li data-i18n="tl.vincent.a3">Sensor and power testing, with Grant</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="track" id="leonel">
+      <div class="track-hd">
+        <img src="assets/timeline/team-leonel.webp" width="480" height="480" loading="lazy" alt="">
+        <div>
+          <h3>Leonel Cordova</h3>
+          <p class="role" data-i18n="tl.leonel.role">Middleware &amp; system integration</p>
+        </div>
+      </div>
+      <ol class="tl">
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.leonel.e1.h">A home for the Jetson</h4>
+            <p data-i18n="tl.leonel.e1.p">Designed and installed the Jetson Orin Nano&rsquo;s enclosure and its mount on the airframe.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/leonel-jetson-mount-lg.webp"><img src="assets/timeline/leonel-jetson-mount.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.leonel.e1.alt" alt="The Jetson in its orange 3D-printed enclosure, mounted under the drone&rsquo;s frame"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.leonel.e2.h">A two-axis camera gimbal</h4>
+            <p data-i18n="tl.leonel.e2.p">Designed, printed and assembled the servo gimbal that carries the camera.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-43" href="assets/timeline/leonel-gimbal-lg.webp"><img src="assets/timeline/leonel-gimbal.webp" width="853" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.leonel.e2.alt" alt="The two-axis servo gimbal on the drone, holding the OAK-D Pro camera in a black frame under an orange mount"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.when.p3">Phase 3 · Implementation</span>
+            <h4 data-i18n="tl.leonel.e3.h">Live telemetry in the GUI</h4>
+            <p data-i18n="tl.leonel.e3.p">Connected the Pixhawk 6X to the VENATOR GUI over a SiK telemetry radio. The port is found on its own; roll, pitch, heading, battery and flight mode update 10 times a second, and the downward lidar&rsquo;s distance to the floor 5 times a second.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/leonel-sik-radio-lg.webp"><img src="assets/timeline/leonel-sik-radio.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.leonel.e3.alt" alt="The SiK telemetry radio and its antenna, wired to the Pixhawk on the drone&rsquo;s top plate"></a>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-23" data-i18n="tl.when.demob">Oct 23, 2026 · Demo B</time>
+            <h4 data-i18n="tl.leonel.e4.h">Checked on the bench</h4>
+            <p data-i18n="tl.leonel.e4.p">Verified the wireless MAVLink connection and live telemetry through the SiK radio, and the lidar&rsquo;s readings feeding PX4&rsquo;s height estimate. Next: outdoor range tests, and the camera&rsquo;s view in the GUI.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="also">
+        <p class="also-k" data-i18n="tl.also">Also worked on</p>
+        <ul>
+          <li data-i18n="tl.leonel.a1">Jetson setup, ROS 2 and AI, with Sergio</li>
+          <li data-i18n="tl.leonel.a2">System integration, with Grant and Vincent</li>
+          <li data-i18n="tl.leonel.a3">Integration testing, with David and Grant</li>
+          <li data-i18n="tl.leonel.a4">Flight testing, with Grant</li>
+          <li data-i18n="tl.leonel.a5">AI detection testing, with Sergio</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="track" id="sergio">
+      <div class="track-hd">
+        <img src="assets/timeline/team-sergio.webp" width="480" height="480" loading="lazy" alt="">
+        <div>
+          <h3>Sergio Arreola</h3>
+          <p class="role" data-i18n="tl.sergio.role">Perception &amp; edge AI</p>
+        </div>
+      </div>
+      <ol class="tl">
+        <li>
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-09" data-i18n="tl.sergio.e1.when">Oct 9, 2026</time>
+            <h4 data-i18n="tl.sergio.e1.h">Finding people and animals</h4>
+            <p data-i18n="tl.sergio.e1.p">Switched the onboard detector to MegaDetector v6, which finds people and animals, and gave it a memory: each detection keeps a track ID, a confidence and a distance.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/sergio-detection-test-lg.webp"><img src="assets/timeline/sergio-detection-test.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.sergio.e1.alt" alt="Testing the detector: the OAK-D Pro camera held up to a laptop screen full of cattle photos, with the live dashboard on the monitor behind it"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-21" data-i18n="tl.sergio.e2.when">Oct 21, 2026</time>
+            <h4 data-i18n="tl.sergio.e2.h">Motors spin over our own radio</h4>
+            <p data-i18n="tl.sergio.e2.p">Wrote the handheld remote&rsquo;s menu (test each motor, test all four, hover, status) and spun the motors on the real aircraft from it, over the 915&nbsp;MHz link. The same day, the Pico gateway learned to talk to the drone.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/sergio-remote-lg.webp"><img src="assets/timeline/sergio-remote.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.sergio.e2.alt" alt="The handheld remote in its orange case, its screen reading VENATOR, Looking for the drone, wired to a Heltec Wireless Stick showing LINK UP"></a>
+          </div>
+        </li>
+        <li>
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-10-23" data-i18n="tl.when.demob">Oct 23, 2026 · Demo B</time>
+            <h4 data-i18n="tl.sergio.e3.h">The numbers at Demo B</h4>
+            <p data-i18n="tl.sergio.e3.p">The LoRa link delivered 20 of 20 packets with no loss, at about 435&nbsp;ms round trip. The OAK-D Pro drew about 3.1&nbsp;W, and the whole system ran inside the Jetson&rsquo;s 7&nbsp;W power mode, light enough for battery flight.</p>
+          </div>
+          <div class="tl-photos">
+            <a class="ar-34" href="assets/timeline/sergio-oakd-power-lg.webp"><img src="assets/timeline/sergio-oakd-power.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.sergio.e3.alt1" alt="A USB power meter reading 3.1 W, plugged in line with the OAK-D Pro camera on the drone"></a>
+            <a class="ar-34" href="assets/timeline/sergio-stick-on-jetson-lg.webp"><img src="assets/timeline/sergio-stick-on-jetson.webp" width="480" height="640" loading="lazy"
+              data-i18n-attr="alt:tl.sergio.e3.alt2" alt="The Heltec Wireless Stick plugged into the Jetson&rsquo;s orange case on the bench"></a>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <time class="tl-when" datetime="2026-11-06" data-i18n="tl.sergio.e4.when">Nov 6, 2026</time>
+            <h4 data-i18n="tl.sergio.e4.h">Find the worker in the yellow vest</h4>
+            <p data-i18n="tl.sergio.e4.p">Taught the camera to lock onto a yellow construction vest and ignore everyone else, with search controls and calibration on the operator&rsquo;s page and an alert that sounds on iPhones too.</p>
+          </div>
+        </li>
+        <li class="solo">
+          <div class="tl-txt">
+            <span class="tl-when" data-i18n="tl.sergio.e5.when">Nov 19–20, 2026</span>
+            <h4 data-i18n="tl.sergio.e5.h">A tougher link, a 4&nbsp;ft hover</h4>
+            <p data-i18n="tl.sergio.e5.p">Hardened the LoRa command link end to end, added an indoor hover mode, and raised the remote&rsquo;s hover demo to 4&nbsp;ft (1.22&nbsp;m).</p>
+          </div>
+        </li>
+      </ol>
+      <div class="also">
+        <p class="also-k" data-i18n="tl.also">Also worked on</p>
+        <ul>
+          <li data-i18n="tl.sergio.a1">Buying the parts</li>
+          <li data-i18n="tl.sergio.a2">Jetson setup, ROS 2 and AI, with Leonel</li>
+          <li data-i18n="tl.sergio.a3">Video streaming, with David</li>
+          <li data-i18n="tl.sergio.a4">AI detection testing, with Leonel</li>
+        </ul>
+      </div>
+    </article>
+  </section>
+
+  <section id="team">
+    <p class="lab" data-i18n="tl.team6">Team 6</p>
+    <h2 data-i18n="tl.team.h2">The team</h2>
+    <p class="cap" data-i18n="tl.team.cap">Five engineering students at UTSA, each owning one part of the system.</p>
+    <ul class="team">
+      <li>
+        <img src="assets/timeline/team-david.webp" width="480" height="480" loading="lazy" alt="">
+        <h3>David Ritter</h3>
+        <p class="role" data-i18n="tl.david.role">Ground control &amp; networking</p>
+        <p class="bio"><span class="bio-k" data-i18n="tl.exp">Experience</span><span data-i18n="tl.david.exp">EE intern at Modular One Tech; student engineer at Southwest Research Institute</span></p>
+      </li>
+      <li>
+        <img src="assets/timeline/team-grant.webp" width="480" height="480" loading="lazy" alt="">
+        <h3>Grant Navarro</h3>
+        <p class="role" data-i18n="tl.grant.role">Flight dynamics &amp; avionics</p>
+        <p class="bio"><span class="bio-k" data-i18n="tl.exp">Experience</span><span data-i18n="tl.grant.exp">Motors and software protocols</span></p>
+      </li>
+      <li>
+        <img src="assets/timeline/team-vincent.webp" width="480" height="480" loading="lazy" alt="">
+        <h3>Vincent Munoz</h3>
+        <p class="role" data-i18n="tl.vincent.role">Electromechanical &amp; power systems</p>
+        <p class="bio"><span class="bio-k" data-i18n="tl.exp">Experience</span><span data-i18n="tl.vincent.exp">EE intern at TAMUCC; PCB design and fabrication</span></p>
+      </li>
+      <li>
+        <img src="assets/timeline/team-leonel.webp" width="480" height="480" loading="lazy" alt="">
+        <h3>Leonel Cordova</h3>
+        <p class="role" data-i18n="tl.leonel.role">Middleware &amp; system integration</p>
+        <p class="bio"><span class="bio-k" data-i18n="tl.exp">Experience</span><span data-i18n="tl.leonel.exp">Project designer at Alterman; embedded systems and robotics platforms</span></p>
+      </li>
+      <li>
+        <img src="assets/timeline/team-sergio.webp" width="480" height="480" loading="lazy" alt="">
+        <h3>Sergio Arreola</h3>
+        <p class="role" data-i18n="tl.sergio.role">Perception &amp; edge AI</p>
+        <p class="bio"><span class="bio-k" data-i18n="tl.exp">Experience</span><span data-i18n="tl.sergio.exp">DepthAI scripts, UART and MAVLink protocols</span></p>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <span data-i18n="foot.lic">MIT licensed. Built by Sergio Arreola.</span>
+    <span><a href="https://github.com/sarreola07/VENATOR">github.com/sarreola07/VENATOR</a></span>
+  </footer>
+
+</div>
+<script src="assets/i18n/es.js" defer></script>
+<script src="assets/lang.js" defer></script>
+</body>
+</html>
