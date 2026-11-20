@@ -529,29 +529,21 @@
   }
 
   /* ---- behind the build -------------------------------------------------
-     Five bench photos: the first spans two rows beside a two-by-two grid, and
-     on a phone it takes the full width above the other four. The captions sit
-     on the photos in the same dark chip as the 360's labels, which stays well
+     Two bench photos side by side, stacked on a phone. The captions sit on
+     the photos in the same dark chip as the 360's labels, which stays well
      past 4.5:1 over any photo. */
   .behind{
-    display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px;
-    margin-top:clamp(30px,4.5vw,46px);
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;
+    max-width:880px; margin-top:clamp(30px,4.5vw,46px);
   }
   .behind figure{position:relative}
   .behind a{display:block}
-  .behind figure:first-child{grid-row:span 2}
-  .behind figure:first-child a{position:absolute; inset:0}
-  .behind figure:first-child img{width:100%; height:100%; object-fit:cover}
   .behind figcaption{
     position:absolute; left:10px; bottom:10px; max-width:calc(100% - 20px);
     padding:5px 9px; font:11px/1.35 var(--mono); letter-spacing:.12em; text-transform:uppercase;
     color:#F2F1EE; background:rgba(10,10,10,.78); border:1px solid #2A2A27;
   }
-  @media (max-width:720px){
-    .behind{grid-template-columns:1fr 1fr}
-    .behind figure:first-child{grid-column:span 2; grid-row:auto; aspect-ratio:3/4}
-    .behind figcaption{left:6px; bottom:6px; max-width:calc(100% - 12px); font-size:9.5px; letter-spacing:.08em}
-  }
+  @media (max-width:560px){ .behind{grid-template-columns:minmax(0,1fr)} }
 </style>
 <!-- Rules that only apply with scripting off, inlined so they land while the
      document parses rather than after first paint. The hero no longer needs one:
