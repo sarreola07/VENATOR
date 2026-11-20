@@ -22,6 +22,25 @@
 <meta property="og:image:alt" data-i18n-attr="content:shared.social_alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/brand/favicon.svg">
+<!-- Spanish was asked for (?lang=es, or picked before on this device): keep
+     the page unpainted until assets/lang.js has swapped the words in. It used
+     to paint English and then reflow to the longer Spanish, which jumped a
+     page opened at a #section (CLS 0.11 at timeline.html?lang=es#team). The
+     same test as wanted() in lang.js. lang.js removes the class; the timeout
+     shows the page anyway if lang.js never runs. With scripting off none of
+     this runs and the English page paints as it always has. -->
+<script>
+(function () {
+  try {
+    var m = /[?&]lang=(es|en)\b/.exec(location.search);
+    if ((m ? m[1] : localStorage.getItem("venator-lang")) === "es") {
+      var root = document.documentElement;
+      root.classList.add("i18n-wait");
+      setTimeout(function () { root.classList.remove("i18n-wait"); }, 3000);
+    }
+  } catch (e) { /* storage blocked: paint English first, as before */ }
+}());
+</script>
 <style>
   /* Tokens are docs/BRAND.md's palette, unchanged. Signal reports live state
      and nothing else, so it never carries small body text: at #E05316 it
@@ -30,6 +49,10 @@
   :root{
     --ink:#0A0A0A; --panel:#FFFFFF; --line:#DAD8D3; --muted:#6E6B66;
     --paper:#F2F1EE; --signal:#E05316;
+    /* Orange for small text, which signal cannot carry (3.43:1 on paper):
+       #B93F0E is 4.92:1 on paper and 5.56:1 on panel. The Timeline page's
+       labels use it; its lines, markers and borders use signal. */
+    --signal-text:#B93F0E;
     --gut:clamp(20px,5vw,64px);
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -37,7 +60,7 @@
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
       --ink:#F2F1EE; --panel:#131314; --line:#2A2A27; --muted:#8A8781;
-      --paper:#0A0A0A;
+      --paper:#0A0A0A; --signal-text:#EC6A30;  /* 6.29:1 on paper, 5.90:1 on panel */
     }
   }
   *{box-sizing:border-box}
@@ -94,6 +117,9 @@
      it loaded: CLS 0.22 against the 0.05 gate. With scripting off, the
      <noscript> rule in the head takes the empty place away again. */
   .mast nav .lang[hidden]{display:block; visibility:hidden}
+  /* A Spanish load stays unpainted until lang.js has swapped the words in;
+     see the script in the head. */
+  .i18n-wait body{visibility:hidden}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -437,9 +463,13 @@
   }
 
   /* ---- the timeline page ------------------------------------------------
-     One track per teammate: a rule down the left with a square on it for
-     every step, then the team. The rule runs through the centre of the
-     teammate's photo, and each step's text lines up with their name. */
+     One track per teammate: an orange rule down the left with a square on
+     it for every step, then the team. The rule runs through the centre of
+     the teammate's photo, and each step's text lines up with their name.
+     The page's accents are orange by the owner's choice: signal for lines,
+     markers, rings and borders, where 3:1 is the bar, and --signal-text for
+     the small labels, which need 4.5:1. */
+  #timeline .lab,#behind .lab,#team .lab{color:var(--signal-text)}
   .hero h1.pair{font-size:clamp(2.3rem,6vw,4.6rem)}
   .tl-jump{
     display:flex; flex-wrap:wrap; gap:8px; list-style:none;
@@ -448,26 +478,28 @@
   .tl-jump a{
     display:block; padding:9px 14px; text-decoration:none;
     font-size:12px; letter-spacing:.12em; text-transform:uppercase;
-    border:1px solid var(--line); transition:border-color .18s ease;
+    color:var(--signal-text); border:1px solid var(--signal);
+    transition:background .18s ease, color .18s ease;
   }
-  .tl-jump a:hover,.tl-jump a:focus-visible{border-color:var(--ink)}
+  /* Near-black on signal is 5.11:1, in either scheme. */
+  .tl-jump a:hover,.tl-jump a:focus-visible{background:var(--signal); color:#0A0A0A}
   .track{
     margin-top:clamp(40px,6vw,64px); padding-top:clamp(20px,3vw,28px);
-    border-top:1px solid var(--ink); scroll-margin-top:12px;
+    border-top:2px solid var(--signal); scroll-margin-top:12px;
   }
   .track-hd{display:flex; align-items:center; gap:16px}
-  .track-hd img{flex:0 0 auto; width:56px; height:56px; border-radius:50%}
+  .track-hd img{flex:0 0 auto; width:56px; height:56px; border-radius:50%; box-shadow:0 0 0 2px var(--signal)}
   .track-hd h3{
     margin:0; font-size:clamp(1.25rem,2.4vw,1.6rem); line-height:1.15;
     font-weight:700; letter-spacing:-.02em;
   }
   .role{
     margin:6px 0 0; font:11px/1.5 var(--mono); letter-spacing:.14em;
-    text-transform:uppercase; color:var(--muted);
+    text-transform:uppercase; color:var(--signal-text);
   }
   .tl{
-    list-style:none; margin:clamp(24px,3.4vw,32px) 0 0 27px; padding:0 0 0 44px;
-    border-left:1px solid var(--line);
+    list-style:none; margin:clamp(24px,3.4vw,32px) 0 0 27px; padding:0 0 0 43px;
+    border-left:2px solid var(--signal);
   }
   .tl > li{
     position:relative; display:grid; align-items:start;
@@ -476,12 +508,12 @@
   .tl > li.solo{display:block}
   .tl > li + li{margin-top:clamp(30px,4.4vw,44px)}
   .tl > li::before{
-    content:""; position:absolute; left:-49px; top:5px;
-    width:9px; height:9px; background:var(--ink);
+    content:""; position:absolute; left:-49px; top:4px;
+    width:10px; height:10px; background:var(--signal);
   }
   .tl-when{
     display:block; margin:0 0 6px; font:11px/1.5 var(--mono); letter-spacing:.14em;
-    text-transform:uppercase; color:var(--muted);
+    text-transform:uppercase; color:var(--signal-text);
   }
   .tl h4{margin:0; font-size:1.0625rem; line-height:1.3; font-weight:700; letter-spacing:-.01em}
   .tl-txt p{margin:8px 0 0; max-width:56ch; font-size:15px; color:var(--muted)}
@@ -493,20 +525,20 @@
   .tl-photos{--row-h:280px; display:flex; gap:10px}
   .tl-photos a{flex:0 1 calc(var(--ar) * var(--row-h)); min-width:0}
   .tl-photos img{width:100%; border:1px solid var(--line); background:var(--panel); transition:border-color .18s ease}
-  .tl-photos a:hover img,.tl-photos a:focus-visible img{border-color:var(--ink)}
+  .tl-photos a:hover img,.tl-photos a:focus-visible img{border-color:var(--signal)}
   .ar-34{--ar:.75} .ar-43{--ar:1.3333} .ar-56{--ar:.8333} .ar-98{--ar:1.125}
   .also{margin:clamp(26px,3.6vw,34px) 0 0 72px}
   .also-k{
     margin:0 0 10px; font:11px/1.5 var(--mono); letter-spacing:.14em;
-    text-transform:uppercase; color:var(--muted);
+    text-transform:uppercase; color:var(--signal-text);
   }
   .also ul{display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0}
-  .also li{padding:5px 10px; border:1px solid var(--line); font-size:13px; line-height:1.4}
+  .also li{padding:5px 10px; border:1px solid var(--line); border-left:3px solid var(--signal); font-size:13px; line-height:1.4}
   .team{
     list-style:none; margin:clamp(30px,4.5vw,46px) 0 0; padding:0;
     display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:clamp(18px,2.6vw,30px);
   }
-  .team img{width:100%; max-width:180px; border-radius:50%}
+  .team img{width:100%; max-width:180px; border-radius:50%; box-shadow:0 0 0 3px var(--signal)}
   .team h3{margin:16px 0 0; font-size:1.0625rem; font-weight:700; letter-spacing:-.012em}
   .team .role{margin-top:4px}
   .bio{margin:12px 0 0; font-size:14px; color:var(--muted)}
@@ -522,11 +554,34 @@
   @media (max-width:560px){
     .track-hd{gap:12px}
     .track-hd img{width:44px; height:44px}
-    .tl{margin-left:21px; padding-left:34px}
+    .tl{margin-left:21px; padding-left:33px}
     .tl > li::before{left:-39px}
     .tl-photos{--row-h:200px}
     .also{margin-left:56px}
   }
+
+  /* ---- behind the build -------------------------------------------------
+     Three bench photos in a row, stacked on a phone. The captions sit on the
+     photos in the same dark chip as the 360's labels, which stays well past
+     4.5:1 over any photo. */
+  .behind{
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;
+    margin-top:clamp(30px,4.5vw,46px);
+  }
+  .behind figure{position:relative}
+  .behind a{display:block}
+  .behind figcaption{
+    position:absolute; left:10px; bottom:10px; max-width:calc(100% - 20px);
+    padding:5px 9px; font:11px/1.35 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+    color:#F2F1EE; background:rgba(10,10,10,.78); border:1px solid #2A2A27;
+    border-left:3px solid var(--signal);
+  }
+  /* Three across on a tablet leaves each photo under 300 px wide, so the
+     captions there go smaller rather than covering a third of the photo. */
+  @media (min-width:561px) and (max-width:900px){
+    .behind figcaption{left:6px; bottom:6px; max-width:calc(100% - 12px); font-size:9.5px; letter-spacing:.08em}
+  }
+  @media (max-width:560px){ .behind{grid-template-columns:minmax(0,1fr)} }
 </style>
 <!-- Rules that only apply with scripting off. -->
 <noscript><style>
