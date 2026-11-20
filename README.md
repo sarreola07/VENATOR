@@ -58,6 +58,25 @@ The ground station sends a command over LoRa, the Jetson runs it against the
 flight controller, and the reply comes back the same way. No QGroundControl, no
 GUI, no internet — a laptop, a radio and a drone.
 
+## Build and test
+
+Everything has a `make` target; `make` on its own lists them.
+
+| Command | What it does |
+|---|---|
+| `make setup` | Creates `venv/` and installs the Python dependencies from `pyproject.toml` |
+| `make test` | Runs every test suite CI runs (standard library only, no setup needed) |
+| `make check` | The whole CI test job: tests, compile check, generated assets, shell syntax |
+| `make site-check` | The site's language-switch test and HTML validation (needs Node) |
+| `make gcs` | Builds the ground-station app for this OS into `dist/VenatorGCS` |
+| `make firmware-setup` | Installs the Heltec ESP32 board package and library for `arduino-cli` |
+| `make firmware` | Compiles the Wireless Stick and remote sketches into `build/firmware/` |
+| `make flash-stick PORT=…` / `make flash-remote PORT=…` | Builds and flashes one board |
+| `make flash-pico PORT=…` | Copies the Pico gateway's `main.py` |
+
+On the Jetson, `bash setup.sh` still does the one-time serial-port setup and
+creates the same `venv/`.
+
 ## Current hardware setup
 
 | Component | Details |

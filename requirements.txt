@@ -1,2 +1,4 @@
+# Runtime dependencies for setup.sh on the Jetson. pyproject.toml declares the
+# same two (make setup uses it): keep them in step.
 pymavlink>=2.4.40
 pyserial>=3.5
