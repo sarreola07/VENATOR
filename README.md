@@ -105,7 +105,7 @@ and flight without restarting). It offers:
 |---|---|---|
 | 1 | Spins each motor one at a time, 3 s each at 15% throttle | Props **OFF** |
 | 2 | Spins all motors together for 3 s at 15% throttle | Props **OFF** |
-| 3 | Arms, takes off to 3 ft (0.91 m), hovers, lands, disarms | Props **ON**, GPS position fix, extra `FLY` confirmation |
+| 3 | Arms, takes off to 4 ft (1.22 m), hovers, lands, disarms | Props **ON**, GPS position fix, extra `FLY` confirmation |
 | 4 | Manual RC flight: switches to Stabilized, arms, then monitors while you fly with the transmitter | Props **ON**, RC link up, extra `FLY` confirmation |
 | 5 | Camera tracking display — shows the OAK-D's live person X/Y/Z. No flight. | Tracker started with `drone/camera.sh` |
 | 6 | LoRa remote — runs missions from LoRa commands (see table below) | LoRa module on `/dev/ttyUSB0` |

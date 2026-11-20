@@ -290,7 +290,7 @@ sudo systemctl stop venator-c2        # one owner per serial port
 ./venv/bin/python drone/checks/check_flow.py
 ```
 **9e. Optional, and only after I say yes.** Run it while venator-c2 is still
-stopped. It writes one PX4 setting, MIS_TAKEOFF_ALT = 0.91 m, which is the value
+stopped. It writes one PX4 setting, MIS_TAKEOFF_ALT = 1.22 m, which is the value
 the hover writes anyway. Nothing arms. It proves the takeoff-height safety fix
 against the real PX4:
 ```bash
@@ -299,7 +299,7 @@ import sys
 sys.path[:0] = ["drone", "."]
 import c2_server as s
 fc = s.RealFC(s.find_fc_device(), 115200)
-print("MIS_TAKEOFF_ALT confirmed:", fc.set_takeoff_alt(s.HOVER3_ALT_M))
+print("MIS_TAKEOFF_ALT confirmed:", fc.set_takeoff_alt(s.HOVER4_ALT_M))
 PY
 ```
 **9f. You:**
@@ -377,7 +377,7 @@ gate is checked before the position gate and that nothing arms on the bench.
 
 **11f. You, props ON, in the flight space, RC kill switch in hand:** stand
 clear, send **8 Hover**, and when the drone accepts it, HOLD the knob 3 s. It
-arms, climbs to 0.91 m, holds 10 s, lands. Click = STOP lands it early; BACK =
+arms, climbs to 1.22 m, holds 10 s, lands. Click = STOP lands it early; BACK =
 ABORT lands it too; 4 s without the remote's pings lands it; the kill switch
 is yours. `ALT` on the remote is now the range-finder height, not GPS.
 
@@ -401,6 +401,6 @@ chart), use the master prompt in `docs/YELLOW_VEST_PROMPT.md`.
 ## What this doesn't cover
 
 - **Flying:** the props are off, and GPS is a known fault.
-- **The 3 ft hover outdoors:** it still needs a GPS 3D fix. Indoors it is
+- **The 4 ft hover outdoors:** it still needs a GPS 3D fix. Indoors it is
   section 11, after `check_flow.py` passes.
 - **Missions 1 and 2:** they need GPS outdoors, and `camera_publisher.py` on depthai 2.32.

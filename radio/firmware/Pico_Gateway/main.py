@@ -31,7 +31,7 @@ RYLR_SETUP = ["AT", "AT+BAND=915000000", "AT+NETWORKID=18",
 MENU = [  # (server mission id, label, kind)
     (1, "Test each motor", "motors"),
     (2, "Test all motors", "motors"),
-    (8, "Hover 3 ft",      "flight"),
+    (8, "Hover 4 ft",      "flight"),
     (7, "Drone status",    "info"),
 ]
 
@@ -298,7 +298,7 @@ def draw(now):
     elif state == "local_confirm":
         rows = (["Spin motors?", "Props must be", "OFF.", "Click=GO BACK=no"]
                 if active[2] == "motors" else
-                ["Hover 3 ft?", "Drone checks", "props + GPS.", "Click=ask BACK=no"]
+                ["Hover 4 ft?", "Drone checks", "props + GPS.", "Click=ask BACK=no"]
                 if active[2] == "flight" else
                 [active[1] + "?", "", "", "Click=ask BACK=no"])
     elif state == "wait_ack":

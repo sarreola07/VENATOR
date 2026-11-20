@@ -10,7 +10,7 @@ Covers the paths that must not break before a field test:
   * Mission 1: takeoff -> hover + person detection -> land
   * Mission 2: takeoff -> OFFBOARD follow -> STOP -> land
   * link-loss -> RTL failsafe on both missions
-  * Hover 3 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
+  * Hover 4 ft: gates, confirm cancel/expiry, LAND (never RTL) failsafes
   * a RUN never flies; a 0 m (no depth) reading never moves the drone
   * an error mid-flight triggers the failsafe and the server lives on; STOP
     lands an armed drone no flight loop is watching
@@ -283,7 +283,7 @@ def test_mission2():
           str(getattr(s.fc, "_last_vel", None)))
 
 
-# ---------------------------------------------------------------- hover 3 ft
+# ---------------------------------------------------------------- hover 4 ft
 class ModeLogFC(srv.MockFC):
     """MockFC that remembers every flight mode it was put in, and can be told
     never to climb (a takeoff that stalls)."""
@@ -314,11 +314,11 @@ def run_hover(ping_for=100.0, stop_at=None, climbs=True):
 
 
 def test_hover():
-    print("\n[Hover 3 ft: the LoRa remote's flight]")
+    print("\n[Hover 4 ft: the LoRa remote's flight]")
     srv.STATUS_INTERVAL_S = 0.25
-    hold_was, loss_was, climb_was = srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S
+    hold_was, loss_was, climb_was = srv.HOVER4_TIME_S, srv.LINK_LOSS_S, srv.HOVER4_CLIMB_S
     try:
-        srv.HOVER3_TIME_S = 1.0
+        srv.HOVER4_TIME_S = 1.0
 
         # Gates: a remote with a knob must not be able to launch past these.
         for gps, props_off, why in ((True, True, "props OFF"), (False, False, "no GPS")):
@@ -333,7 +333,7 @@ def test_hover():
         check("hover accepted only with a second confirmation",
               ack.get("accepted") is True and ack.get("confirm_required") is True,
               ack.get("reason", "")[:50])
-        check("PX4 told 3 ft (0.91 m)", getattr(fc, "_takeoff_alt", None) == 0.91,
+        check("PX4 told 4 ft (1.22 m)", getattr(fc, "_takeoff_alt", None) == 1.22,
               f"MIS_TAKEOFF_ALT={getattr(fc, '_takeoff_alt', None)}")
         check("phases takeoff -> hover -> land",
               link.phases() == ["takeoff", "hover", "land"], str(link.phases()))
@@ -350,18 +350,18 @@ def test_hover():
         check("  DONE names the cause", link.done() == "landed (link lost)", link.done())
         srv.LINK_LOSS_S = loss_was
 
-        srv.HOVER3_TIME_S = 30.0
+        srv.HOVER4_TIME_S = 30.0
         fc, _, link = run_hover(stop_at=1.0)
         check("STOP from the remote lands early", link.done() == "landed (stopped early)",
               link.done())
 
-        srv.HOVER3_CLIMB_S = 1.0
+        srv.HOVER4_CLIMB_S = 1.0
         fc, _, link = run_hover(climbs=False)
-        check("a takeoff that never reaches 3 ft lands instead of waiting",
+        check("a takeoff that never reaches 4 ft lands instead of waiting",
               any("never reached" in t for t in link.texts()) and "LAND" in fc.modes,
               str(link.texts()[-2:]))
     finally:
-        srv.HOVER3_TIME_S, srv.LINK_LOSS_S, srv.HOVER3_CLIMB_S = hold_was, loss_was, climb_was
+        srv.HOVER4_TIME_S, srv.LINK_LOSS_S, srv.HOVER4_CLIMB_S = hold_was, loss_was, climb_was
 
     print("\n[confirm step: cancel and expiry]")
     s = srv.C2Server(ModeLogFC(), props_off=False)
@@ -675,19 +675,19 @@ def test_takeoff_height():
     try:
         try:   # the real library's decoding, where it's installed (not in CI)
             from pymavlink.dialects.v20 import common as mav2
-            pkt = mav2.MAVLink_param_value_message(b"MIS_TAKEOFF_ALT", 0.91, 9, 1000, 5)
+            pkt = mav2.MAVLink_param_value_message(b"MIS_TAKEOFF_ALT", 1.22, 9, 1000, 5)
             decoded = mav2.MAVLink(None).parse_char(pkt.pack(mav2.MAVLink(None)))
         except ImportError:
             decoded = None
         srv.mavutil = types.SimpleNamespace(
             mavlink=types.SimpleNamespace(MAV_PARAM_TYPE_REAL32=9))
         fc = srv.RealFC.__new__(srv.RealFC)
-        cases = [([Reply("MIS_TAKEOFF_ALT", 0.91)], True, "PX4's reply confirms it"),
-                 ([Reply(b"MIS_TAKEOFF_ALT\x00", 0.9100000262)], True,
+        cases = [([Reply("MIS_TAKEOFF_ALT", 1.22)], True, "PX4's reply confirms it"),
+                 ([Reply(b"MIS_TAKEOFF_ALT\x00", 1.2200000286)], True,
                   "  as bytes padded with NULs too"),
                  ([Reply("SYS_AUTOSTART", 4001.0)], False,
                   "another parameter's PARAM_VALUE is not a reply"),
-                 ([Reply("SYS_AUTOSTART", 4001.0), Reply("MIS_TAKEOFF_ALT", 0.91)], True,
+                 ([Reply("SYS_AUTOSTART", 4001.0), Reply("MIS_TAKEOFF_ALT", 1.22)], True,
                   "  and is skipped on the way to the real one"),
                  ([Reply("MIS_TAKEOFF_ALT", 2.5)] * 2, False,
                   "a different value is not a confirmation"),
@@ -696,9 +696,9 @@ def test_takeoff_height():
             cases.append(([decoded], True, "pymavlink's own decoding of PX4's reply confirms it"))
         for replies, want, label in cases:
             fc.master = FakeMaster(replies)
-            check(label, fc.set_takeoff_alt(0.91) is want)
+            check(label, fc.set_takeoff_alt(1.22) is want)
         fc.master = FakeMaster([])
-        fc.set_takeoff_alt(0.91)
+        fc.set_takeoff_alt(1.22)
         check("  an unanswered set is sent twice, then given up", fc.master.sets == 2,
               f"{fc.master.sets} sends")
     finally:
@@ -718,9 +718,9 @@ def test_takeoff_height():
             self.calls.append("arm")
             return super().arm(timeout)
 
-    hold_was = srv.HOVER3_TIME_S
+    hold_was = srv.HOVER4_TIME_S
     try:
-        srv.HOVER3_TIME_S = 0.5
+        srv.HOVER4_TIME_S = 0.5
         for confirms in (False, True):
             fc = HeightFC(confirms)
             s = srv.C2Server(fc, props_off=False)
@@ -736,7 +736,7 @@ def test_takeoff_height():
                       fc.calls == ["height"] and not fc._armed
                       and "takeoff height" in (link.done() or ""), f"{fc.calls} {link.done()}")
     finally:
-        srv.HOVER3_TIME_S = hold_was
+        srv.HOVER4_TIME_S = hold_was
 
 
 # ---------------------------------------------------------------- radio line budget

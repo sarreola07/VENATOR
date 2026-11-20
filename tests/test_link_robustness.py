@@ -617,8 +617,8 @@ def test_indoor_gate():
     check("  or its absence", s.handle(p.message(p.HELLO, 1))[0].get("gps") == "indoor: no position")
 
     # the hover's phases run off the altitude the FC reports, whatever its source
-    hold_was, int_was = srv.HOVER3_TIME_S, srv.STATUS_INTERVAL_S
-    srv.HOVER3_TIME_S = 0.8
+    hold_was, int_was = srv.HOVER4_TIME_S, srv.STATUS_INTERVAL_S
+    srv.HOVER4_TIME_S = 0.8
     srv.STATUS_INTERVAL_S = 0.1
     try:
         fc = IndoorFC(position=True)
@@ -636,7 +636,7 @@ def test_indoor_gate():
         check("the indoor hover flies takeoff -> hover -> land", phases[:3] == ["takeoff", "hover", "land"], str(phases))
         check("  and lands", any(m["t"] == p.DONE and "landed" in m.get("result", "") for m in lk.sent))
     finally:
-        srv.HOVER3_TIME_S, srv.STATUS_INTERVAL_S = hold_was, int_was
+        srv.HOVER4_TIME_S, srv.STATUS_INTERVAL_S = hold_was, int_was
 
 
 # --------------------------------------------------------------------------- end to end
@@ -693,11 +693,11 @@ def test_handshake_diagnosis():
 
 def test_flight_under_loss():
     print("\n[a hover under 20% loss and collisions never trips LINK LOST while the ground pings]")
-    hold_was, int_was = srv.HOVER3_TIME_S, srv.STATUS_INTERVAL_S
+    hold_was, int_was = srv.HOVER4_TIME_S, srv.STATUS_INTERVAL_S
     out_lines = []
     gc.print = lambda *a, **k: out_lines.append(" ".join(str(x) for x in a))
     try:
-        srv.HOVER3_TIME_S = 5.0
+        srv.HOVER4_TIME_S = 5.0
         srv.STATUS_INTERVAL_S = 1.0
         air, a, b = wire(loss=0.2, airtime=0.08, seed=11)
         fc = CountingFC(gps=True)
@@ -721,7 +721,7 @@ def test_flight_under_loss():
         out_lines.clear()
         air, a, b = wire(loss=0.0, airtime=0.02)
         fc = CountingFC(gps=True)
-        srv.HOVER3_TIME_S = 1.0
+        srv.HOVER4_TIME_S = 1.0
         s, lb = start_server(b.port, fc=fc)
         la = SerialLink(a.port, 115200, settle=0.0, auth_key=None, send_gap=0.05, log=quiet)
         c = gc.Client(la)
@@ -747,7 +747,7 @@ def test_flight_under_loss():
 
         # pings stop -> LAND within LINK_LOSS_S (a hold long enough to still be up)
         out_lines.clear()
-        srv.HOVER3_TIME_S = 30.0
+        srv.HOVER4_TIME_S = 30.0
         air, a, b = wire(loss=0.0, airtime=0.02)
         fc = CountingFC(gps=True)
         s, lb = start_server(b.port, fc=fc)
@@ -768,16 +768,16 @@ def test_flight_under_loss():
               f"{time.monotonic() - t0:.1f}s")
     finally:
         del gc.print
-        srv.HOVER3_TIME_S, srv.STATUS_INTERVAL_S = hold_was, int_was
+        srv.HOVER4_TIME_S, srv.STATUS_INTERVAL_S = hold_was, int_was
 
 
 def test_stop_and_abort_retry():
     print("\n[STOP and ABORT are sent again until the drone shows they arrived]")
     lines = []
     gc.print = lambda *a, **k: lines.append(" ".join(str(x) for x in a))
-    hold_was = srv.HOVER3_TIME_S
+    hold_was = srv.HOVER4_TIME_S
     try:
-        srv.HOVER3_TIME_S = 30.0
+        srv.HOVER4_TIME_S = 30.0
         air, a, b = wire(loss=0.0, airtime=0.02)
         fc = CountingFC(gps=True)
         s, lb = start_server(b.port, fc=fc)
@@ -813,7 +813,7 @@ def test_stop_and_abort_retry():
         check("  the pings carried on after the abort", "Flight complete" in text, text[-200:])
     finally:
         del gc.print
-        srv.HOVER3_TIME_S = hold_was
+        srv.HOVER4_TIME_S = hold_was
 
 
 def watchdog(seconds=240):
