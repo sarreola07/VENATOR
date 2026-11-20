@@ -11,7 +11,7 @@ exist.
 Missions:
   1) Spin each motor one at a time for 3 s (props MUST be off)
   2) Spin all motors together for 3 s   (props MUST be off)
-  3) Arm, take off to 3 ft, land, disarm (props on — REAL FLIGHT)
+  3) Arm, take off to 4 ft, land, disarm (props on — REAL FLIGHT)
   4) RC manual flight: Stabilized mode, arm, you fly with the
      transmitter while this script monitors (props on — REAL FLIGHT)
   5) Camera tracking display: show the OAK-D person X/Y/Z (no flight)
@@ -48,7 +48,7 @@ FAIL = "\033[91m[FAIL]\033[0m"
 INFO = "\033[94m[INFO]\033[0m"
 WARN = "\033[93m[WARN]\033[0m"
 
-TAKEOFF_ALT_M = 0.91          # 3 feet
+TAKEOFF_ALT_M = 1.22          # 4 feet
 MOTOR_TEST_THROTTLE = 15      # percent — low, just enough to spin
 MOTOR_TEST_SECONDS = 3
 
@@ -230,7 +230,7 @@ def wait_altitude(master, target_m, timeout=30):
 
 
 def mission_3(master):
-    print(f"\n{INFO} Mission 3: arm → take off to {TAKEOFF_ALT_M:.2f} m (3 ft) → land → disarm.")
+    print(f"\n{INFO} Mission 3: arm → take off to {TAKEOFF_ALT_M:.2f} m (4 ft) → land → disarm.")
     print(f"{WARN} THIS FLIES THE DRONE. Clear the area. Be ready to cut power.")
     # Always asked here, at the keyboard. This used to take require_confirm=False
     # for radio triggers (the C2 server's menu item 3 and the listener's "4"),
@@ -518,7 +518,7 @@ def main():
 
         print("\n  1) Test each motor for 3 s, one at a time")
         print("  2) Test all motors at the same time")
-        print("  3) Arm, take off 3 ft, land, shut off (automatic — needs GPS)")
+        print("  3) Arm, take off 4 ft, land, shut off (automatic — needs GPS)")
         print("  4) Manual RC flight in Stabilized mode (script arms + monitors)")
         print("  5) Camera tracking display — show OAK-D person X/Y/Z (no flight)")
         print("  6) LoRa remote — run missions from LoRa commands")

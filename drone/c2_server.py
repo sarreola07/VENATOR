@@ -73,16 +73,16 @@ FOLLOW_FWD_MPS = 0.5    # forward/back speed
 FOLLOW_YAW_RPS = 0.35   # yaw rate (rad/s, ~20 deg/s)
 CAMERA_LOSS_S = 1.0     # no person for this long -> hover in place (don't drift)
 
-# --- Hover 3 ft (the LoRa remote's flight) ---
-# Takeoff to 3 ft, hold, land in place. Every failsafe LANDs instead of RTL:
+# --- Hover 4 ft (the LoRa remote's flight) ---
+# Takeoff to 4 ft, hold, land in place. Every failsafe LANDs instead of RTL:
 # hovering over the launch point, PX4's RTL would first climb to RTL_DESCEND_ALT
-# / RTL_RETURN_ALT (10 m / 30 m on this vehicle) -- the opposite of what a 3 ft
+# / RTL_RETURN_ALT (10 m / 30 m on this vehicle) -- the opposite of what a 4 ft
 # test wants. Height is baro-based until the downward lidar is fitted, so expect
 # tens of centimetres of drift at this altitude; fly it with the RC kill switch
 # in hand.
-HOVER3_ALT_M = 0.91     # 3 ft
-HOVER3_TIME_S = 10.0    # hold this long, then land
-HOVER3_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
+HOVER4_ALT_M = 1.22     # 4 ft
+HOVER4_TIME_S = 10.0    # hold this long, then land
+HOVER4_CLIMB_S = 20.0   # not at altitude by then -> land rather than wait
 
 # A flight that was prepared (ACK confirm_required) but not CONFIRMed within
 # this long lapses, so a confirm screen walked away from -- or a cancel lost on
@@ -659,7 +659,7 @@ class C2Server:
             {"id": 7, "name": "Drone status (GPS / battery / sensors)",
              "action": "diagnostics"},
             # The LoRa remote's flight (radio/firmware/Venator_Remote).
-            {"id": 8, "name": "Hover 3 ft, then land", "needs": "props_on",
+            {"id": 8, "name": "Hover 4 ft, then land", "needs": "props_on",
              "gps": True, "fly": "hover"},
         ]
 
@@ -881,8 +881,8 @@ class C2Server:
                 reason = ("Mission 1: takeoff to {:g} m, hover {:d} s + detect people, "
                           "land in place. Confirm to launch.".format(HOVER_ALT_M, int(HOVER_TIME_S)))
             elif fly == "hover":
-                reason = ("Hover: takeoff to {:g} m (3 ft), hold {:d} s, land in place. "
-                          "Confirm to launch.".format(HOVER3_ALT_M, int(HOVER3_TIME_S)))
+                reason = ("Hover: takeoff to {:g} m (4 ft), hold {:d} s, land in place. "
+                          "Confirm to launch.".format(HOVER4_ALT_M, int(HOVER4_TIME_S)))
             else:
                 reason = ("Mission 2: takeoff to {:g} m, then FOLLOW the person "
                           "(keep {:g} m). Send STOP to land. Confirm to launch.".format(
@@ -1116,14 +1116,14 @@ class C2Server:
         self.log("MISSION2: landed & disarmed")
 
     def run_hover(self, link, send):
-        """Hover 3 ft: arm -> takeoff to HOVER3_ALT_M -> hold HOVER3_TIME_S ->
+        """Hover 4 ft: arm -> takeoff to HOVER4_ALT_M -> hold HOVER4_TIME_S ->
         land in place. STOP lands early. Link loss, ABORT and the time cap all
-        LAND rather than RTL -- see HOVER3_ALT_M."""
+        LAND rather than RTL -- see HOVER4_ALT_M."""
         if self._pending != "hover":
             send(p.message(p.ACK, 0, accepted=False, reason="no confirmed flight pending"))
             return
         self._pending = None
-        if not self._arm_and_takeoff(send, "hover", "Hover", HOVER3_ALT_M):
+        if not self._arm_and_takeoff(send, "hover", "Hover", HOVER4_ALT_M):
             return
 
         climb_start = _clock()
@@ -1134,17 +1134,17 @@ class C2Server:
             if not flight.flying:
                 continue
             if flight.phase == "takeoff":
-                if st["alt"] >= HOVER3_ALT_M * 0.9:
+                if st["alt"] >= HOVER4_ALT_M * 0.9:
                     flight.phase = "hover"
                     hold_start = now
                     send(p.message(p.LOG, 0, text="at {:g} m — holding {:d} s".format(
-                        HOVER3_ALT_M, int(HOVER3_TIME_S))))
-                elif now - climb_start > HOVER3_CLIMB_S:
+                        HOVER4_ALT_M, int(HOVER4_TIME_S))))
+                elif now - climb_start > HOVER4_CLIMB_S:
                     flight.phase = "land"
                     self.fc.set_flight_mode("LAND")
                     send(p.message(p.LOG, 0, text="never reached {:g} m — landing".format(
-                        HOVER3_ALT_M)))
-            elif flight.phase == "hover" and now - hold_start > HOVER3_TIME_S:
+                        HOVER4_ALT_M)))
+            elif flight.phase == "hover" and now - hold_start > HOVER4_TIME_S:
                 flight.phase = "land"
                 self.fc.set_flight_mode("LAND")
                 send(p.message(p.LOG, 0, text="hold complete — landing in place"))

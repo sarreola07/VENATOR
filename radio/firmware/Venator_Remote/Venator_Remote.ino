@@ -10,7 +10,7 @@
  *                                              BACK  = ABORT (land now)
  *
  * Menu (ids are drone/c2_server.py's):
- *   1 Test each motor   2 Test all motors   8 Hover 3 ft   7 Drone status
+ *   1 Test each motor   2 Test all motors   8 Hover 4 ft   7 Drone status
  *
  * Safety lives on the drone, not here: the server refuses motor tests unless
  * props are declared OFF, and the hover unless props are ON and the drone has
@@ -88,7 +88,7 @@ struct Item { int id; const char *name; Kind kind; };
 static const Item MENU[] = {
     {1, "Test each motor", MOTORS},
     {2, "Test all motors", MOTORS},
-    {8, "Hover 3 ft",      FLIGHT},
+    {8, "Hover 4 ft",      FLIGHT},
     {7, "Drone status",    INFO},
 };
 static const int MENU_N = sizeof(MENU) / sizeof(MENU[0]);
@@ -479,7 +479,7 @@ static void draw() {
         if (active->kind == MOTORS)
             drawBody("Spin motors?", "Props must be OFF.  Click = GO   BACK = cancel");
         else if (active->kind == FLIGHT)
-            drawBody("Hover 3 ft?", "Click = ask the drone. It checks props + GPS first.  BACK = cancel");
+            drawBody("Hover 4 ft?", "Click = ask the drone. It checks props + GPS first.  BACK = cancel");
         else
             drawBody(active->name, "Click = ask   BACK = cancel");
         break;

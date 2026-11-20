@@ -17,7 +17,7 @@ remote from `ground/gcs_client.py`.
 |---|---|---|---|
 | Test each motor | `RUN 1` | each motor 3 s at 15%, one after another | props declared **OFF** |
 | Test all motors | `RUN 2` | all four together, 3 s at 15% | props declared **OFF** |
-| Hover 3 ft | `RUN 8` → `CONFIRM` | takeoff to 0.91 m, hold 10 s, land in place | props declared **ON**, a **position** (GPS 3D fix outdoors, or the ARK Flow position when the server runs with `--indoor`), PX4 pre-arm |
+| Hover 4 ft | `RUN 8` → `CONFIRM` | takeoff to 1.22 m, hold 10 s, land in place | props declared **ON**, a **position** (GPS 3D fix outdoors, or the ARK Flow position when the server runs with `--indoor`), PX4 pre-arm |
 | Drone status | `RUN 7` | GPS / battery / sensor readout | — |
 
 ## Controls
@@ -67,7 +67,7 @@ The **drone** decides. The props interlock, the GPS gate and PX4's own pre-arm
 checks are all in `drone/c2_server.py` and PX4. The remote cannot get around them.
 It adds three things of its own:
 
-- a local "Spin motors?" / "Hover 3 ft?" confirm before it sends anything;
+- a local "Spin motors?" / "Hover 4 ft?" confirm before it sends anything;
 - the hover launches only on a **3 s hold**, and only after the drone has
   accepted it (`ACK confirm_required`). A cancel or 45 s of nothing sends
   `ABORT`, which drops the prepared flight on the drone. The drone also lets an
@@ -104,9 +104,9 @@ the server must run without `~/.venator/key` while you use it. Anything in
 radio range that speaks this protocol can command the aircraft. See
 [../../../docs/SECURITY.md](../../../docs/SECURITY.md).
 
-**3 ft on a barometer.** No downward lidar is fitted yet, and `EKF2_HGT_REF=2`
+**4 ft on a barometer.** No downward lidar is fitted yet, and `EKF2_HGT_REF=2`
 (range sensor) falls back to the baro, so expect tens of centimetres of height
-drift at 0.91 m. Fly it in the open, with the RC transmitter's kill switch
+drift at 1.22 m. Fly it in the open, with the RC transmitter's kill switch
 (`RC_MAP_KILL_SW = 5`) in hand.
 
 ## Flash it
@@ -144,7 +144,7 @@ Do the steps in order. The first two need no motors.
    ```
 
    The remote's header should go from `no link yet` to `LINK -NNdB`, showing
-   `props OFF`. "Test all motors" should end `DONE ok (mock)`, and "Hover 3 ft"
+   `props OFF`. "Test all motors" should end `DONE ok (mock)`, and "Hover 4 ft"
    should be `REFUSED: props are OFF`.
 
 3. **Real Pixhawk, props OFF, battery in.** Same, plus `--real`:

@@ -65,7 +65,7 @@ running for the demo to work.
    - **RUN 7** Drone status — changes nothing, proves the round trip.
    - **RUN 1** Test each motor — 1→4, three seconds each.
    - **RUN 2** Test all motors — all four together.
-   - **RUN 8** Hover 3 ft — **it refuses**: `props are OFF`. Show this one; it
+   - **RUN 8** Hover 4 ft — **it refuses**: `props are OFF`. Show this one; it
      is the best evidence the safety gate is real.
 
 Props stay off. Battery connected (the ESCs need it or nothing turns, even
