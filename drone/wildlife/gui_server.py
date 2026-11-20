@@ -701,16 +701,19 @@ class Hub:
                     self._viewers.remove(viewer)
                     self._sse -= 1
 
-    def latest_jpeg(self):
-        """The newest encoded frame, preferring the high rung.
+    def latest_jpeg(self, quality=None):
+        """The newest encoded frame: the named rung if it has one, else the
+        high rung, else the low.
 
         Evidence frames come from here rather than from a raw passthrough:
         the bytes are already a JPEG off the camera's codec, so writing one
         costs no decode, no PIL and no USB bandwidth beyond the stream that
-        is running anyway.
+        is running anyway. The portal names "lo", because it polls this
+        several times a second per phone.
         """
         with self._cond:
-            return self._jpeg.get("hi") or self._jpeg.get("lo")
+            return (self._jpeg.get(quality) if quality else None) \
+                or self._jpeg.get("hi") or self._jpeg.get("lo")
 
     def snapshot(self):
         with self._cond:
@@ -881,12 +884,14 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 return self._redirect(self._portal_url())
 
             if path == "/captive-portal-api":
-                # RFC 8908. iOS 14+ and Android 11+ are handed this URL in DHCP
-                # option 114, fetch it, and open user-portal-url themselves -
-                # no intercepted request, no certificate warning, and nothing
-                # for the operator to type. This is the route that actually
-                # delivers the automatic popup; the probe redirects above are
-                # the fallback for everything older.
+                # RFC 8908, advertised in DHCP option 114. In practice it is
+                # NOT what opens the popup: the RFC requires https, Android's
+                # NetworkMonitor drops a plain-http capport URL, and the
+                # iPhone in the 2026-11-20 field test never fetched it either.
+                # The PROBE_PATHS redirect above is what delivers the popup -
+                # on Android only because deploy/dnsmasq/venator-portal.conf
+                # answers its probe with a non-private address. Kept for any
+                # client that accepts http.
                 return self._body(
                     200, "application/captive+json",
                     json.dumps({
@@ -977,7 +982,8 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 # that gets killed mid-stream holds a viewer slot until the
                 # socket timeout expires - and a restricted WebView may not
                 # render multipart/x-mixed-replace at all.
-                jpeg = hub.latest_jpeg()
+                q = parse_qs(url.query).get("q", [None])[0]
+                jpeg = hub.latest_jpeg(q if q in QUALITIES else None)
                 if jpeg is None:
                     return self._body(503, "text/plain; charset=utf-8",
                                       b"no frame yet\n")

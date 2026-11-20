@@ -17,9 +17,21 @@ in there:
   * **Cookies set in the sheet never reach Safari**, so the GUI's usual
     token-to-cookie handoff cannot work from here.
 
-So this page polls a single still frame, fetches status once a second, and its
-one job is to hand the operator to the real browser - with the token in the
-href, because that is the only thing that crosses the boundary.
+So this page polls still frames and fetches status every 2 s, and offers a
+hand-off to the real browser - with the token in the href, because that is the
+only thing that crosses the boundary.
+
+**On Android this window IS the viewer, so the stills must be live.** The
+hotspot has no internet, so Android marks it "no internet" and, with mobile
+data on, keeps cellular as the phone's default network. Chrome follows the
+default network, so the hand-off - or a typed http://10.42.0.1:8080, or QR code
+2 - goes out over cellular and never reaches the drone. Android's sign-in
+window is the exception: Android pins it to the Wi-Fi it is signing in to. So
+an Android phone with mobile data on can see the camera here and nowhere else.
+That is why the stills are chained back to back at the low rung's frame rate
+rather than refreshed every 2 s, and why the copy tells Android users to stay
+here. iPhones route the hotspot's subnet over Wi-Fi regardless, so the hand-off
+works for them either way.
 
 There is no browser sniffing anywhere. The portal is a different *route*
 (/portal) from the GUI (/), so anything that arrives here came via a probe
@@ -97,9 +109,11 @@ footer{margin:18px 16px 0;padding-top:12px;border-top:1px solid var(--line);
 
 <div id="chips"></div>
 
-<a class="go" id="go" href="#">Open the live camera</a>
+<a class="go" id="go" href="#">Open the full camera page</a>
 
-<p class="hint">If this button does nothing, open your browser and go to
+<p class="hint">The video above is live &mdash; you can keep watching here.
+On Android, the full page only opens with mobile data turned off.</p>
+<p class="hint">If the button does nothing, open your browser and go to
 <b>venator.com</b></p>
 
 <footer id="foot"></footer>
@@ -114,17 +128,35 @@ const auth = u => u + (u.includes('?') ? '&' : '?') + (TOKEN ? 'k=' + TOKEN : ''
 document.getElementById('go').href =
   'http://venator.com/' + (TOKEN ? '?k=' + TOKEN : '');
 
-// A still frame on a timer, not a stream: a restricted WebView may not render
+// Still frames, not a stream: a restricted WebView may not render
 // multipart/x-mixed-replace at all, and an MJPEG connection that gets killed
 // when the sheet closes would hold one of the server's viewer slots until its
 // socket timeout expires.
+//
+// But live, because on an Android phone with mobile data on this window is the
+// only place the camera can be seen (see this file's docstring). Each frame is
+// asked for only once the last one has landed, so a weak link lowers the frame
+// rate instead of piling up requests, and never faster than FRAME_MS: the low
+// rung's encoder rate, 0.5 Mbps a phone, the same rung an audience phone gets
+// on the full page. A request that never answers is replaced after STALL_MS.
+const FRAME_MS = 125, RETRY_MS = 1000, STALL_MS = 5000;
 const img = document.getElementById('img');
 const shot = document.getElementById('shot');
-img.onload = () => shot.classList.add('live');
-img.onerror = () => shot.classList.remove('live');
-function refresh(){ img.src = auth('/snapshot.jpg') + '&_=' + Date.now(); }
-refresh();
-setInterval(refresh, 2000);
+let timer = 0, asked = 0;
+function next(ms){ clearTimeout(timer); timer = setTimeout(frame, ms); }
+function frame(){
+  if (document.hidden) return;          // resumed by visibilitychange below
+  asked = Date.now();
+  img.src = auth('/snapshot.jpg?q=lo') + '&_=' + asked;
+  next(STALL_MS);                       // watchdog; replaced when it answers
+}
+img.onload = () => {
+  shot.classList.add('live');
+  next(Math.max(0, FRAME_MS - (Date.now() - asked)));
+};
+img.onerror = () => { shot.classList.remove('live'); next(RETRY_MS); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden) next(0); });
+frame();
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function chip(label, value, cls){

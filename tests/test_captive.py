@@ -20,6 +20,7 @@ fake request.
 """
 import io
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -45,13 +46,16 @@ def check(label, got, want=True):
 
 class FakeHub:
     """Just enough of Hub for the routes under test."""
+    asked = []          # the rung each latest_jpeg() call named, newest last
+
     def __init__(self, jpeg=b"\xff\xd8fake\xff\xd9"):
         self._jpeg = jpeg
 
     def snapshot(self):
         return {"fps": 10.0, "frames": 1, "camera": "ok"}
 
-    def latest_jpeg(self):
+    def latest_jpeg(self, quality=None):
+        FakeHub.asked.append(quality)
         return self._jpeg
 
 
@@ -142,7 +146,17 @@ check("cookie is HttpOnly", "HttpOnly" in r.headers.get("Set-Cookie", ""))
 check("polls a still frame, not a stream", b"/snapshot.jpg" in r.body)
 check("never opens an MJPEG stream", b"live.mjpg" not in r.body)
 check("never opens an EventSource", b"EventSource" not in r.body)
-check("offers a way out to the real browser", b"Open the live camera" in r.body)
+check("offers a way out to the real browser", b"Open the full camera page" in r.body)
+check("asks for the low rung", b"/snapshot.jpg?q=lo" in r.body)
+# On Android with mobile data on, this window is the only place the camera can
+# be seen: Chrome goes out over cellular. A 2 s slideshow is not a camera feed.
+check("is live, not a 2 s slideshow", b"setInterval(refresh, 2000)" not in r.body)
+m = re.search(rb"const FRAME_MS = (\d+)", r.body)
+check("frame spacing is at most the low rung's 8 fps", bool(m) and int(m.group(1)) <= 125)
+check("chains frames rather than firing on a timer",
+      b"img.onload" in r.body and b"next(" in r.body)
+check("has a watchdog for a request that never answers", b"STALL_MS" in r.body)
+check("tells Android users to stay in the window", b"mobile data" in r.body)
 check("names the typed-URL fallback", b"venator.com" in r.body)
 check("wears the brand, like the camera page", b"--paper:#F2F1EE" in r.body and b"#05070a" not in r.body)
 
@@ -203,6 +217,25 @@ check("is a jpeg", r.headers.get("Content-Type"), "image/jpeg")
 check("body is the encoder's bytes", r.body, b"\xff\xd8fake\xff\xd9")
 r = request("/snapshot.jpg", query=f"k={TOKEN}", jpeg=None)
 check("503 when no frame has arrived yet", r.code, 503)
+FakeHub.asked.clear()
+request("/snapshot.jpg", query=f"k={TOKEN}&q=lo")
+check("?q=lo asks the hub for the low rung", FakeHub.asked[-1:], ["lo"])
+request("/snapshot.jpg", query=f"k={TOKEN}&q=../../etc")
+check("an unknown ?q= falls back to the default", FakeHub.asked[-1:], [None])
+request("/snapshot.jpg", query=f"k={TOKEN}")
+check("no ?q= keeps the default", FakeHub.asked[-1:], [None])
+
+print("\nHub.latest_jpeg picks the rung it is asked for, and falls back")
+hub = gui_server.Hub()
+check("nothing yet -> None", hub.latest_jpeg("lo"), None)
+hub.publish_frame("lo", b"LO")
+check("lo only: asking for lo -> lo", hub.latest_jpeg("lo"), b"LO")
+check("lo only: the default falls back to lo", hub.latest_jpeg(), b"LO")
+check("lo only: asking for hi falls back to lo", hub.latest_jpeg("hi"), b"LO")
+hub.publish_frame("hi", b"HI")
+check("both: the default prefers hi (evidence frames)", hub.latest_jpeg(), b"HI")
+check("both: asking for lo -> lo", hub.latest_jpeg("lo"), b"LO")
+check("both: an unknown rung -> hi", hub.latest_jpeg("nope"), b"HI")
 
 print("\nWith no key file the portal still works, unauthenticated")
 # gui_server binds loopback in this state, so this is a local-only situation -
@@ -220,6 +253,62 @@ check("a hostile token cannot break out of the script",
       "</script><script>alert(1)" not in html)
 check("it is JSON-encoded instead", "\\u003c" in html or "\\/script" in html
       or "<\\/script>" in html)
+
+print("\nAndroid's probe resolves to an address Android will actually probe")
+# Android's NetworkMonitor skips the HTTP probe - and so never shows "Sign in to
+# network" - when the probe hostname resolves to an address Java calls
+# site-local or link-local. Python's ipaddress.is_private is NOT that test (it
+# also flags 192.0.2.0/24), so mirror Java's ranges exactly.
+import ipaddress  # noqa: E402
+
+JAVA_PRIVATE = [ipaddress.ip_network(n) for n in
+                ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16")]
+ANDROID_PROBE_HOSTS = ("connectivitycheck.gstatic.com",
+                       "connectivitycheck.android.com", "clients3.google.com")
+
+conf = (ROOT / "deploy" / "dnsmasq" / "venator-portal.conf").read_text()
+answers = dict(re.findall(r"^address=/([^/]+)/(\S+)", conf, re.M))
+nft = (ROOT / "deploy" / "nft" / "venator-portal.nft").read_text()
+chains = dict(re.findall(r"chain (\w+) \{(.*?)\n    \}", nft, re.S))
+
+for host in ANDROID_PROBE_HOSTS:
+    ip = answers.get(host)
+    check(f"{host} is answered at all", ip is not None)
+    if ip is None:
+        continue
+    addr = ipaddress.ip_address(ip)
+    check(f"{host} -> {ip} is not private to Android",
+          not any(addr in n for n in JAVA_PRIVATE))
+    for chain in ("prerouting", "output"):
+        rule = re.search(rf"^\s*[^#\n]*ip daddr {re.escape(ip)} tcp dport 80 "
+                         r"dnat to 10\.42\.0\.1:8080", chains.get(chain, ""), re.M)
+        check(f"  and the {chain} chain dnats {ip}:80 to the GUI", rule is not None)
+
+check("captive.apple.com is left on 10.42.0.1 (iOS works there)",
+      answers.get("captive.apple.com"), "10.42.0.1")
+check("venator.com still resolves to the drone itself",
+      answers.get("venator.com"), "10.42.0.1")
+
+print("\nfield_mode.sh on: the GUI is up before the access point is")
+# A phone that knows VenatorDrone joins and probes within a second of the AP
+# appearing. Restarting the GUI after the AP refused those probes for ~40 s.
+fm = (ROOT / "deploy" / "field_mode.sh").read_text()
+body = fm[fm.index("field_on() {"):]
+body = body[:body.index("\n}\n")]
+restart = body.find('systemctl restart "${GUI_UNIT}"')
+wait = body.find("wait_for_gui")
+ap = body.find('wifi_mode.sh" on')
+check("restarts the GUI", restart >= 0)
+check("waits for it to answer", wait >= 0)
+check("before bringing up the AP", 0 <= restart < wait < ap)
+check("wait_for_gui polls the unauthenticated /healthz",
+      "127.0.0.1:8080/healthz" in fm)
+# The dispatcher loads the redirect asynchronously after the AP is up; status
+# reported "not loaded" for a working portal when it ran inside that gap.
+portal_wait = body.find("wait_for_portal")
+status_call = body.rfind("status")
+check("waits for the port-80 redirect after the AP, before status",
+      0 <= ap < portal_wait < status_call)
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

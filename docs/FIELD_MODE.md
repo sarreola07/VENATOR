@@ -53,17 +53,10 @@ to find out whether there is real internet. Answer that with anything other
 than the expected response and the phone concludes there is a login page and
 opens it. That is the popup.
 
-Two mechanisms, belt and braces:
-
-**1. DHCP option 114 — the modern path.** `deploy/dnsmasq/venator-portal.conf`
-advertises a Captive Portal API URL (RFC 8908). iOS 14+ and Android 11+ fetch
-`/captive-portal-api`, read `{"captive": true, "user-portal-url": ...}` and open
-that URL themselves. No request interception, no certificate warning, nothing
-for the operator to type. **This is the one that actually delivers the popup.**
-
-**2. Probe interception — the fallback for older devices.** The same dnsmasq
-fragment resolves the vendors' probe hostnames to the drone, and
-`gui_server.py` answers ten probe paths with a `302` to the portal:
+**Probe interception is what delivers the popup.**
+`deploy/dnsmasq/venator-portal.conf` resolves the vendors' probe hostnames to
+the drone, and `gui_server.py` answers ten probe paths with a `302` to the
+portal:
 
 | Probe | Used by |
 |---|---|
@@ -75,6 +68,24 @@ fragment resolves the vendors' probe hostnames to the drone, and
 
 `/favicon.ico` deliberately answers `204` rather than redirecting, because some
 captive browsers follow a redirect there and loop.
+
+**Android's probe names resolve to `192.0.2.1`, not `10.42.0.1`, and the popup
+depends on it.** Android looks up `connectivitycheck.gstatic.com` first. If the
+answer is a private address (10/8, 172.16/12, 192.168/16, 169.254/16), its
+NetworkMonitor returns `PRIVATE_IP` and marks the network "no internet"
+*without sending the HTTP probe*, so there's no 302 and no "Sign in to network".
+`192.0.2.1` is TEST-NET-1 (RFC 5737), never routed on the internet and not
+private by Android's test. The phone sends it to its gateway, the drone, and
+`deploy/nft/venator-portal.nft` dnats it to the GUI like `10.42.0.1`. Found in
+the 2026-11-20 field test: a Galaxy Z Fold looked the name up eight times and
+sent nothing, while an iPhone on the same hotspot got its portal. iOS has no
+such rule, so `captive.apple.com` stays on `10.42.0.1`.
+
+**DHCP option 114 (RFC 8908 Captive Portal API) is advertised but doesn't
+open the popup.** The RFC requires `https`, and clients enforce it. Android
+drops a plain-http capport URL, and the iPhone in that test never fetched it.
+An https URL would need a certificate for `venator.com` (below). The option is
+harmless and stays for any client that accepts http.
 
 ### It will not fire every single time
 
@@ -280,6 +291,18 @@ installed and in effect:
 dig +short venator.com @10.42.0.1          # -> 10.42.0.1
 ps -o args= -C dnsmasq | tr ' ' '\n' | grep conf-dir
 ```
+
+**iPhones get the popup but Android doesn't.** Android's probe name must
+resolve to a non-private address, and the redirect must catch it:
+
+```bash
+dig +short connectivitycheck.gstatic.com @10.42.0.1   # -> 192.0.2.1, NOT 10.42.0.1
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H 'Host: connectivitycheck.gstatic.com' http://192.0.2.1/generate_204   # -> 302
+```
+
+`10.42.0.1` from the first line means the installed fragment is stale. Run
+`field_mode.sh install` and cycle the hotspot.
 
 **The popup opens but shows an error.** Check the redirect and the port-80 rule:
 

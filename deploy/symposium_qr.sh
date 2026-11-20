@@ -212,6 +212,12 @@ page = f'''<!doctype html>
   phone will say &ldquo;no internet&rdquo; once it joins: that is correct, the
   drone is not a router. Stay on the network and scan 2.
   <br><br>
+  <b>Android with mobile data on:</b> code 2 opens in the browser, which Android
+  sends over cellular when the Wi-Fi has no internet, so it will not load. Tap
+  the <b>Sign in to network</b> notification instead (or Settings &rarr; Wi-Fi
+  &rarr; {html.escape(ssid or "VenatorDrone")} &rarr; Sign in): the live camera is in that window, which
+  Android keeps on the drone's Wi-Fi. Or turn mobile data off and scan 2.
+  <br><br>
   <b>Code 3 will not load while you are joined to VenatorDrone</b>, for exactly
   that reason &mdash; there is no route off the drone. Scan it on cellular, or
   before you join, or after you leave.
