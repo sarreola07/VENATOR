@@ -13,3 +13,8 @@ design_review_SA/
 
 # macOS drops these into any folder opened in Finder
 .DS_Store
+
+# Build outputs (make gcs, make firmware) and pip editable-install metadata
+/build/
+/dist/
+*.egg-info/

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "venator"
+version = "0.1.0"
+description = "Secure, long-range, off-grid autonomous flight drone platforms powered by edge compute."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+# CI tests on 3.12; the Jetson (JetPack 6, Ubuntu 22.04) runs 3.10.
+requires-python = ">=3.10"
+# requirements.txt lists the same two for setup.sh on the Jetson: keep them in step.
+dependencies = [
+    "pymavlink>=2.4.40",
+    "pyserial>=3.5",
+]
+
+[project.optional-dependencies]
+gcs = ["pyinstaller"]   # make gcs: the standalone ground-station app
+pico = ["mpremote"]     # make flash-pico: copy the Pico gateway's code
+
+[project.urls]
+Homepage = "https://sarreola07.github.io/VENATOR/"
+Repository = "https://github.com/sarreola07/VENATOR"
+
+[tool.setuptools]
+# The code runs in place (python3 drone/c2_server.py, ground/gcs_client.py, ...),
+# so installing the project only pulls in its dependencies.
+packages = []
