@@ -179,6 +179,8 @@ written down here rather than left to memory.
 | Venator `Drone Propeller` | the four propellers, 254 mm span | modelled in Onshape for this project; ours outright |
 | Luxonis `DM9098Pro_enclosure.stp` | the OAK-D Pro on the nose bracket | vendor CAD for the enclosure |
 | Venator `wireless_stick_litev3.3mf` | the LoRa radio on the shelf edge | modelled in Onshape for this project; ours outright |
+| Venator `Rev1.kicad_pcb` (silkscreen "VENATOR PCB Rev 2") | the power distribution board, `cu-pdb.webp` | designed in KiCad for this project; ours outright. The parts on it are the 3D models attached to its footprints |
+| Venator `VENATOR_Gateway_RevD_ESP32.kicad_pcb` | the handheld remote, `cu-remote.webp` | designed in KiCad for this project; ours outright. The Heltec board, its screen, the knob and the button were modelled in Blender for the render |
 
 None of those CAD files are committed here. Only the rendered images are, and a
 render of hardware we own is our own picture of our own aircraft. That said:
@@ -199,6 +201,11 @@ render of hardware we own is our own picture of our own aircraft. That said:
   render is missing the V3's 0.49 inch OLED. The envelope is otherwise the same.
   The gallery caption says so outright rather than letting the picture imply a
   board that is not there.
+- **The two board renders are drawn from the design files, and each leaves one
+  thing off.** `cu-pdb.webp` shows the power distribution board without its
+  solder mask, so the copper rails show, and `cu-remote.webp` shows the handheld
+  remote without its antenna. Their gallery captions say so, the same way the
+  radio caption does.
 - The Pixhawk CAD is now the one open item. Its exact source is not written
   down, and should be before these renders are used anywhere beyond this
   repository.

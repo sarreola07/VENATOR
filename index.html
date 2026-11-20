@@ -565,12 +565,30 @@
     <h2 data-i18n="hw.h2">Built from proven parts</h2>
     <!-- Provenance runs the other way round: the geometry is manufacturer CAD
          assembled in Blender to match the aircraft, with the propellers and the
-         radio housing modelled in Onshape for this project. docs/BRAND.md keeps
-         the full source table deliberately, "rather than left to memory". -->
-    <p class="cap" data-i18n="hw.cap">Rendered from the manufacturers&rsquo; 3D models. The propellers
-      and radio housing were designed for this project.</p>
+         radio housing modelled in Onshape for this project, and the two circuit
+         boards (the power board and the handheld remote) rendered from their own
+         KiCad designs. docs/BRAND.md keeps the full source table deliberately,
+         "rather than left to memory". -->
+    <p class="cap" data-i18n="hw.cap">Rendered from the manufacturers&rsquo; 3D models and our own board
+      designs. The two circuit boards, the propellers and the radio housing were designed for this project.</p>
 
     <div class="grid">
+      <div class="tile">
+        <figure>
+          <img src="assets/renders/cu-pdb.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.pdb.alt" alt="Top view of the Venator power distribution board, its bare copper rails running from the battery input to the four ESC connectors and the 12 V output">
+        </figure>
+        <h3 data-i18n="hw.pdb.h3">Power distribution board</h3>
+        <p data-i18n="hw.pdb.p">Designed for this project. It carries the 4S battery to the four ESCs and makes the 12&nbsp;V rail for the Jetson and the 5&nbsp;V and 3.3&nbsp;V rails for servos and sensors. Shown without its solder mask, so the copper shows.</p>
+      </div>
+
+      <div class="tile">
+        <figure>
+          <img src="assets/renders/cu-remote.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.remote.alt" alt="Top view of the Venator handheld remote: the Heltec LoRa board with its screen reading VENATOR, Connected: Ready to deploy, above a black knob and a white back button">
+        </figure>
+        <h3 data-i18n="hw.remote.h3">Handheld remote</h3>
+        <p data-i18n="hw.remote.p">Designed for this project. A Heltec WiFi LoRa 32 V3 with its screen, a knob and a back button, on its own board. It runs the motor tests and a 3&nbsp;ft hover over the 915&nbsp;MHz link, with no laptop. Shown without its antenna.</p>
+      </div>
+
       <div class="tile">
         <figure>
           <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.pixhawk.alt" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
