@@ -49,6 +49,7 @@ check("no entry is still English (identical to its EN line)",
           if k not in ("hw.lab", "nav.github")))     # "Hardware" is the same word
 
 used = set()
+holds = []
 for page in PAGES:
     html = (ROOT / page).read_text(encoding="utf-8")
     print(f"\n{page}")
@@ -67,6 +68,15 @@ for page in PAGES:
           not re.search(r'<[a-z0-9]+[^>]*data-i18n="[^"]+"[^>]*>[^<]*<(?!/)', html))
     first_style = re.search(r"<style>.*?</style>", html, re.S).group(0)
     check("the switch's style is in the shared stylesheet", ".mast nav .lang{" in first_style)
+    # A Spanish load is held unpainted until lang.js has swapped the words in,
+    # or a page opened at a #section paints English and jumps (CLS 0.11).
+    head = html.split("</head>")[0]
+    hold = re.search(r"<script>\n.*?</script>", head, re.S)
+    check("the head holds a Spanish load back until the words are in",
+          bool(hold) and 'classList.add("i18n-wait")' in hold.group(0))
+    check("and shows the page anyway if lang.js never runs",
+          bool(hold) and "setTimeout" in hold.group(0) and 'classList.remove("i18n-wait")' in hold.group(0))
+    holds.append(hold.group(0) if hold else "")
 
 print("\nBoth directions")
 gallery = (ROOT / "assets" / "shots-gallery.js").read_text(encoding="utf-8")
@@ -77,6 +87,12 @@ check("the gallery script's two strings have keys", {"shots.close", "shots.open"
 check("and the gallery reads them through the switch", 't("shots.close"' in gallery and 't("shots.open"' in gallery)
 styles = [re.search(r"<style>.*?</style>", (ROOT / p).read_text(encoding="utf-8"), re.S).group(0) for p in PAGES]
 check("every page still carries the same stylesheet", all(s == styles[0] for s in styles))
+check("every page holds Spanish back with the same head script", len(set(holds)) == 1)
+check("the stylesheet hides the page only while that class is on",
+      ".i18n-wait body{visibility:hidden}" in styles[0])
+lang_js = (ROOT / "assets" / "lang.js").read_text(encoding="utf-8")
+check("lang.js shows the page once the words are in", 'root.classList.remove("i18n-wait")' in lang_js)
+check("and puts a linked section back in view", "target.scrollIntoView()" in lang_js)
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

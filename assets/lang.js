@@ -100,4 +100,19 @@
   }
   var first = wanted();
   if (first === "es") apply("es"); else apply("en");
+
+  // The script in each page's head kept a Spanish load unpainted while this
+  // ran (.i18n-wait in the stylesheet), so the page never showed English and
+  // then jumped to the longer Spanish. Show it now. If the address named a
+  // section, the browser scrolled there with the English lengths, so put it
+  // back in place with the Spanish ones before the first paint.
+  var root = document.documentElement;
+  if (root.classList.contains("i18n-wait")) {
+    root.classList.remove("i18n-wait");
+    var target = null;
+    try {
+      target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    } catch (e) { /* malformed address: stay where the browser put us */ }
+    if (target) target.scrollIntoView();
+  }
 }());
