@@ -47,7 +47,7 @@ gen: ## Regenerate the animated assets in assets/brand from tools/gen_*.py
 
 site-check: ## The site's language-switch test and HTML validation (needs Node for npx)
 	$(PYTHON) tests/test_site_i18n.py
-	$(NPX) --yes html-validate@11 --rule 'doctype-style:off' index.html how-it-works.html
+	$(NPX) --yes html-validate@11 --rule 'doctype-style:off' index.html how-it-works.html timeline.html
 
 gcs: setup ## Build the ground-station app for this OS into dist/VenatorGCS, as CI does
 	$(VPY) -m pip install -q ".[gcs]"

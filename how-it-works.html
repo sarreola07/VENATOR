@@ -88,6 +88,12 @@
     transition:color .18s ease, border-color .18s ease;
   }
   .mast nav .lang:hover,.mast nav .lang:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
+  /* Until then it holds its place, invisible and out of the tab order. On a
+     phone the five items wrap to two rows where the four links alone fit on
+     one, so a switch that appeared from nothing pushed the page down a row as
+     it loaded: CLS 0.22 against the 0.05 gate. With scripting off, the
+     <noscript> rule in the head takes the empty place away again. */
+  .mast nav .lang[hidden]{display:block; visibility:hidden}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -263,13 +269,16 @@
   :focus-visible{outline:2px solid var(--signal); outline-offset:3px}
 
   /* ---- phone ------------------------------------------------------------ */
-  /* Below this the lockup and three nav items no longer fit on one line. They
-     used to overflow the band, which also dragged the nav colour off the dark
-     background and onto paper, where #8A8781 measures 3.17:1 and fails. */
-  @media (max-width:560px){
+  /* Below this the lockup and the nav no longer fit on one line. They used to
+     overflow the band, which also dragged the nav colour off the dark
+     background and onto paper, where #8A8781 measures 3.17:1 and fails. With
+     Timeline added, the Spanish masthead needs a 574 px window to fit on one
+     line, so the break sits at 620 to leave room for fonts that set wider
+     than Linux's Arial. */
+  @media (max-width:620px){
     .mast{height:auto; flex-wrap:wrap; justify-content:flex-start; padding:14px 0 0}
     .mast picture,.mast img{flex:0 0 auto}
-    /* Four items now, and the Spanish ones are longer: let the row wrap rather
+    /* Five items now, and the Spanish ones are longer: let the row wrap rather
        than overflow, which the audit counts as sideways scroll. */
     .mast nav{flex:1 0 100%; flex-wrap:wrap; margin-top:12px; padding-bottom:10px; gap:6px 18px}
   }
@@ -426,7 +435,104 @@
   @media (max-width:680px){
     .cine-label{font-size:9px; letter-spacing:.06em; padding:2px 5px}
   }
+
+  /* ---- the timeline page ------------------------------------------------
+     One track per teammate: a rule down the left with a square on it for
+     every step, then the team. The rule runs through the centre of the
+     teammate's photo, and each step's text lines up with their name. */
+  .hero h1.pair{font-size:clamp(2.3rem,6vw,4.6rem)}
+  .tl-jump{
+    display:flex; flex-wrap:wrap; gap:8px; list-style:none;
+    margin:clamp(22px,3vw,30px) 0 0; padding:0;
+  }
+  .tl-jump a{
+    display:block; padding:9px 14px; text-decoration:none;
+    font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    border:1px solid var(--line); transition:border-color .18s ease;
+  }
+  .tl-jump a:hover,.tl-jump a:focus-visible{border-color:var(--ink)}
+  .track{
+    margin-top:clamp(40px,6vw,64px); padding-top:clamp(20px,3vw,28px);
+    border-top:1px solid var(--ink); scroll-margin-top:12px;
+  }
+  .track-hd{display:flex; align-items:center; gap:16px}
+  .track-hd img{flex:0 0 auto; width:56px; height:56px; border-radius:50%}
+  .track-hd h3{
+    margin:0; font-size:clamp(1.25rem,2.4vw,1.6rem); line-height:1.15;
+    font-weight:700; letter-spacing:-.02em;
+  }
+  .role{
+    margin:6px 0 0; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .tl{
+    list-style:none; margin:clamp(24px,3.4vw,32px) 0 0 27px; padding:0 0 0 44px;
+    border-left:1px solid var(--line);
+  }
+  .tl > li{
+    position:relative; display:grid; align-items:start;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:clamp(16px,3vw,40px);
+  }
+  .tl > li.solo{display:block}
+  .tl > li + li{margin-top:clamp(30px,4.4vw,44px)}
+  .tl > li::before{
+    content:""; position:absolute; left:-49px; top:5px;
+    width:9px; height:9px; background:var(--ink);
+  }
+  .tl-when{
+    display:block; margin:0 0 6px; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .tl h4{margin:0; font-size:1.0625rem; line-height:1.3; font-weight:700; letter-spacing:-.01em}
+  .tl-txt p{margin:8px 0 0; max-width:56ch; font-size:15px; color:var(--muted)}
+  /* The photos in a step share one height and keep their own shapes. Each
+     link's width is its photo's aspect ratio times the row height (the .ar-*
+     classes, since the site carries no inline styles), and when the row is
+     too narrow they shrink in proportion, so the heights stay equal. A tap
+     opens the larger copy. */
+  .tl-photos{--row-h:280px; display:flex; gap:10px}
+  .tl-photos a{flex:0 1 calc(var(--ar) * var(--row-h)); min-width:0}
+  .tl-photos img{width:100%; border:1px solid var(--line); background:var(--panel); transition:border-color .18s ease}
+  .tl-photos a:hover img,.tl-photos a:focus-visible img{border-color:var(--ink)}
+  .ar-34{--ar:.75} .ar-43{--ar:1.3333} .ar-56{--ar:.8333} .ar-98{--ar:1.125}
+  .also{margin:clamp(26px,3.6vw,34px) 0 0 72px}
+  .also-k{
+    margin:0 0 10px; font:11px/1.5 var(--mono); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .also ul{display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin:0; padding:0}
+  .also li{padding:5px 10px; border:1px solid var(--line); font-size:13px; line-height:1.4}
+  .team{
+    list-style:none; margin:clamp(30px,4.5vw,46px) 0 0; padding:0;
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:clamp(18px,2.6vw,30px);
+  }
+  .team img{width:100%; max-width:180px; border-radius:50%}
+  .team h3{margin:16px 0 0; font-size:1.0625rem; font-weight:700; letter-spacing:-.012em}
+  .team .role{margin-top:4px}
+  .bio{margin:12px 0 0; font-size:14px; color:var(--muted)}
+  .bio-k{
+    display:block; margin-bottom:2px; font:10.5px/1.5 var(--mono); letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink);
+  }
+  @media (max-width:980px){ .team{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media (max-width:860px){
+    .tl > li{grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:620px){ .team{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:560px){
+    .track-hd{gap:12px}
+    .track-hd img{width:44px; height:44px}
+    .tl{margin-left:21px; padding-left:34px}
+    .tl > li::before{left:-39px}
+    .tl-photos{--row-h:200px}
+    .also{margin-left:56px}
+  }
 </style>
+<!-- Rules that only apply with scripting off. -->
+<noscript><style>
+  /* No script, no language switch: give its reserved place back. */
+  .mast nav .lang[hidden]{display:none}
+</style></noscript>
 </head>
 <body>
 
@@ -442,6 +548,7 @@
       <button class="lang" type="button" hidden lang="es">Español</button>
       <a href="index.html" data-i18n="nav.product">Product</a>
       <a href="how-it-works.html" aria-current="page" data-i18n="nav.how">How it works</a>
+      <a href="timeline.html" data-i18n="nav.timeline">Timeline</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
     </nav>
   </header>
