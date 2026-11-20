@@ -527,6 +527,31 @@
     .tl-photos{--row-h:200px}
     .also{margin-left:56px}
   }
+
+  /* ---- behind the build -------------------------------------------------
+     Five bench photos: the first spans two rows beside a two-by-two grid, and
+     on a phone it takes the full width above the other four. The captions sit
+     on the photos in the same dark chip as the 360's labels, which stays well
+     past 4.5:1 over any photo. */
+  .behind{
+    display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px;
+    margin-top:clamp(30px,4.5vw,46px);
+  }
+  .behind figure{position:relative}
+  .behind a{display:block}
+  .behind figure:first-child{grid-row:span 2}
+  .behind figure:first-child a{position:absolute; inset:0}
+  .behind figure:first-child img{width:100%; height:100%; object-fit:cover}
+  .behind figcaption{
+    position:absolute; left:10px; bottom:10px; max-width:calc(100% - 20px);
+    padding:5px 9px; font:11px/1.35 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+    color:#F2F1EE; background:rgba(10,10,10,.78); border:1px solid #2A2A27;
+  }
+  @media (max-width:720px){
+    .behind{grid-template-columns:1fr 1fr}
+    .behind figure:first-child{grid-column:span 2; grid-row:auto; aspect-ratio:3/4}
+    .behind figcaption{left:6px; bottom:6px; max-width:calc(100% - 12px); font-size:9.5px; letter-spacing:.08em}
+  }
 </style>
 <!-- Rules that only apply with scripting off. -->
 <noscript><style>
@@ -875,6 +900,52 @@
         </ul>
       </div>
     </article>
+  </section>
+
+  <!-- Bench photos from the team. The first one is the big one; on a phone it
+       takes the full width and the other four sit two by two. A tap opens the
+       larger copy. -->
+  <section id="behind">
+    <p class="lab" data-i18n="tl.fun.lab">Behind the build</p>
+    <h2 data-i18n="tl.fun.h2">Building it, together</h2>
+    <p class="cap" data-i18n="tl.fun.cap">Bench sessions, code reviews and a lot of cables. The build, as it happened.</p>
+    <div class="behind">
+      <figure>
+        <a href="assets/timeline/lab-smiles-lg.webp"><img src="assets/timeline/lab-smiles.webp"
+          srcset="assets/timeline/lab-smiles.webp 480w, assets/timeline/lab-smiles-lg.webp 1200w"
+          sizes="(max-width: 720px) 100vw, 560px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt1" alt="Two teammates at the workbench smiling at the camera, one seated with a yellow safety vest across their knee, the drone and a laptop of code beside them"></a>
+        <figcaption data-i18n="tl.fun.c1">Mid-build, still smiling</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/timeline/lab-walkthrough-lg.webp"><img src="assets/timeline/lab-walkthrough.webp"
+          srcset="assets/timeline/lab-walkthrough.webp 480w, assets/timeline/lab-walkthrough-lg.webp 1200w"
+          sizes="(max-width: 720px) 50vw, 280px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt2" alt="One teammate points at the screen while another looks on, the drone on the bench beside them"></a>
+        <figcaption data-i18n="tl.fun.c2">Talking it through at the bench</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/timeline/lab-tablet-lg.webp"><img src="assets/timeline/lab-tablet.webp"
+          srcset="assets/timeline/lab-tablet.webp 480w, assets/timeline/lab-tablet-lg.webp 1200w"
+          sizes="(max-width: 720px) 50vw, 280px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt3" alt="A teammate at the bench reading code on a tablet, a yellow safety vest on their lap and the drone with its camera gimbal beside the monitor"></a>
+        <figcaption data-i18n="tl.fun.c3">Code on the tablet, the yellow vest close by</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/timeline/lab-aircraft-side-lg.webp"><img src="assets/timeline/lab-aircraft-side.webp"
+          srcset="assets/timeline/lab-aircraft-side.webp 480w, assets/timeline/lab-aircraft-side-lg.webp 1200w"
+          sizes="(max-width: 720px) 50vw, 280px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt4" alt="The drone on the workbench mid-build: blue arm clamps, the GPS mast, the orange Jetson mount and the camera gimbal below"></a>
+        <figcaption data-i18n="tl.fun.c4">The aircraft, mid-build</figcaption>
+      </figure>
+      <figure>
+        <a href="assets/timeline/lab-aircraft-front-lg.webp"><img src="assets/timeline/lab-aircraft-front.webp"
+          srcset="assets/timeline/lab-aircraft-front.webp 480w, assets/timeline/lab-aircraft-front-lg.webp 1200w"
+          sizes="(max-width: 720px) 50vw, 280px" width="480" height="640" loading="lazy"
+          data-i18n-attr="alt:tl.fun.alt5" alt="The drone head-on: the OAK-D Pro camera in its two-axis servo gimbal under an orange mount"></a>
+        <figcaption data-i18n="tl.fun.c5">Head-on: the OAK-D Pro on its gimbal</figcaption>
+      </figure>
+    </div>
   </section>
 
   <section id="team">

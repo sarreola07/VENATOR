@@ -439,6 +439,32 @@ window.VENATOR_ES = {
   "tl.sergio.a3": "Transmisión de video, con David",
   // EN: AI detection testing, with Leonel
   "tl.sergio.a4": "Pruebas de detección con IA, con Leonel",
+  // EN: Behind the build
+  "tl.fun.lab": "Detrás de la construcción",
+  // EN: Building it, together
+  "tl.fun.h2": "Construyéndolo juntos",
+  // EN: Bench sessions, code reviews and a lot of cables. The build, as it happened.
+  "tl.fun.cap": "Sesiones en el banco de trabajo, revisiones de código y muchos cables. La construcción, tal como pasó.",
+  // EN: Mid-build, still smiling
+  "tl.fun.c1": "A media construcción, y sonriendo",
+  // EN: Two teammates at the workbench smiling at the camera, one seated with a yellow safety vest across their knee, the drone and a laptop of code beside them
+  "tl.fun.alt1": "Dos integrantes del equipo en el banco de trabajo sonriendo a la cámara, uno sentado con un chaleco de seguridad amarillo sobre la rodilla, junto al dron y una laptop con código",
+  // EN: Talking it through at the bench
+  "tl.fun.c2": "Revisándolo juntos en el banco",
+  // EN: One teammate points at the screen while another looks on, the drone on the bench beside them
+  "tl.fun.alt2": "Un integrante señala la pantalla mientras otro observa, con el dron en el banco a su lado",
+  // EN: Code on the tablet, the yellow vest close by
+  "tl.fun.c3": "Código en la tableta y el chaleco amarillo a la mano",
+  // EN: A teammate at the bench reading code on a tablet, a yellow safety vest on their lap and the drone with its camera gimbal beside the monitor
+  "tl.fun.alt3": "Un integrante en el banco leyendo código en una tableta, con un chaleco de seguridad amarillo en el regazo y el dron con su gimbal de cámara junto al monitor",
+  // EN: The aircraft, mid-build
+  "tl.fun.c4": "La aeronave, a medio construir",
+  // EN: The drone on the workbench mid-build: blue arm clamps, the GPS mast, the orange Jetson mount and the camera gimbal below
+  "tl.fun.alt4": "El dron en el banco de trabajo, a medio construir: abrazaderas azules en los brazos, el mástil del GPS, el soporte naranja de la Jetson y el gimbal de la cámara debajo",
+  // EN: Head-on: the OAK-D Pro on its gimbal
+  "tl.fun.c5": "De frente: la OAK-D Pro en su gimbal",
+  // EN: The drone head-on: the OAK-D Pro camera in its two-axis servo gimbal under an orange mount
+  "tl.fun.alt5": "El dron de frente: la cámara OAK-D Pro en su gimbal de servos de dos ejes bajo un soporte naranja",
   // EN: The team
   "tl.team.h2": "El equipo",
   // EN: Five engineering students at UTSA, each owning one part of the system.
