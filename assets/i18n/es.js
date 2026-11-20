@@ -99,8 +99,8 @@ window.VENATOR_ES = {
   "hw.lab": "Hardware",
   // EN: Built from proven parts
   "hw.h2": "Hecho con piezas probadas",
-  // EN: Rendered from the manufacturers' 3D models and our own board designs. The two circuit boards, the propellers and the radio housing were designed for this project.
-  "hw.cap": "Renderizado a partir de los modelos 3D de los fabricantes y de nuestros propios diseños de placas. Las dos placas de circuito, las hélices y la carcasa de la radio se diseñaron para este proyecto.",
+  // EN: Rendered from the manufacturers' 3D models and our own designs. The two circuit boards, the propellers, the radio housing and the camera gimbal were designed for this project.
+  "hw.cap": "Renderizado a partir de los modelos 3D de los fabricantes y de nuestros propios diseños. Las dos placas de circuito, las hélices, la carcasa de la radio y el gimbal de la cámara se diseñaron para este proyecto.",
   // EN: Power distribution board
   "hw.pdb.h3": "Placa de distribución de energía",
   // EN: Top view of the Venator power distribution board, its bare copper rails running from the battery input to the four ESC connectors and the 12 V output
@@ -123,10 +123,10 @@ window.VENATOR_ES = {
   "hw.jetson.alt": "El kit de desarrollo Jetson Orin Nano montado bajo la bandeja de carga, con las aletas del disipador, el ventilador y el banco de conectores hacia la cámara, y el stick LoRa Heltec de pie en el borde de la bandeja, arriba",
   // EN: The onboard computer. It runs the AI and the command server and tells the flight controller what to do. The 915 MHz radio sits on the shelf above it: a Heltec Wireless Stick V3, shown here as the Lite model, without its small screen.
   "hw.jetson.p": "La computadora a bordo. Ejecuta la IA y el servidor de comandos, y le dice al controlador de vuelo qué hacer. La radio de 915 MHz va en la bandeja de arriba: un Heltec Wireless Stick V3, mostrado aquí como el modelo Lite, sin su pequeña pantalla.",
-  // EN: The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose
-  "hw.oakd.alt": "La cámara OAK-D Pro atornillada al soporte delantero, con su panel frontal de vidrio oscuro hacia la nariz",
-  // EN: The eyes. A stereo depth camera that measures the distance to everything it sees, with infrared lighting for low light.
-  "hw.oakd.p": "Los ojos. Una cámara estéreo de profundidad que mide la distancia a todo lo que ve, con iluminación infrarroja para poca luz.",
+  // EN: The OAK-D Pro camera in its 3D-printed pan-and-tilt gimbal, hanging from the two payload rails under the airframe, its dark glass front panel facing forward
+  "hw.oakd.alt": "La cámara OAK-D Pro en su gimbal de giro e inclinación impreso en 3D, colgada de los dos rieles de carga bajo la estructura, con su panel frontal de vidrio oscuro hacia el frente",
+  // EN: The eyes. A stereo depth camera that measures the distance to everything it sees, with infrared lighting for low light. It rides in a pan-and-tilt gimbal designed and 3D-printed for this project, shown here with generic stand-ins for its servos.
+  "hw.oakd.p": "Los ojos. Una cámara estéreo de profundidad que mide la distancia a todo lo que ve, con iluminación infrarroja para poca luz. Va montada en un gimbal de giro e inclinación diseñado e impreso en 3D para este proyecto, mostrado aquí con servos genéricos en lugar de los reales.",
   // EN: The Holybro M10 GPS on its mast above the tail, raised clear of the airframe
   "hw.gps.alt": "El GPS Holybro M10 en su mástil sobre la cola, elevado por encima de la estructura",
   // EN: GPS, mounted high on the tail mast for a clear view of the sky.
