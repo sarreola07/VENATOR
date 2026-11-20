@@ -13,7 +13,7 @@ and its prompt can be pasted straight into Claude Code on the Jetson.
 | `field_mode.sh` | Installs `venator-gui` (camera) + `venator-net-fallback` (hotspot), and the captive portal. Also `on`/`off`/`status`/`url`/`preflight`. |
 | `net_fallback.sh` | Run *by* `venator-net-fallback`: waits for a known Wi-Fi, hosts the AP if none appears. Not run by hand. |
 | `install_shortcuts.sh` | Installs the Desktop icons. No sudo. |
-| `flight_mode.sh` | Props ON (flight allowed) or props OFF (motor tests only). **Props OFF is a drop-in, not the default** — see below. |
+| `flight_mode.sh` | Props ON (flight allowed) or props OFF (motor tests only), and `indoor`/`outdoor` (hover gated on the ARK Flow position, or on GPS). **Props OFF is a drop-in, not the default** — see below. |
 | `wifi_mode.sh` | School Wi-Fi, or the Jetson's own `VenatorDrone` hotspot at 10.42.0.1. |
 | `systemd/venator-c2.service.in` | Template — the C2 link. |
 | `systemd/venator-gui.service.in` | Template — the operator camera GUI (needs `~/oak-venv`). |
@@ -47,9 +47,11 @@ remote does not sign. `field_mode.sh preflight` checks the two paths differ.
 **Props OFF is not the server's default.** `c2_server.py` defaults to props ON
 (`--props-on` is documented in `--help` as "(default)"), and the unit template
 passes `--real` alone. `flight_mode.sh off` adds a drop-in that overrides
-`ExecStart`; `flight_mode.sh on` works by *deleting* that drop-in, which is why
-`--props-off` is not baked into the template. Always check with
-`flight_mode.sh status`.
+`ExecStart`; `flight_mode.sh on` (outdoor) works by *deleting* that drop-in,
+which is why `--props-off` is not baked into the template. `indoor` adds
+`--indoor` to the same drop-in and `on`/`off` keep it, so switching props for
+the indoor demo never silently puts the hover back on the GPS gate. Always
+check with `flight_mode.sh status`.
 
 The `.in` files are templates: `__REPO__` and `__USER__` are filled in with
 wherever this clone actually lives and who is installing it. That is why the
@@ -63,7 +65,8 @@ service still point at the old path.
 sudo systemctl stop venator-c2       # frees the Pixhawk and the LoRa stick
 sudo systemctl stop venator-gui      # frees the OAK and port 8080
 journalctl -u venator-c2 -u venator-gui -u venator-net-fallback -f   # live logs
-./deploy/flight_mode.sh status       # BENCH (props off) or FLIGHT (props on)
+./deploy/flight_mode.sh status       # BENCH (props off) or FLIGHT (props on); INDOOR or OUTDOOR
+./deploy/flight_mode.sh off indoor   # bench checks for the indoor hover; `on indoor` to fly it
 ./deploy/field_mode.sh status        # camera + portal + which network it chose
 ./deploy/field_mode.sh url           # the phone's URL, token included
 ./deploy/wifi_mode.sh on             # hotspot; off = rejoin the previous network

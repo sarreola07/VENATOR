@@ -17,7 +17,7 @@ remote from `ground/gcs_client.py`.
 |---|---|---|---|
 | Test each motor | `RUN 1` | each motor 3 s at 15%, one after another | props declared **OFF** |
 | Test all motors | `RUN 2` | all four together, 3 s at 15% | props declared **OFF** |
-| Hover 4 ft | `RUN 8` → `CONFIRM` | takeoff to 1.22 m, hold 10 s, land in place | props declared **ON**, a **position estimate** (GPS fix *or* trusted optical flow), PX4 pre-arm |
+| Hover 4 ft DEMO | `RUN 8` → `CONFIRM` | takeoff to 1.22 m, hold 10 s, land in place | props declared **ON**, a **position** (GPS 3D fix outdoors, or the ARK Flow position when the server runs with `--indoor`), PX4 pre-arm |
 | Drone status | `RUN 7` | GPS / battery / sensor readout | — |
 | ARK check | `RUN 9` | reads the flow/range settings, then watches the ARK Flow for 10 s while you lift the aircraft | props declared **OFF** |
 
@@ -79,9 +79,18 @@ It adds three things of its own:
   **lands in place**. The hover never uses RTL, because on this vehicle RTL
   first climbs to `RTL_DESCEND_ALT` (10 m).
 
-It never retries a `RUN`: the server does not dedupe them, so a resend could
-run a motor test twice. "No answer from the drone" therefore means
-*unknown*, not *didn't run*. Look at the drone.
+Lost packets are normal on LoRa, so the remote sends again until the drone
+answers. A `RUN` keeps its `seq` and goes out up to three times, 4 s apart
+(`RUN_RETRY_MS`, `RUN_TRIES`); the server answers a repeated `seq` from its
+cache and never runs a motor test twice (`Dedupe` in `drone/c2_server.py`).
+`CONFIRM` is retried the same way, and in flight, 12 s without a word from the
+drone (`LINK_STALE_MS`) sends one `STOP` and shows `NO LINK` on the screen; the
+drone's own 4 s failsafe has landed it by then. "No answer from the drone" after
+the retries still means *unknown*, not *didn't run*: look at the drone.
+
+This firmware (`fw 2026-11-19b`, shown on the LINKING screen) needs a server
+from November 2026 or later for the `RUN` retry to be safe. Against an older
+server set `RUN_TRIES` to 1 before flashing.
 
 **Power this remote or the Pico gateway, never both.** The Pico + RYLR998
 ([../Pico_Gateway/README.md](../Pico_Gateway/README.md)) needs a 5-byte header

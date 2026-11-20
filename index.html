@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Venator: Autonomous Flight Systems</title>
-<meta name="description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular, no ground control software.">
+<title data-i18n="index.title">Venator: Autonomous Flight Systems</title>
+<meta name="description" data-i18n-attr="content:index.desc" content="Fence an area. Find who's in it. Come home. An autonomous safety drone with onboard AI that runs on its own radio link. No internet. No cell service.">
 <link rel="canonical" href="https://sarreola07.github.io/VENATOR/">
 <!-- Shared links used to render as a bare URL with no preview. Twitter reads the
      og: tags for everything except the card type, so only that one is doubled.
@@ -12,14 +12,14 @@
      JPEG, and a card nobody can decode is the same as no card. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Venator">
-<meta property="og:title" content="Venator: Autonomous Flight Systems">
-<meta property="og:description" content="Fence an area, sweep it, find who is in it, come home. An autonomous aircraft commanded over 915 MHz LoRa — no internet, no cellular, no ground control software.">
+<meta property="og:title" data-i18n-attr="content:index.title" content="Venator: Autonomous Flight Systems">
+<meta property="og:description" data-i18n-attr="content:index.desc" content="Fence an area. Find who's in it. Come home. An autonomous safety drone with onboard AI that runs on its own radio link. No internet. No cell service.">
 <meta property="og:url" content="https://sarreola07.github.io/VENATOR/">
 <meta property="og:image" content="https://sarreola07.github.io/VENATOR/assets/social-card.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
+<meta property="og:image:alt" data-i18n-attr="content:shared.social_alt" content="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms, an OAK-D Pro camera on the nose bracket and twin landing skids">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/brand/favicon.svg">
 <style>
@@ -78,6 +78,16 @@
   /* The page you are on holds the bright state, so the nav says where you are
      rather than only announcing it to a screen reader via aria-current. */
   .mast nav a[aria-current="page"]{color:#F2F1EE; border-color:#2A2A27}
+  /* The language switch sits in the nav and dresses like a link. It is hidden
+     until assets/lang.js removes the attribute, so with scripting off there is
+     no control that does nothing. */
+  .mast nav .lang{
+    background:none; border:0; border-bottom:1px solid transparent; padding:6px 0;
+    cursor:pointer; font:inherit; font-size:12px; letter-spacing:.14em; line-height:inherit;
+    text-transform:uppercase; color:#8A8781; white-space:nowrap;
+    transition:color .18s ease, border-color .18s ease;
+  }
+  .mast nav .lang:hover,.mast nav .lang:focus-visible{color:#F2F1EE; border-color:#F2F1EE}
 
   /* ---- hero: asymmetric split ------------------------------------------ */
   .hero{
@@ -91,6 +101,22 @@
     margin:0; font-size:clamp(2.6rem,8.4vw,6rem); line-height:.96;
     font-weight:700; letter-spacing:-.035em; text-wrap:balance;
   }
+  /* The small label above the headline. It sits inside the <h1> so the hero
+     grid keeps its two children, and so the heading reads "Autonomy, fence an
+     area..." to a screen reader. Signal orange, used decoratively by the
+     owner's choice (BRAND.md keeps it for live state). Hard-coded like the nav:
+     the band is near-black in both themes, where #E05316 measures 5.11:1, so it
+     passes AA even at this 12px size. */
+  .hero h1 .kicker{
+    display:block; margin:0 0 18px; font-size:12px; line-height:1;
+    font-weight:700; letter-spacing:.24em; text-transform:uppercase; color:#E05316;
+  }
+  /* The Product page headline is three short beats, one per line. The longest,
+     "Find who's in it.", is 6.92em wide, so this size keeps each beat on one
+     line in the hero column from 375px up to the 1240px cap (the general
+     8.4vw/6rem above would break them mid-phrase). The &nbsp;s in the markup
+     keep a beat from leaving a single word behind on narrower screens. */
+  .hero h1.beats{font-size:clamp(2.6rem,7vw,5.6rem)}
   .hero p{
     margin:0; max-width:36ch;
     font-size:clamp(1rem,1.5vw,1.125rem); color:#8A8781;
@@ -193,10 +219,38 @@
   .status .cap{max-width:70ch}
   .status figure{margin-top:clamp(22px,3vw,30px)}
 
-  .note{
-    margin:clamp(30px,4.5vw,44px) 0 0; padding:16px 20px; max-width:78ch;
-    font-size:14px; color:var(--muted);
-    background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--signal);
+  /* ---- missions --------------------------------------------------------
+     Native <details>: they open with no script, from the keyboard, and
+     announce open/closed to a screen reader. The number and the +/- are
+     aria-hidden spans, so neither is read out as part of the summary; the
+     grey teaser (.t) is, which is the point of it. The numbers use signal
+     orange decoratively, a deliberate exception to BRAND.md's live-state-only
+     rule; at 28px bold they are large text, so 3.43:1 on paper clears 3:1. */
+  .missions-list{margin-top:clamp(24px,3.4vw,34px); max-width:78ch; border-bottom:1px solid var(--line)}
+  .missions-list details{border-top:1px solid var(--line)}
+  .missions-list details:first-child{border-top-color:var(--ink)}
+  .missions-list summary{
+    position:relative; display:block; cursor:pointer; list-style:none;
+    padding:20px 44px 20px 64px; font-size:1.125rem; font-weight:700; line-height:1.3;
+  }
+  .missions-list summary::-webkit-details-marker{display:none}
+  .missions-list .n{
+    position:absolute; left:0; top:19px;
+    font:700 28px/1 var(--mono); letter-spacing:-.02em; color:var(--signal);
+  }
+  .missions-list .t{display:block; margin-top:4px; font-size:14px; font-weight:400; line-height:1.45; color:var(--muted)}
+  .missions-list .pm{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    font:400 20px/1 var(--mono); color:var(--muted);
+  }
+  .missions-list .pm::before{content:"+"}
+  .missions-list details[open] .pm::before{content:"\2212"}
+  .missions-list summary:hover .pm{color:var(--ink)}
+  .missions-list details p{margin:0 0 24px; padding-left:64px; max-width:66ch; color:var(--muted)}
+  @media (max-width:420px){
+    .missions-list summary{padding-left:44px}
+    .missions-list .n{font-size:22px; top:21px}
+    .missions-list details p{padding-left:44px}
   }
 
   footer{
@@ -215,7 +269,9 @@
   @media (max-width:560px){
     .mast{height:auto; flex-wrap:wrap; justify-content:flex-start; padding:14px 0 0}
     .mast picture,.mast img{flex:0 0 auto}
-    .mast nav{flex:1 0 100%; margin-top:12px; padding-bottom:10px; gap:18px}
+    /* Four items now, and the Spanish ones are longer: let the row wrap rather
+       than overflow, which the audit counts as sideways scroll. */
+    .mast nav{flex:1 0 100%; flex-wrap:wrap; margin-top:12px; padding-bottom:10px; gap:6px 18px}
   }
   @media (max-width:860px){
     .hero{grid-template-columns:1fr; gap:34px; align-items:start}
@@ -253,7 +309,7 @@
   .shots{margin-top:clamp(30px,4.5vw,46px)}
   .shots-stage{
     position:relative; width:100%;
-    aspect-ratio:var(--ar, 1/1);
+    aspect-ratio:var(--ar, 16/9);
     transition:aspect-ratio .45s cubic-bezier(.4,0,.2,1);
     background:#0A0A0A; border:1px solid var(--line);
     cursor:zoom-in;
@@ -392,22 +448,23 @@
     <!-- The masthead band is near-black in both colour schemes, so the lockup
          is always the near-white one. BRAND.md: "dark" means the ink is
          near-white, for dark backgrounds. -->
-    <a href="index.html"><img src="assets/brand/lockup-dark.svg" alt="Venator, autonomous flight systems" width="168" height="30"></a>
-    <nav aria-label="Primary">
-      <a href="index.html" aria-current="page">Product</a>
-      <a href="how-it-works.html">How it works</a>
+    <a href="index.html"><img src="assets/brand/lockup-dark.svg" data-i18n-attr="alt:nav.lockup" alt="Venator, autonomous flight systems" width="168" height="30"></a>
+    <nav aria-label="Primary" data-i18n-attr="aria-label:nav.primary">
+      <button class="lang" type="button" hidden lang="es">Español</button>
+      <a href="index.html" aria-current="page" data-i18n="nav.product">Product</a>
+      <a href="how-it-works.html" data-i18n="nav.how">How it works</a>
       <a href="https://github.com/sarreola07/VENATOR">GitHub</a>
     </nav>
   </header>
 
   <div class="hero">
-    <h1>Fence an area, sweep it, find who is in it, come home.</h1>
+    <h1 class="beats"><span class="kicker" data-i18n="hero.kicker">Autonomy</span><span data-i18n="hero.beat1">Fence an&nbsp;area.</span><br><span data-i18n="hero.beat2">Find who&rsquo;s in&nbsp;it.</span><br><span data-i18n="hero.beat3">Come&nbsp;home.</span></h1>
     <div>
-      <p>An autonomous aircraft commanded over a radio link that needs no
-        infrastructure &mdash; no internet, no cellular, no ground control
-        software. A laptop, a 915&nbsp;MHz radio and the drone.</p>
+      <p data-i18n="hero.p">An autonomous safety drone with onboard AI. It finds the people it&rsquo;s
+        sent for and ignores everything else. It runs on its own long-range
+        radio, so it works where networks don&rsquo;t.</p>
       <p class="act">
-        <a class="key" href="how-it-works.html#how">System architecture</a>
+        <a class="key" href="how-it-works.html#how" data-i18n="hero.cta">See how it works</a>
       </p>
     </div>
   </div>
@@ -437,6 +494,7 @@
                from either ratio is identical and there is no layout shift. -->
           <img src="assets/cine/sm/f000.webp"
              width="1100" height="754" fetchpriority="high"
+             data-i18n-attr="alt:hero.cine_alt"
              alt="The Venator aircraft: a Holybro X500 V2 quadcopter with four carbon arms carrying 2216 motors and ten inch propellers, an OAK-D Pro camera on the nose bracket, the GPS mast at the tail and twin landing skids">
         </picture>
       </div>
@@ -450,162 +508,199 @@
   <div class="nums">
     <div>
       <b>915<i>MHz</i></b>
-      <span>Long-range radio link</span>
-      <em>LoRa, validated on hardware</em>
+      <span data-i18n="nums.radio">Long-range radio</span>
+      <em data-i18n="nums.radio_note">LoRa, proven on real hardware</em>
     </div>
     <div>
       <b>0</b>
-      <span>Networks required</span>
-      <em>No internet, cell or ground station</em>
+      <span data-i18n="nums.networks">Networks required</span>
+      <em data-i18n="nums.networks_note">No internet or cell service</em>
     </div>
     <div>
       <b>18<i>min</i></b>
-      <span>Hover endurance</span>
-      <em>Holybro figure, stock airframe</em>
+      <span data-i18n="nums.hover">Hover time</span>
+      <em data-i18n="nums.hover_note">Holybro spec, stock frame</em>
     </div>
     <div>
       <b>1.5<i>kg</i></b>
-      <span>Payload capacity</span>
-      <em>Holybro figure, stock airframe</em>
+      <span data-i18n="nums.payload">Payload</span>
+      <em data-i18n="nums.payload_note">Holybro spec, stock frame</em>
     </div>
   </div>
 
-  <!-- The Holybro attribution stays: it is sourcing, not hedging. A figure
-       borrowed from the manufacturer has to say so, or it reads as a measurement
-       of this build. The progress caveat that used to follow it belongs to
-       docs/ROADMAP.md, which is where engineering status is tracked. -->
-  <p class="note">
-    The two endurance and payload figures are Holybro's for the stock X500&nbsp;V2,
-    not measurements of this build, which carries a Jetson Orin Nano and an
-    OAK-D&nbsp;Pro.
-  </p>
+  <!-- The three missions the aircraft was built for. These replace the note that
+       used to sit here; the Holybro sourcing it carried lives on in the two tiles
+       above ("Holybro spec, stock frame"), which is enough to keep those
+       numbers from reading as measurements of this build. -->
+  <section class="missions">
+    <p class="lab" data-i18n="missions.lab">Mission</p>
+    <h2 data-i18n="missions.h2">Built to keep people safe</h2>
+    <p class="cap" data-i18n="missions.cap">Three real problems at UTSA. One autonomous drone.</p>
+
+    <div class="missions-list">
+      <details>
+        <summary><span class="n" aria-hidden="true">01</span><span data-i18n="m1.title">No app. No signal. Still connected.</span> <span class="t" data-i18n="m1.t">Live video and text on any phone.</span><span class="pm" aria-hidden="true"></span></summary>
+        <p data-i18n="m1.p">The drone hosts its own Wi-Fi and server. Any phone can connect and
+          watch live video in a web browser, with no app to install. It also sends
+          text messages over its long-range radio to every station in range, like
+          a cell network without the towers.</p>
+      </details>
+      <details>
+        <summary><span class="n" aria-hidden="true">02</span><span data-i18n="m2.title">It finds the worker who needs help.</span> <span class="t" data-i18n="m2.t">Watches the crew, ignores everything else.</span><span class="pm" aria-hidden="true"></span></summary>
+        <p data-i18n="m2.p">It patrols a UTSA construction site on its own and checks on the crew.
+          Onboard AI locks onto workers in high-visibility vests, ignores
+          everything else, and sends an alert when someone may need help.</p>
+      </details>
+      <details>
+        <summary><span class="n" aria-hidden="true">03</span><span data-i18n="m3.title">No one walks to their car alone.</span> <span class="t" data-i18n="m3.t">An escort from above, at night.</span><span class="pm" aria-hidden="true"></span></summary>
+        <p data-i18n="m3.p">Campus safety can send the drone instead of an officer. It flies to the
+          person who asked, follows 3&nbsp;meters behind them to their car, and
+          watches from above. If the radio link drops, it flies home on its own.</p>
+      </details>
+    </div>
+  </section>
 
   <section class="gallery">
-    <p class="lab">Hardware</p>
-    <h2>Hardware Design</h2>
+    <p class="lab" data-i18n="hw.lab">Hardware</p>
+    <h2 data-i18n="hw.h2">Built from proven parts</h2>
     <!-- Provenance runs the other way round: the geometry is manufacturer CAD
          assembled in Blender to match the aircraft, with the propellers and the
          radio housing modelled in Onshape for this project. docs/BRAND.md keeps
          the full source table deliberately, "rather than left to memory". -->
-    <p class="cap">Cycles renders of this aircraft, built from manufacturer CAD
-      with the propellers and radio housing modelled for this project.</p>
+    <p class="cap" data-i18n="hw.cap">Rendered from the manufacturers&rsquo; 3D models. The propellers
+      and radio housing were designed for this project.</p>
 
     <div class="grid">
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
+          <img src="assets/renders/cu-pixhawk.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.pixhawk.alt" alt="The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail">
         </figure>
         <h3>Pixhawk 6X</h3>
-        <p>Flight controller on the top plate. FMUv6X is the open autopilot hardware standard it is built to.</p>
+        <p data-i18n="hw.pixhawk.p">The flight controller, mounted on the top plate. Built to FMUv6X, the open autopilot standard.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-jetson.webp" width="1400" height="1000" loading="lazy" alt="The Jetson Orin Nano developer kit mounted beneath the payload shelf, its heatsink fins, fan and connector bank facing the camera, with the Heltec LoRa stick standing on the shelf edge above it">
+          <img src="assets/renders/cu-jetson.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.jetson.alt" alt="The Jetson Orin Nano developer kit mounted beneath the payload shelf, its heatsink fins, fan and connector bank facing the camera, with the Heltec LoRa stick standing on the shelf edge above it">
         </figure>
-        <h3>NVIDIA Jetson Orin Nano &amp; LoRa radio</h3>
-        <p>The companion computer, under the payload shelf, with the 915&nbsp;MHz radio on the shelf edge beside it. It runs the command server and talks MAVLink, the standard autopilot protocol, to the 6X. The radio is a Heltec Wireless Stick V3; the geometry here was exported as the Lite, so the render is missing its small OLED.</p>
+        <h3 data-i18n="hw.jetson.h3">NVIDIA Jetson Orin Nano &amp; LoRa radio</h3>
+        <p data-i18n="hw.jetson.p">The onboard computer. It runs the AI and the command server and tells the flight controller what to do. The 915&nbsp;MHz radio sits on the shelf above it: a Heltec Wireless Stick V3, shown here as the Lite model, without its small screen.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-oakd.webp" width="1400" height="1000" loading="lazy" alt="The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose">
+          <img src="assets/renders/cu-oakd.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.oakd.alt" alt="The OAK-D Pro camera bolted to the forward bracket, its dark glass front panel facing the nose">
         </figure>
         <h3>OAK-D Pro</h3>
-        <p>Stereo depth camera on the nose bracket, with an infrared dot projector and flood illumination.</p>
+        <p data-i18n="hw.oakd.p">The eyes. A stereo depth camera that measures the distance to everything it sees, with infrared lighting for low light.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-gps.webp" width="1400" height="1000" loading="lazy" alt="The Holybro M10 GPS on its mast above the tail, raised clear of the airframe">
+          <img src="assets/renders/cu-gps.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.gps.alt" alt="The Holybro M10 GPS on its mast above the tail, raised clear of the airframe">
         </figure>
         <h3>Holybro M10</h3>
-        <p>GPS on the mast at the tail. Fitted, and getting a fix.</p>
+        <p data-i18n="hw.gps.p">GPS, mounted high on the tail mast for a clear view of the sky.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-motor.webp" width="1400" height="1000" loading="lazy" alt="A 2216 brushless motor at the end of a carbon arm, carrying one ten inch propeller by its hub">
+          <img src="assets/renders/cu-motor.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.motor.alt" alt="A 2216 brushless motor at the end of a carbon arm, carrying one ten inch propeller by its hub">
         </figure>
-        <h3>2216 motor and propeller</h3>
-        <p>One of four. Holybro's CAD names it DJ-2216-KV880; the kit listing says KV920. Unresolved, so neither number is claimed here.</p>
+        <h3 data-i18n="hw.motor.h3">2216 motor and propeller</h3>
+        <p data-i18n="hw.motor.p">One of four brushless motors, each turning a 10-inch propeller.</p>
       </div>
 
       <div class="tile">
         <figure>
-          <img src="assets/renders/cu-arm.webp" width="1400" height="1000" loading="lazy" alt="A carbon fibre arm tube entering its moulded two-piece clamp where the arm meets the body plate, with the clamp screws visible">
+          <img src="assets/renders/cu-arm.webp" width="1400" height="1000" loading="lazy" data-i18n-attr="alt:hw.arm.alt" alt="A carbon fiber arm tube entering its molded two-piece clamp where the arm meets the body plate, with the clamp screws visible">
         </figure>
-        <h3>Carbon arm and clamp</h3>
-        <p>One of four, on a 500&nbsp;mm wheelbase. The tube is held in a moulded two-piece clamp where it meets the body plate.</p>
+        <h3 data-i18n="hw.arm.h3">Carbon arm and clamp</h3>
+        <p data-i18n="hw.arm.p">One of four carbon fiber arms on a 500&nbsp;mm frame, each locked into the body by a two-piece clamp.</p>
       </div>
     </div>
   </section>
 
   <section class="gallery">
-    <p class="lab">Plates</p>
-    <h2>Every view we hold</h2>
-    <p class="cap">The aircraft from each side, in plan, and in three-quarter.
-      All Cycles, all the same model as the close-ups above. Open one to see it
-      at full size.</p>
+    <p class="lab" data-i18n="views.lab">Views</p>
+    <h2 data-i18n="views.h2">Every angle</h2>
+    <p class="cap" data-i18n="views.cap">Top, front, side and rear views of the same model.
+      Open any view at full size.</p>
 
     <!-- One box, one render at a time. The images are in the markup rather than
          built by script, so with JavaScript off the <noscript> rule in the head
-         simply shows all four stacked and hides the controls, instead of
-         leaving dead buttons behind. -->
+         simply shows all five stacked and hides the controls, instead of
+         leaving dead buttons behind. Every view is a 2000x1125 frame on the
+         same backdrop, so the box keeps one size as you step through; the top
+         view was widened to that frame rather than cropped. -->
     <div class="shots" data-shots>
       <div class="shots-stage" data-shots-stage>
-        <img class="shot" data-on src="assets/renders/view-top.webp"
-             width="1400" height="1400" loading="lazy"
-             data-full="assets/renders/view-top-full.webp" data-ar="1/1" data-name="Plan view"
-             alt="The aircraft from directly above, all four arms and propellers in plan">
-        <img class="shot" src="assets/renders/view-side.webp"
-             width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-side-full.webp" data-ar="16/9" data-name="Side elevation"
-             alt="The aircraft square on from the side, showing the stack from landing skids to GPS mast">
-        <img class="shot" src="assets/renders/view-front.webp"
-             width="1400" height="788" loading="lazy"
-             data-full="assets/renders/view-front-full.webp" data-ar="16/9" data-name="Front elevation"
-             alt="The aircraft square on from the front, both forward arms and the camera bracket level with the lens">
-        <img class="shot" src="assets/renders/three-q.webp"
-             width="1400" height="875" loading="lazy"
-             data-full="assets/renders/three-q-full.webp" data-ar="8/5" data-name="Three-quarter"
-             alt="The aircraft in three-quarter view, showing the payload shelf, the camera bracket and the GPS mast together">
+        <img class="shot" data-on src="assets/renders/views/top.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/top.webp" data-ar="16/9" data-name="Top view"
+             data-i18n-attr="data-name:shots.top.name;alt:shots.top.alt"
+             alt="The aircraft from directly above, showing all four arms and propellers">
+        <img class="shot" src="assets/renders/views/front.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/front.webp" data-ar="16/9" data-name="Front view"
+             data-i18n-attr="data-name:shots.front.name;alt:shots.front.alt"
+             alt="The aircraft square on from the front, the OAK-D Pro camera centered under the body between the landing legs and the GPS mast above">
+        <img class="shot" src="assets/renders/views/right.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/right.webp" data-ar="16/9" data-name="Right side"
+             data-i18n-attr="data-name:shots.right.name;alt:shots.right.alt"
+             alt="The aircraft from its right side, nose to the right, with the camera at the nose and the Jetson and GPS mast at the tail">
+        <img class="shot" src="assets/renders/views/rear.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/rear.webp" data-ar="16/9" data-name="Rear view"
+             data-i18n-attr="data-name:shots.rear.name;alt:shots.rear.alt"
+             alt="The aircraft square on from the rear, the Jetson's heatsink centered under the body, the LoRa radio reaching out to one side and the GPS mast above">
+        <img class="shot" src="assets/renders/views/left.webp"
+             width="2000" height="1125" loading="lazy"
+             data-full="assets/renders/views/left.webp" data-ar="16/9" data-name="Left side"
+             data-i18n-attr="data-name:shots.left.name;alt:shots.left.alt"
+             alt="The aircraft from its left side, nose to the left, with the camera at the nose and the Jetson and GPS mast at the tail">
       </div>
       <div class="shots-bar">
         <button class="shots-arrow" type="button" data-shots-step="-1"
-                aria-label="Previous view">&#8592;</button>
+                data-i18n-attr="aria-label:shots.prev" aria-label="Previous view">&#8592;</button>
         <div class="shots-dots">
           <button class="shots-dot" type="button" data-shots-go="0"
                   aria-current="true"
-                  aria-label="Show the plan view"></button>
+                  data-i18n-attr="aria-label:shots.go.top" aria-label="Show the top view"></button>
           <button class="shots-dot" type="button" data-shots-go="1"
                   aria-current="false"
-                  aria-label="Show the side elevation"></button>
+                  data-i18n-attr="aria-label:shots.go.front" aria-label="Show the front view"></button>
           <button class="shots-dot" type="button" data-shots-go="2"
                   aria-current="false"
-                  aria-label="Show the front elevation"></button>
+                  data-i18n-attr="aria-label:shots.go.right" aria-label="Show the right side"></button>
           <button class="shots-dot" type="button" data-shots-go="3"
                   aria-current="false"
-                  aria-label="Show the three-quarter"></button>
+                  data-i18n-attr="aria-label:shots.go.rear" aria-label="Show the rear view"></button>
+          <button class="shots-dot" type="button" data-shots-go="4"
+                  aria-current="false"
+                  data-i18n-attr="aria-label:shots.go.left" aria-label="Show the left side"></button>
         </div>
         <button class="shots-arrow" type="button" data-shots-step="1"
-                aria-label="Next view">&#8594;</button>
+                data-i18n-attr="aria-label:shots.next" aria-label="Next view">&#8594;</button>
       </div>
-      <p class="shots-name" data-shots-name>Plan view</p>
+      <p class="shots-name" data-shots-name data-i18n="shots.top.name">Top view</p>
     </div>
   </section>
 
   <p class="act act-foot">
-    <a class="key" href="how-it-works.html">How it works</a>
+    <a class="key" href="how-it-works.html" data-i18n="nav.how">How it works</a>
   </p>
 
   <footer>
-    <span>MIT licensed. Built by Sergio Arreola.</span>
+    <span data-i18n="foot.lic">MIT licensed. Built by Sergio Arreola.</span>
     <span><a href="https://github.com/sarreola07/VENATOR">github.com/sarreola07/VENATOR</a></span>
   </footer>
 
 </div>
 <script src="assets/cine-play.js" defer></script>
 <script src="assets/shots-gallery.js" defer></script>
+<script src="assets/i18n/es.js" defer></script>
+<script src="assets/lang.js" defer></script>
 </body>
 </html>

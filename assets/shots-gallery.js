@@ -1,22 +1,24 @@
 /* The plate viewer: one box, one render at a time, and a full-size view.
  *
- * The second script on this site. It exists because the four views are the
+ * The second script on this site. It exists because the five views are the
  * detailed renders, and a grid of thumbnails is the wrong way to look at them.
  *
  * What it must never do:
  *   - be required. Every image is in the markup and the first one is visible
  *     without this file running. With JavaScript off, the <noscript> rule in
- *     the head shows all four stacked and hides the controls, so there is no
+ *     the head shows all five stacked and hides the controls, so there is no
  *     dead UI and nothing is unreachable.
  *   - shift the page on load. The controls are in the markup with a reserved
  *     height; this only ever changes which image is opaque.
  *   - trap anyone. The full-size view is a real <dialog>, so Escape closes it,
  *     focus is managed by the browser, and the backdrop is a real backdrop.
  *
- * The stage carries its aspect ratio in --ar and eases between them, because
- * the plan view is square and the elevations are 16:9. The resulting height
- * change happens on a click, and layout shifts within 500ms of user input do
- * not count against cumulative-layout-shift.
+ * The stage carries its aspect ratio in --ar and eases between them. Every
+ * view is 16:9 today (the top view was widened to that frame on purpose), so
+ * the box holds one size; the mechanism stays for a future view that isn't.
+ * The CSS default is 16:9 too, so nothing changes size when this runs, and any
+ * later height change happens on a click, where layout shifts within 500ms of
+ * user input do not count against cumulative-layout-shift.
  */
 (function () {
   "use strict";
@@ -29,6 +31,11 @@
   var dots = [].slice.call(root.querySelectorAll("[data-shots-go]"));
   var nameEl = root.querySelector("[data-shots-name]");
   if (!stage || shots.length < 2) return;
+  // The current wording of a string, from the language switch when it is on
+  // the page (assets/lang.js), else this script's own English.
+  var t = function (key, fallback) {
+    return typeof window.VENATOR_T === "function" ? window.VENATOR_T(key, fallback) : fallback;
+  };
 
   var at = 0;
   var dlg = null;
@@ -70,7 +77,7 @@
       dlg = document.createElement("dialog");
       dlg.className = "shots-full";
       dlg.innerHTML =
-        '<button class="shots-close" type="button" aria-label="Close">&#10005;</button>' +
+        '<button class="shots-close" type="button" aria-label="' + t("shots.close", "Close") + '">&#10005;</button>' +
         '<img alt="">';
       dlg.addEventListener("click", function (e) {
         // the backdrop is the dialog itself; the image is not
@@ -87,7 +94,13 @@
 
   stage.setAttribute("tabindex", "0");
   stage.setAttribute("role", "button");
-  stage.setAttribute("aria-label", "Open this view at full size");
+  stage.setAttribute("aria-label", t("shots.open", "Open this view at full size"));
+  // The two strings above follow the language switch (assets/lang.js).
+  window.addEventListener("venator:lang", function () {
+    stage.setAttribute("aria-label", t("shots.open", "Open this view at full size"));
+    var close = dlg && dlg.querySelector(".shots-close");
+    if (close) close.setAttribute("aria-label", t("shots.close", "Close"));
+  });
   stage.addEventListener("keydown", function (e) {
     if (e.key === "Enter" || e.key === " ") { open(); e.preventDefault(); }
   });

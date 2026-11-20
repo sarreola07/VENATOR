@@ -142,5 +142,54 @@ check("venator-c2 active: it refuses", cf.c2_running(lambda cmd: Ran(0)), True)
 check("venator-c2 stopped: it goes ahead", cf.c2_running(lambda cmd: Ran(3)), False)
 check("no systemd (a laptop): it goes ahead", cf.c2_running(no_systemd), False)
 
+# ---------------------------------------------------------------- ark_setup --apply
+# drone/ark_setup.py --apply writes the indoor PX4 settings. Pure logic here: a
+# fake Pixhawk is a dict of parameter values.
+sys.path.insert(0, str(ROOT / "drone"))
+try:
+    import ark_setup as ark  # noqa: E402
+except SystemExit:
+    ark = None   # no pymavlink on this machine (CI): the write logic is skipped
+
+print("\nark_setup --apply: writes only what differs, as INT32 bit patterns")
+if ark is None:
+    print("  skipped (pymavlink not installed)")
+else:
+    check("INT32 1 goes on the wire as its float bit pattern, not 1.0",
+          ark.int32_as_float(1) != 1.0 and ark.int32_as_float(0) == 0.0, True)
+    import struct as _st
+    check("  and comes back through readp's decode",
+          _st.unpack("<i", _st.pack("<f", ark.int32_as_float(2)))[0], 2)
+
+    px4 = {"UAVCAN_ENABLE": 2, "UAVCAN_SUB_FLOW": 1, "UAVCAN_SUB_RNG": 1,
+           "EKF2_OF_CTRL": 1, "EKF2_RNG_CTRL": 1, "EKF2_HGT_REF": 1,
+           "EKF2_GPS_CTRL": 7, "COM_ARM_WO_GPS": 1}
+    writes = []
+
+    def fake_write(m, name, value):
+        writes.append((name, value))
+        px4[name] = value
+        return True
+
+    results = ark.apply_params(None, readp=lambda m, n: px4.get(n), writep_fn=fake_write,
+                               log=lambda *a: None)
+    check("only the two outdoor settings are written",
+          sorted(writes), [("EKF2_GPS_CTRL", 0), ("EKF2_HGT_REF", 2)])
+    check("  and every result reads back OK", all(r[3] for r in results), True)
+    check("  the untouched ones report before == after",
+          all(r[1] == r[2] for r in results if r[0] not in ("EKF2_HGT_REF", "EKF2_GPS_CTRL")))
+    writes.clear()
+    ark.apply_params(None, readp=lambda m, n: px4.get(n), writep_fn=fake_write, log=lambda *a: None)
+    check("running it again writes nothing", writes, [])
+
+    px4["EKF2_HGT_REF"] = 1
+    results = ark.apply_params(None, readp=lambda m, n: px4.get(n),
+                               writep_fn=lambda m, n, v: False, log=lambda *a: None)
+    check("a write that does not read back is reported, not hidden",
+          [r for r in results if not r[3]][0][0], "EKF2_HGT_REF")
+    check("WANT covers every PARAMS entry", sorted(ark.WANT), sorted(n for n, *_ in ark.PARAMS))
+    check("  and every WANT value passes its own test",
+          all(t(ark.WANT[n]) for n, t, *_ in ark.PARAMS), True)
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

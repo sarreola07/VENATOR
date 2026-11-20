@@ -14,11 +14,20 @@
  *   9 ARK check
  *
  * Safety lives on the drone, not here: the server refuses motor tests unless
- * props are declared OFF, and the hover unless props are ON and the drone has a
- * position estimate (a GPS fix outdoors, or trusted optical flow indoors). This
- * remote adds a local confirm before anything moves, and the hover launches only
- * on a LAUNCH_HOLD_MS HOLD of the knob after the drone has accepted it. In
- * flight it pings every second; if those stop, the drone lands by itself.
+ * props are declared OFF, and the hover unless props are ON and the drone has
+ * a position: a GPS 3D fix outdoors, or the ARK Flow position when the server
+ * runs with --indoor. This remote adds a local confirm before anything moves,
+ * and the hover launches only on a LAUNCH_HOLD_MS HOLD of the knob after the
+ * drone has accepted it. In flight it pings every second; if those stop, the
+ * drone lands by itself. If the drone's replies stop for LINK_STALE_MS in
+ * flight, the remote sends one STOP and says so.
+ *
+ * Lost packets are expected on LoRa, so every command is sent again until the
+ * drone answers: RUN keeps its seq and is resent RUN_RETRY_MS apart up to
+ * RUN_TRIES times. That is safe because the server answers a repeated seq
+ * from its cache and never runs a motor test twice (Dedupe in c2_server.py,
+ * 2026-11). A remote with this firmware needs a server from that date or
+ * later; against an older one, set RUN_TRIES to 1.
  *
  * The link is not authenticated (radio/auth.py is not implemented here), so run
  * the server without a key while using this remote. See docs/SECURITY.md.
@@ -30,6 +39,10 @@
 #include "LoRaWan_APP.h"
 #include "HT_SSD1306Wire.h"
 #include <Preferences.h>     // NVS: the setup wizard's encoder-direction flag
+
+// Shown on the LINKING screen and printed at boot, so a stick's firmware can
+// be told from across the bench. Bump it with any change to this file.
+#define VENATOR_REMOTE_VERSION "2026-11-19b"
 
 // ---- radio: identical to LoRa_Transceiver.ino, or the two cannot hear each other
 #define RF_FREQUENCY     915000000
@@ -65,6 +78,9 @@
 #define CONFIRM_WINDOW_MS 45000    // < the server's PENDING_CONFIRM_S (60 s)
 #define CONFIRM_RETRY_MS   5000    // no word from the drone after CONFIRM -> resend
 #define CONFIRM_TRIES         3    // then ABORT: the drone never said it launched
+#define RUN_RETRY_MS       4000    // no ACK for a RUN -> send the same seq again
+#define RUN_TRIES             3    // ... this many times in all (server dedupes)
+#define INBOX_LINES           4    // packets held between loop() passes
 #define DRAW_MS             120
 
 static SSD1306Wire display(0x3c, 500000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
@@ -119,6 +135,10 @@ static bool  resultGood = false;
 static bool  flightStarted = false;   // the drone has said something since CONFIRM
 static int   confirmTries = 0;
 static uint32_t confirmAt = 0;
+static int   runTries = 0;            // RUN sent this many times for waitSeq
+static uint32_t runAt = 0;
+static char  runExtra[16] = "";       // the RUN's id field, for the resend
+static bool  staleStopSent = false;   // one STOP per quiet spell in flight
 
 // link health
 static uint32_t lastRxMs = 0, lastTxMs = 0, lastHelloMs = 0;
@@ -202,19 +222,26 @@ static Button back = {PIN_BACK, false, false, 0, 0, false, false, LINKING};
 static volatile bool txBusy = false;
 static char outbox[MAX_LINE + 1];
 static bool outboxFull = false;
-static char inbox[MAX_LINE + 1];
-static volatile bool inboxFull = false;
+// A small ring of received lines. One slot used to be enough for stop-and-wait,
+// but in flight a PONG can land on top of an ACK before loop() has drained the
+// slot, and the ACK was the one that mattered.
+static char inbox[INBOX_LINES][MAX_LINE + 1];
+static volatile uint8_t inboxHead = 0, inboxTail = 0;   // head: next write; tail: next read
+static volatile uint16_t inboxDropped = 0;
 
 void onTxDone(void)    { txBusy = false; Radio.Rx(0); }
 void onTxTimeout(void) { txBusy = false; Radio.Rx(0); }
 void onRxTimeout(void) { Radio.Rx(0); }
 void onRxError(void)   { Radio.Rx(0); }
 void onRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
-    if (!inboxFull) {
+    uint8_t next = (inboxHead + 1) % INBOX_LINES;
+    if (next != inboxTail) {                 // a slot is free
         uint16_t n = size < MAX_LINE ? size : MAX_LINE;
-        memcpy(inbox, payload, n);
-        inbox[n] = '\0';
-        inboxFull = true;
+        memcpy(inbox[inboxHead], payload, n);
+        inbox[inboxHead][n] = '\0';
+        inboxHead = next;
+    } else {
+        inboxDropped++;
     }
     lastRssi = rssi;
     Radio.Rx(0);
@@ -405,7 +432,8 @@ static void draw() {
     drawHeader();
     switch (state) {
     case LINKING:
-        snprintf(buf, sizeof(buf), "Looking for the drone... BACK retries now.");
+        snprintf(buf, sizeof(buf), "Looking for the drone... BACK retries now.  fw %s",
+                 VENATOR_REMOTE_VERSION);
         drawBody("VENATOR", buf);
         break;
     case WIZARD:
@@ -478,8 +506,9 @@ static void draw() {
             drawBody(active->name, "Click = ask   BACK = cancel");
         break;
     case WAIT_ACK:
-        snprintf(buf, sizeof(buf), "Sent %s. Waiting for the drone (%lus)",
-                 active->name, (unsigned long)((now - stateAt) / 1000));
+        snprintf(buf, sizeof(buf), "Sent %s%s. Waiting for the drone (%lus)",
+                 active->name, runTries > 1 ? " again" : "",
+                 (unsigned long)((now - stateAt) / 1000));
         drawBody("Sending...", buf);
         break;
     case WAIT_DONE:
@@ -558,16 +587,24 @@ static void runRemote() {
     case LOCAL_CONFIRM:
         if (backClick) setState(MENU_VIEW);
         else if (click) {
-            char extra[16];
-            snprintf(extra, sizeof(extra), ",\"id\":%d", active->id);
-            // Never retried: the server does not dedupe RUN, so a resend could
-            // run a motor test twice.
-            waitSeq = sendMsg("RUN", extra);
+            snprintf(runExtra, sizeof(runExtra), ",\"id\":%d", active->id);
+            // Resent with the SAME seq while no ACK comes (see WAIT_ACK). The
+            // server answers a repeated seq from its cache, so a motor test
+            // cannot run twice; only a lost ACK is recovered.
+            waitSeq = sendMsg("RUN", runExtra);
+            runTries = 1; runAt = now;
             setState(WAIT_ACK);
         }
         break;
 
     case WAIT_ACK:
+        if (now - runAt > RUN_RETRY_MS && runTries < RUN_TRIES && !outboxFull) {
+            char buf[MAX_LINE + 1];
+            snprintf(buf, sizeof(buf), "{\"t\":\"RUN\",\"seq\":%lu%s}",
+                     (unsigned long)waitSeq, runExtra);
+            sendLine(buf);                     // same seq: a repeat, not a new command
+            runTries++; runAt = now;
+        }
         if (now - stateAt > ACK_TIMEOUT_MS)
             showResult("No answer from the drone. Nothing confirmed it ran.", false);
         break;
@@ -584,6 +621,7 @@ static void runRemote() {
             sendMsg("CONFIRM");
             alt = 0; phase[0] = '\0'; lastLog[0] = '\0';
             flightStarted = false; confirmTries = 1; confirmAt = now;
+            staleStopSent = false;
             setState(FLYING);
         } else if (backClick || now - stateAt > CONFIRM_WINDOW_MS) {
             sendMsg("ABORT");                  // drops the prepared flight on the drone
@@ -604,6 +642,18 @@ static void runRemote() {
                 showResult("The drone never confirmed the launch. ABORT sent.", false);
             }
             break;
+        }
+        // The drone's own 4 s failsafe has landed it long before this; a STOP
+        // here covers the case where only the drone-to-remote direction died,
+        // and makes this screen say what happened instead of showing a stale
+        // altitude.
+        if (now - lastRxMs > LINK_STALE_MS && !staleStopSent && !outboxFull) {
+            sendMsg("STOP");
+            staleStopSent = true;
+            snprintf(lastLog, sizeof(lastLog), "NO LINK %lus - STOP sent",
+                     (unsigned long)(LINK_STALE_MS / 1000));
+        } else if (now - lastRxMs < LINK_STALE_MS) {
+            staleStopSent = false;             // it came back; arm the next spell
         }
         if (backClick) sendMsg("ABORT");
         else if (click) sendMsg("STOP");
@@ -718,7 +768,7 @@ void setup() {
     Radio.SetSyncWord(LORA_SYNCWORD);
     Radio.Rx(0);
 
-    Serial.println("Venator remote ready.");
+    Serial.println("Venator remote ready. fw " VENATOR_REMOTE_VERSION);
     // Holding BACK through boot runs the commissioning wizard. Nothing else
     // reaches it, so a remote that is already flying behaves exactly as before.
     if (digitalRead(PIN_BACK) == LOW) {
@@ -733,11 +783,15 @@ void setup() {
 void loop() {
     static uint32_t lastDraw = 0;
     Radio.IrqProcess();
-    if (inboxFull) {
+    while (inboxTail != inboxHead) {          // drain everything that arrived
         char line[MAX_LINE + 1];
-        strcpy(line, inbox);
-        inboxFull = false;
+        strcpy(line, inbox[inboxTail]);
+        inboxTail = (inboxTail + 1) % INBOX_LINES;
         handleLine(line);
+    }
+    if (inboxDropped) {
+        Serial.printf("inbox full: %u packet(s) dropped\n", inboxDropped);
+        inboxDropped = 0;
     }
     knob.poll();
     back.poll();

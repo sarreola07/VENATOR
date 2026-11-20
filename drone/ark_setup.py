@@ -8,6 +8,7 @@ from c2_server.py for automated preflight checks.
     # Standalone:
     python drone/ark_setup.py
     python drone/ark_setup.py --device /dev/ttyACM0
+    python drone/ark_setup.py --apply      # write the indoor PX4 settings (asks first)
 
     # From c2_server.py (programmatic):
     from drone.ark_setup import ARKSetup
@@ -16,6 +17,7 @@ from c2_server.py for automated preflight checks.
 """
 import argparse
 import statistics
+import struct
 import subprocess
 import sys
 import time
@@ -55,6 +57,23 @@ PARAMS = (
     ("EKF2_GPS_CTRL", lambda v: v == 0, "0 indoors: no GPS to use", "WARN"),
     ("COM_ARM_WO_GPS", lambda v: v == 1, "1: allow arming without GPS", "WARN"),
 )
+
+# What --apply writes, for each PARAMS entry that fails its test. All INT32.
+# EKF2_HGT_REF and EKF2_GPS_CTRL are the two that change for indoor flight on
+# this aircraft; their outdoor values (1 and 7) are printed before any write so
+# they can be put back. Not applied while the sensor is silent: pointing height
+# at a rangefinder that sends nothing and switching GPS off would leave no
+# reference at all (see docs/ARK_SETUP.md).
+WANT = {
+    "UAVCAN_ENABLE": 2,
+    "UAVCAN_SUB_FLOW": 1,
+    "UAVCAN_SUB_RNG": 1,
+    "EKF2_OF_CTRL": 1,
+    "EKF2_RNG_CTRL": 1,
+    "EKF2_HGT_REF": 2,
+    "EKF2_GPS_CTRL": 0,
+    "COM_ARM_WO_GPS": 1,
+}
 
 STREAMS = {
     "LOCAL_POSITION_NED": 32,
@@ -159,6 +178,45 @@ def _readp(m, name):
     PX4 sends INT32 parameters as reinterpreted float bits -- every parameter in
     PARAMS is an INT32, so the raw param_value would not compare as written."""
     return preflight_audit.readp(m, name)
+
+
+def int32_as_float(value):
+    """PX4 sends and expects INT32 parameters as their bit pattern reinterpreted
+    as a float (the MAVLink "byte-wise" encoding), the inverse of what
+    preflight_audit.readp() undoes on the way in."""
+    return struct.unpack("<f", struct.pack("<i", int(value)))[0]
+
+
+def writep(m, name, value, readp=None):
+    """Write one INT32 parameter and read it back. True if PX4 now holds value."""
+    readp = readp or _readp
+    m.mav.param_set_send(m.target_system, m.target_component, name.encode(),
+                         int32_as_float(value), mavutil.mavlink.MAV_PARAM_TYPE_INT32)
+    time.sleep(0.2)
+    return readp(m, name) == value
+
+
+def apply_params(m, want=WANT, readp=None, writep_fn=None, log=print):
+    """Bring every PARAMS entry that fails its test to its WANT value.
+
+    Returns [(name, before, after, ok)]. A parameter already passing is left
+    alone (before == after, ok True), so running this twice changes nothing,
+    and a parameter whose write did not read back as written is ok False."""
+    readp = readp or _readp
+    writep_fn = writep_fn or (lambda mm, n, v: writep(mm, n, v, readp=readp))
+    out = []
+    for name, test, _, _ in PARAMS:
+        before = readp(m, name)
+        if before is not None and test(before):
+            out.append((name, before, before, True))
+            continue
+        target = want[name]
+        ok = writep_fn(m, name, target)
+        after = readp(m, name)
+        out.append((name, before, after, bool(ok) and after == target))
+        log(f"  {COLOUR['OK' if out[-1][3] else 'FAIL']} {name}: {before} -> {after}"
+            + ("" if out[-1][3] else f" (wanted {target})"))
+    return out
 
 
 def watch(m, seconds):
@@ -306,6 +364,9 @@ def main():
     ap.add_argument("--device", help="Pixhawk serial port (auto-detect if omitted)")
     ap.add_argument("--seconds", type=float, default=WATCH_S,
                     help=f"Watch duration while lifting drone (default {WATCH_S:g}s)")
+    ap.add_argument("--apply", action="store_true",
+                    help="write the indoor PX4 settings that are not yet set (asks for YES "
+                         "first; then power-cycle the Pixhawk and run the check again)")
     args = ap.parse_args()
 
     if args.seconds <= 0:
@@ -326,6 +387,27 @@ def main():
         params = [judge_param(name, _readp(ark.master, name))
                   for name, *_ in PARAMS]
         show(params)
+
+        if args.apply:
+            todo = [t for t in params if t[0] != "OK"]
+            if not todo:
+                print("\nNothing to write: every setting is already as wanted.")
+                return 0
+            print("\n--apply would write, for the lines above that are not OK:")
+            for name in (n for n, *_ in PARAMS if judge_param(n, _readp(ark.master, n))[0] != "OK"):
+                print(f"    {name} = {WANT[name]}")
+            print("Outdoor values to restore afterwards: EKF2_HGT_REF = 1, EKF2_GPS_CTRL = 7.")
+            print("Only do this once DISTANCE_SENSOR and OPTICAL_FLOW_RAD both read OK in the")
+            print("live readings; with the sensor silent these settings remove the only height")
+            print("and position reference the EKF has.")
+            if input("Type YES to write them now: ").strip() != "YES":
+                print("Nothing written.")
+                return 2
+            results = apply_params(ark.master)
+            bad = [r for r in results if not r[3]]
+            print("\nPower-cycle the Pixhawk (EKF2 settings take effect at boot), then run")
+            print("this check again without --apply.")
+            return 1 if bad else 0
 
         print(f"\n== Live Readings ({args.seconds:g}s: lift drone ~0.5m) ==")
         readings = judge_readings(watch(ark.master, args.seconds), args.seconds)

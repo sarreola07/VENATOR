@@ -180,6 +180,37 @@ def test_menu():
           not any(k in m["item"] for m in msgs for k in ("fly", "action")))
     check("sends are paced to avoid buffer overflow",
           srv.LoRaLink.MIN_SEND_GAP_S >= 0.2, f"{srv.LoRaLink.MIN_SEND_GAP_S}s gap")
+    items = {m["item"]["id"]: m["item"] for m in msgs}
+    # Both handhelds hardcode these ids (Venator_Remote.ino, Pico_Gateway).
+    check("the remote's ids 1, 2, 7, 8, 9 are all on the menu",
+          all(i in items for i in (1, 2, 7, 8, 9)), str(sorted(items)))
+    check("the hover (8) flies, the ARK check (9) wants props OFF",
+          items[8].get("needs") == "props_on" and items[9].get("needs") == "props_off",
+          f"{items[8]} {items[9]}")
+
+
+# ---------------------------------------------------------------- ARK check (9)
+def test_ark_check():
+    print("\n[ARK check: menu 9, the operator's hands on the aircraft]")
+    s = make_server(props_off=False)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 1, id=9), out.append)
+    check("refused with props ON (the operator has to lift the drone)",
+          out[-1].get("accepted") is False and "props OFF" in out[-1].get("reason", ""),
+          out[-1].get("reason", ""))
+    check("  and nothing else was sent", len(out) == 1, str(out))
+
+    s = make_server(props_off=True)
+    out = []
+    s.run_and_report(c2.message(c2.RUN, 3, id=9), out.append)
+    check("ACK comes first, before any checking (the remote waits 10 s at most)",
+          out and out[0]["t"] == c2.ACK and out[0].get("accepted") is True
+          and out[0].get("seq") == 3, str(out[:1]))
+    check("a failure still ends in a DONE for the same seq, never silence",
+          out[-1]["t"] == c2.DONE and out[-1].get("seq") == 3
+          and "ARK check failed" in out[-1].get("result", ""), str(out[-1]))
+    check("  (the mock has no MAVLink master, so that is the failure named)",
+          "mock" in out[-1].get("result", ""), out[-1].get("result", ""))
 
 
 # ---------------------------------------------------------------- props gating
@@ -288,8 +319,8 @@ class ModeLogFC(srv.MockFC):
     """MockFC that remembers every flight mode it was put in, and can be told
     never to climb (a takeoff that stalls)."""
 
-    def __init__(self, gps=True, climbs=True, flow=False):
-        super().__init__(gps=gps, flow=flow)
+    def __init__(self, gps=True, climbs=True, position=None):
+        super().__init__(gps=gps, position=position)
         self.modes, self.climbs = [], climbs
 
     def set_flight_mode(self, mode):
@@ -303,9 +334,10 @@ class ModeLogFC(srv.MockFC):
         return st
 
 
-def run_hover(ping_for=100.0, stop_at=None, climbs=True, gps=True, flow=False):
-    fc = ModeLogFC(climbs=climbs, gps=gps, flow=flow)
-    s = srv.C2Server(fc, props_off=False)
+def run_hover(ping_for=100.0, stop_at=None, climbs=True, gps=True, position=None,
+              indoor=False):
+    fc = ModeLogFC(climbs=climbs, gps=gps, position=position)
+    s = srv.C2Server(fc, props_off=False, indoor=indoor)
     out = []
     s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
     link = FakeLink(ping_for=ping_for, stop_at=stop_at)
@@ -321,25 +353,40 @@ def test_hover():
         srv.HOVER4_TIME_S = 1.0
 
         # Gates: a remote with a knob must not be able to launch past these.
-        for fc_kw, props_off, why in (({"gps": True}, True, "props OFF"),
-                                      ({}, False, "no position estimate")):
-            s = srv.C2Server(srv.MockFC(**fc_kw), props_off=props_off)
+        for fc_kw, props_off, indoor, why in (
+                ({"gps": True}, True, False, "props OFF"),
+                ({}, False, False, "no GPS"),
+                ({"position": False}, False, True, "no ARK Flow position (indoor)")):
+            s = srv.C2Server(srv.MockFC(**fc_kw), props_off=props_off, indoor=indoor)
             out = []
             s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
             check(f"hover refused: {why}", out[-1].get("accepted") is False,
                   out[-1].get("reason", ""))
             check(f"  and nothing is left pending ({why})", s._pending is None)
+        check("  the indoor refusal names the check to run",
+              "check_flow" in out[-1].get("reason", ""), out[-1].get("reason", ""))
 
-        # The indoor case. The hover holds over its launch point, so a trusted
-        # optical-flow position is as good as satellites -- but only for it.
-        s = srv.C2Server(srv.MockFC(flow=True), props_off=False)
+        # The indoor case (--indoor). The hover holds over its launch point, so
+        # a trusted ARK Flow position is as good as satellites -- but only for
+        # it: flying to a coordinate still demands a fix, even indoors.
+        s = srv.C2Server(srv.MockFC(gps=False, position=True), props_off=False, indoor=True)
         out = []
         s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
-        check("hover accepted on optical flow with no GPS at all",
+        check("hover accepted indoors on optical flow with no GPS at all",
               out[-1].get("accepted") is True, out[-1].get("reason", ""))
+        check("  and the reason says 4 ft, derived from the metres",
+              "{:.0f} ft".format(srv.HOVER4_ALT_M * srv.FEET_PER_M) in out[-1].get("reason", ""),
+              out[-1].get("reason", ""))
         out = []
         s.run_and_report(c2.message(c2.RUN, 1, id=4), out.append)
         check("  but flying to a coordinate still demands a fix",
+              out[-1].get("accepted") is False and "GPS" in out[-1].get("reason", ""),
+              out[-1].get("reason", ""))
+        # Without --indoor a flow position is not a gate the hover can pass.
+        s = srv.C2Server(srv.MockFC(gps=False, position=True), props_off=False)
+        out = []
+        s.run_and_report(c2.message(c2.RUN, 1, id=8), out.append)
+        check("outdoors (no --indoor) the hover still wants GPS",
               out[-1].get("accepted") is False, out[-1].get("reason", ""))
 
         fc, ack, link = run_hover()
@@ -361,7 +408,7 @@ def test_hover():
         # The whole indoor path, through CONFIRM: _validate_pending re-reads the
         # gates up to 60 s after the RUN, so it has to accept flow as well or the
         # flight is refused at the moment it would arm.
-        fc, ack, link = run_hover(gps=False, flow=True)
+        fc, ack, link = run_hover(gps=False, position=True, indoor=True)
         check("indoor hover gets through CONFIRM on flow alone",
               ack.get("confirm_required") is True and link.done() == "landed & disarmed",
               f"{ack.get('reason', '')[:40]} / {link.done()}")
@@ -910,6 +957,7 @@ if __name__ == "__main__":
     test_mission1()
     test_mission2()
     test_hover()
+    test_ark_check()
     test_motor_refusal()
     test_run_never_flies()
     test_no_depth()

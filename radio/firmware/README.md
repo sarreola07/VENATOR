@@ -59,9 +59,9 @@ the *other* remote last caused:
 So each remote loses precisely the replies that follow the other's transmission.
 Nothing errors; both just look like a flaky link.
 
-**Why that is worse than it sounds on the handheld.** It never retries a `RUN`
-(the server does not dedupe them, so a resend could run a motor test twice), so
-a dropped `DONE` means *unknown*, not *didn't run* — see
+**Why that still matters on the handheld.** The remote now retries a `RUN`
+(same `seq`; the server dedupes), but a `DONE` is never retried, so a dropped
+`DONE` means *unknown*, not *didn't run* — see
 [Venator_Remote/README.md](Venator_Remote/README.md). A lost reply in this state
 leaves the operator unsure whether the motors just ran.
 

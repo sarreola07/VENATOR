@@ -4,6 +4,18 @@
 
 VENATOR can hover indoors using the ARK Flow sensor (optical flow + distance measurement) for position control without GPS. This document explains how to validate and use this capability.
 
+The server has to be told it is indoors: `drone/c2_server.py --indoor`, which
+the boot service gets from `bash deploy/flight_mode.sh off indoor` (bench) or
+`on indoor` (flight). With `--indoor` the hover (menu 8) is gated on PX4's own
+trusted local position instead of a GPS fix and reads its height from
+`LOCAL_POSITION_NED`; every other flight keeps its GPS gate, because their
+failsafe is RTL and RTL means nothing without a global position. Without
+`--indoor` the hover still wants a GPS 3D fix, and no flow position satisfies it.
+
+**Measured 2026-11-19:** PX4 receives optical flow from the ARK (quality 158 in
+the menu 9 check at 00:44). What the check still fails on has to be read from
+the journal (`journalctl -u venator-c2 | grep "ARK check"`).
+
 ## Hardware Requirements
 
 - **ARK Flow sensor** (DroneCAN/UAVCAN interface on Pixhawk)
@@ -24,6 +36,24 @@ The following parameters must be set on the Pixhawk for ARK to work:
 | `EKF2_HGT_REF` | 2 | Height reference = distance sensor |
 | `EKF2_GPS_CTRL` | 0 | Disable GPS (indoor) |
 | `COM_ARM_WO_GPS` | 1 | Allow arming without GPS fix |
+
+## Applying the parameters
+
+`EKF2_HGT_REF` and `EKF2_GPS_CTRL` are the two that differ from this aircraft's
+outdoor setup (`1` and `7`). **Do not write them while the sensor is silent:**
+height would point at a rangefinder that sends nothing and GPS would be switched
+off, leaving the EKF with no reference at all. Order:
+
+1. Run the check (below). `DISTANCE_SENSOR` and `OPTICAL_FLOW_RAD` must both be
+   OK; the parameter lines may still FAIL.
+2. With `venator-c2` stopped, `./venv/bin/python drone/ark_setup.py --apply`.
+   It lists what it would write, prints the outdoor values to restore, and
+   writes only after a typed `YES`. Every write is read back.
+3. Power-cycle the Pixhawk (EKF2 settings take effect at boot) and run the
+   check again. `Horizontal position` must be OK while the aircraft is carried
+   a step sideways.
+4. Before any **outdoor** flight: `EKF2_HGT_REF = 1`, `EKF2_GPS_CTRL = 7`
+   again (QGroundControl, or edit `WANT` in `drone/ark_setup.py` and `--apply`).
 
 ## Validating ARK Sensor
 
@@ -123,13 +153,14 @@ This will:
 
 ## Mission Details
 
-**Mission ID: 8** ("Hover 4 ft, then land")
-- Requires props ON
-- Requires a **position estimate**, which is either a GPS 3D fix or a local
-  position PX4 trusts (`POS_HORIZ_REL` and `POS_VERT_AGL` in
-  `ESTIMATOR_STATUS`). Indoors on the ARK Flow the second is the only one
-  available — a GPS fix is never coming. Missions that fly to a *coordinate*
-  (3, 4, 5) still demand satellites.
+**Mission ID: 8** ("Hover 4 ft, then land"; `Hover 4 ft DEMO` on the handheld)
+- Requires props ON (`deploy/flight_mode.sh on indoor`)
+- Requires a **position**. With `--indoor`: a local position PX4 trusts
+  (`POS_HORIZ_REL` and `POS_VERT_AGL` in `ESTIMATOR_STATUS`) **and** a
+  `LOCAL_POSITION_NED` less than 2 s old, re-checked at CONFIRM. Without
+  `--indoor`: a GPS 3D fix. Missions that fly to a *coordinate* (3, 4, 5)
+  demand satellites either way.
+- Launch is a 1 s hold of the knob after the drone has accepted the RUN
 - Takes off to 4 feet
 - Holds altitude for 10 seconds
 - Lands in place (not RTL)

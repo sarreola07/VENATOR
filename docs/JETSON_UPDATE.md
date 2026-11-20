@@ -40,6 +40,55 @@ I need to decide. Save it to ~/Desktop/venator-update-report.txt as well.
 
 ## What this update brings
 
+**Newest first.** The camera service and its page, for the demonstration:
+
+- **It holds up in front of a room.** Twenty-four video streams by default
+  instead of eight, event streams capped separately, phones back off their
+  retries, visitors start on the low-bandwidth rung. Nothing a phone can send
+  ends a request thread any more, and a phone with a stale cookie no longer
+  slows every other phone's captive-portal probes.
+- **The search survives a restart.** The colour is remembered in
+  `~/.venator/gui-state.json`; `Restart=always` brings the service back
+  searching. A camera that goes quiet is reopened by itself after 15 s and the
+  page says `stalled` meanwhile. The FOUND banner holds through a colour fault
+  instead of blinking off.
+- **The page wears the brand** (`docs/BRAND.md`, the same tokens as the product
+  page) and opens in simple mode: masthead, alert, search state, video, chart.
+  The **metrics** button reveals the judges' numbers, chips, tracks and the
+  trials table. A **wrong lock** button sits beside **record**.
+- **Two routes for the check:** `/api/health` (camera, numpy, cached detector,
+  disk, viewers, `ok` plus `problems[]`) and `/api/trials/summary` (the results
+  table, computed from the CSVs). Both take the view token. See step 7.
+
+**For the indoor hover demo, the handheld is reflashed too** (branch
+`feat/hover-4ft-indoor-flow`, 2026-11-19): the hover is **4 ft** (1.22 m,
+`HOVER4_ALT_M`), the handheld menu reads `Hover 4 ft DEMO` and gains
+`9 ARK check`, the launch hold is 1 s, and `deploy/flight_mode.sh` takes
+`indoor`/`outdoor` so props ON never drops `--indoor`. Section 11 is the order.
+
+**The upgrade is one pull and one restart.** No unit file, firmware, key or
+Python requirement changed; `search_metrics.py` is stdlib. After the pull:
+
+```bash
+sudo systemctl restart venator-gui
+journalctl -u venator-gui --since "-1 min" --no-pager | tail -5
+curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+```
+
+The journal should show `GUI token` and either `vest search: looking for ...`
+or nothing about the search (it is off until pressed). The health report
+should say `"ok": true` once the camera is live. `detector not cached` in
+`problems` means the archive is not in `~/oak-venv/zoo-cache`: the service no
+longer fetches it by itself (that fetch hung the whole service on a stalled
+network), so on a network with internet run, once,
+`~/oak-venv/bin/python drone/wildlife/gui_server.py --allow-zoo --no-save`
+until it logs `model from cache` or the download, then Ctrl+C and restart the
+service. Phones that had the old page open just reload it. The vest
+calibration in `~/.venator/vest-colours.json` is untouched.
+`bash deploy/symposium_check.sh` now reads the same health report.
+
+The previous update:
+
 - **Vest search from the website:** the operator's page turns the search on and
   off, picks the colour, calibrates each vest and records trials as CSV.
   View-only phones can watch but change nothing.
@@ -188,6 +237,8 @@ journalctl -u venator-gui --since "-20 min" --no-pager \
 ls -t ~/Pictures/wildlife/trials/ | head -3
 head -3 "$(ls -t ~/Pictures/wildlife/trials/*.csv | head -1)"
 bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p'
+curl -s "http://127.0.0.1:8080/api/health?k=$(bash deploy/field_mode.sh view-token)"
+curl -s "http://127.0.0.1:8080/api/trials/summary?k=$(bash deploy/field_mode.sh view-token)"
 ```
 **Pass:**
 - **The log has:**
@@ -197,6 +248,10 @@ bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p
   - `trial … saved, N rows`.
 - **The CSV** starts with `time,note,target`.
 - **The check** says `vests calibrated today`.
+- **The health report** says `"ok": true`, or every entry in `problems` is one
+  you expect (`detector not cached` is a stop: the next start would need internet).
+- **The trials summary** shows `seconds_to_found` around 1 and
+  `wrong_lock_rows` 0 for the recording you just made.
 
 ### 8. Radio link and the new STOP
 **You:**
@@ -208,17 +263,22 @@ bash deploy/symposium_check.sh 2>&1 | sed -n '/Vest search/,/Mission dashboard/p
 4. On the laptop with the other LoRa stick, run `python3 ground/gcs_client.py`. It
    says hello and lists the menu, 1 to 8. Pick **7**.
 
-Don't try **8 Hover**: it's blocked until the ARK Flow work is done.
+Don't try **8 Hover** here: outdoors it needs a GPS 3D fix; indoors it needs
+the ARK Flow and `--indoor`, which is section 11.
 
 **Claude:**
 ```bash
 journalctl -u venator-c2 --since "-15 min" --no-pager | tail -40
 ```
 **Pass:**
-- A `diagnostics:` line for each status request.
-- `RUN 1 accepted — executing` and `RUN 2 accepted — executing`.
+- A `diagnostics:` line for each status request, and a `link: rx … tx …` line
+  after it (the link's own counters; `rssi` appears once the sticks run the
+  November bridge firmware).
+- `RUN 1 accepted — executing` and `RUN 2 accepted — executing`. If the remote
+  had to resend, a `RUN seq N again - answering from the cache` line, and still
+  only one `executing` per test.
 - Nothing logged for the STOP, and no LAND.
-- No tracebacks.
+- No tracebacks, and no `error handling` lines.
 
 ### 9. Pixhawk and ARK Flow
 **9a. You:**
@@ -245,7 +305,7 @@ import sys
 sys.path[:0] = ["drone", "."]
 import c2_server as s
 fc = s.RealFC(s.find_fc_device(), 115200)
-print("MIS_TAKEOFF_ALT confirmed:", fc.set_takeoff_alt(s.HOVER3_ALT_M))
+print("MIS_TAKEOFF_ALT confirmed:", fc.set_takeoff_alt(s.HOVER4_ALT_M))
 PY
 ```
 **9f. You:**
@@ -280,6 +340,59 @@ Needs a decision: <anything>
 ```
 Replace any token (`k=…`) with `k=REDACTED`.
 
+### 11. Indoor hover (symposium)
+
+The hover (menu **8**) can fly indoors from the ARK Flow's position instead of
+GPS. Only that flight changes: Missions 1 and 2 and the waypoint flight stay
+GPS-gated, because their failsafe is RTL and RTL means nothing without a global
+position. The hover's failsafes all LAND. Order matters; stop at the first
+thing that does not pass.
+
+**11a. Claude:** `check_flow.py` must PASS (section 9d). Not WARN. Its FAIL and
+WARN lines are the to-do list; nothing below is worth doing before it passes.
+The same check runs from the handheld as **9 ARK check** (props OFF, service
+running): the remote shows `LIFT the drone`, then the verdict, and every FAIL
+line goes to the journal as `ARK check: ...`. Expect `EKF2_HGT_REF = 1, want 2`
+until the indoor parameters are set (`docs/ARK_SETUP.md`), and set them only
+once `DISTANCE_SENSOR` and `OPTICAL_FLOW_RAD` both read OK.
+
+**11b. You:** indoor mode, props still OFF for the bench checks below:
+```bash
+bash deploy/flight_mode.sh off indoor
+```
+It writes the drop-in `--real --props-off --indoor` and restarts the service.
+`on indoor` is the flight mode; `on` / `off` alone keep the indoor choice, and
+`outdoor` drops it. `status` shows both.
+
+**11c. Claude:**
+```bash
+journalctl -u venator-c2 -n 20 --no-pager
+```
+Pass: `C2 server up (real FC, props OFF)`, `Indoor mode: the hover (menu 8) is
+gated on an ARK Flow position, not GPS.` and no traceback. The `NOT
+authenticated` warning is expected: the handheld does not sign.
+
+**11d. You, on the handheld:** send **7 Drone status**. The result should read
+`pos OK 0.xx m` with the drone on the floor; `NO POSITION (flow)` means the
+flow is not feeding PX4 and 11a was not really a pass. The remote's own
+screen after a HELLO shows `indoor: position OK`.
+
+**11e. You, props OFF, on the bench:** send **8 Hover**. It must be
+**refused** with `props are OFF — flight needs props ON`. That proves the props
+gate is checked before the position gate and that nothing arms on the bench.
+
+**11f. You, props ON (`bash deploy/flight_mode.sh on indoor`), in the flight
+space, RC kill switch in hand:** stand clear, send **8 Hover 4 ft DEMO**, and
+when the drone accepts it, HOLD the knob 1 s (the bar fills). It arms, climbs
+to 1.22 m, holds 10 s, lands. Click = STOP lands it early; BACK = ABORT lands
+it too; 4 s without the remote's pings lands it; the kill switch is yours.
+`ALT` on the remote is now the range-finder height, not GPS. Afterwards
+`bash deploy/flight_mode.sh off indoor`.
+
+**Pass for 11:** `HOVER: landed & disarmed` (or `landed (stopped early)`) in
+the journal, one `STATUS` line per second during the flight, and no
+`LINK LOST`.
+
 ## If the update breaks something
 
 ```bash
@@ -296,5 +409,6 @@ chart), use the master prompt in `docs/YELLOW_VEST_PROMPT.md`.
 ## What this doesn't cover
 
 - **Flying:** the props are off, and GPS is a known fault.
-- **The 4 ft hover:** it waits on `check_flow.py`'s output.
+- **The 4 ft hover outdoors:** it still needs a GPS 3D fix. Indoors it is
+  section 11, after `check_flow.py` passes.
 - **Missions 1 and 2:** they need GPS outdoors, and `camera_publisher.py` on depthai 2.32.

@@ -50,7 +50,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/hero-dark.svg">
-    <img alt="System self-test: radio, link, flight controller, camera, compute, C2 and GPS all OK; the aircraft has not yet flown outdoors; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
+    <img alt="System self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready, and the aircraft lifts" src="assets/brand/hero-light.svg" width="900">
   </picture>
 </p>
 
@@ -105,7 +105,7 @@ and flight without restarting). It offers:
 |---|---|---|
 | 1 | Spins each motor one at a time, 3 s each at 15% throttle | Props **OFF** |
 | 2 | Spins all motors together for 3 s at 15% throttle | Props **OFF** |
-| 3 | Arms, takes off to 4 ft (1.22 m), hovers, lands, disarms | Props **ON**, a position estimate (GPS fix *or* trusted optical flow), extra `FLY` confirmation |
+| 3 | Arms, takes off to 4 ft (1.22 m), hovers, lands, disarms | Props **ON**, a position (GPS 3D fix outdoors, or the ARK Flow position when the server runs with `--indoor`), extra `FLY` confirmation |
 | 4 | Manual RC flight: switches to Stabilized, arms, then monitors while you fly with the transmitter | Props **ON**, RC link up, extra `FLY` confirmation |
 | 5 | Camera tracking display — shows the OAK-D's live person X/Y/Z. No flight. | Tracker started with `drone/camera.sh` |
 | 6 | LoRa remote — runs missions from LoRa commands (see table below) | LoRa module on `/dev/ttyUSB0` |

@@ -102,16 +102,53 @@ fi
 # so this only checks what the page depends on. Still read-only.
 head_ "Vest search"
 OAK_PY="${OAK_PY:-${HOME}/oak-venv/bin/python}"
-if grep -q "def set_search" "${REPO}/drone/wildlife/gui_server.py" 2>/dev/null; then
-    ok "this checkout has the vest search controls"
+CAM_PORT="${CAM_PORT:-8080}"
+# The running service knows best: /api/health says whether the camera is live,
+# whether numpy is there so colours can be read, whether the detector is on disk
+# (a first start without it needs internet, and used to hang the whole service),
+# how much room evidence has, and how many phones are on against the caps. The
+# view token is enough to read it. Only when the GUI does not answer does this
+# fall back to looking at the checkout itself.
+view_tok="$(bash "${HERE}/field_mode.sh" view-token 2>/dev/null)"
+health="$(curl -sf --max-time 5 "http://127.0.0.1:${CAM_PORT}/api/health?k=${view_tok}" 2>/dev/null)"
+if [[ -n "${health}" ]]; then
+    while IFS= read -r line; do
+        case "${line}" in
+            OK\ *)   ok   "${line#OK }" ;;
+            WARN\ *) warn "${line#WARN }" ;;
+            FAIL\ *) fail "${line#FAIL }" ;;
+            *)       info "${line}" ;;
+        esac
+    done < <(printf '%s' "${health}" | python3 -c '
+import json, sys
+h = json.load(sys.stdin)
+search = f"searching for {h['"'"'search'"'"']}" if h.get("search") else "search off"
+print(f"OK GUI answering: camera {h.get('"'"'camera'"'"')}, {search}, "
+      f"{h.get('"'"'viewers'"'"', 0)}/{h.get('"'"'viewers_max'"'"', '"'"'?'"'"')} video viewers, "
+      f"{h.get('"'"'sse'"'"', 0)}/{h.get('"'"'sse_max'"'"', '"'"'?'"'"')} event streams")
+if h.get("ok"):
+    print("OK health ok: numpy present, detector cached, room for evidence")
+for p in h.get("problems", []):
+    level = "WARN" if ("waiting" in p or "restarting" in p or "MB free" in p) else "FAIL"
+    print(f"{level} {p}")
+    if "detector not cached" in p:
+        print("FAIL       fix, on a network with internet: run gui_server.py once with --allow-zoo")
+    if "numpy" in p:
+        print("FAIL       fix: ~/oak-venv/bin/pip install numpy")
+')
 else
-    fail "this checkout has no vest search controls — git pull"
-fi
-if "${OAK_PY}" -c "import numpy" 2>/dev/null; then
-    ok "numpy is installed, so the search can read colours"
-else
-    fail "numpy missing — the search can't read colours"
-    fail "      fix: ${OAK_PY%/python}/pip install numpy"
+    fail "GUI not answering on http://127.0.0.1:${CAM_PORT}/api/health — is venator-gui running?"
+    if grep -q "def set_search" "${REPO}/drone/wildlife/gui_server.py" 2>/dev/null; then
+        ok "this checkout has the vest search controls"
+    else
+        fail "this checkout has no vest search controls — git pull"
+    fi
+    if "${OAK_PY}" -c "import numpy" 2>/dev/null; then
+        ok "numpy is installed, so the search can read colours"
+    else
+        fail "numpy missing — the search can't read colours"
+        fail "      fix: ${OAK_PY%/python}/pip install numpy"
+    fi
 fi
 # A service started before the last pull is still running the code from before it.
 # Every camera file counts: a pull often changes only the page or the vest logic.

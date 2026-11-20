@@ -2,11 +2,11 @@
 """README hero — the system self-test. Ten seconds, cold read.
 
 A console printing its own bring-up: radio, link, flight controller, camera,
-compute, C2, and GPS. Every line is a real part of this repo, and the GPS and
-FLIGHT lines are deliberately NOT an OK — the M10 reports no fix through a
-cable/port fault, and the aircraft has not flown outdoors yet. A hero that ticked
-everything green would be the one dishonest thing in the project. When those
-change in docs/ROADMAP.md, change them here.
+compute, C2, GPS, and outdoor flight. Every line is a real part of this repo,
+and every one is an OK because every one is true: the M10 has a fix and the
+aircraft has flown outdoors. A line that ticked green before it was true would
+be the one dishonest thing in the project, so if any of these stop being true,
+mark it "--" here and in docs/ROADMAP.md.
 
 Dark in both colour schemes, like cta-*.svg: a terminal is dark, and the neon
 needs something to burn against.
@@ -31,8 +31,8 @@ LINES = [
     ("CAMERA",  "OAK-D · spatial depth",         "OK"),
     ("COMPUTE", "Jetson Orin Nano",              "OK"),
     ("C2",      "c2_server.py · props OFF",      "OK"),
-    ("GPS",     "M10 · no fix — cable fault",    "--"),
-    ("FLIGHT",  "outdoor · not yet flown",       "--"),
+    ("GPS",     "M10 · 3D fix",                  "OK"),
+    ("FLIGHT",  "outdoor · flown",               "OK"),
 ]
 
 Y0, DY = 104, 29
@@ -77,7 +77,7 @@ def build(theme):
         kf.append(win(f"o{i}", pc(t + T_OK)))
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"
-     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute and C2 all OK; GPS has no fix from a cable fault; the aircraft has not yet flown outdoors; then ready and the aircraft lifts">
+     role="img" aria-label="Venator system self-test: radio, link, flight controller, camera, compute, C2, GPS and outdoor flight all OK; then ready and the aircraft lifts">
   <title>Venator — system self-test</title>
   <style>
     #cur {{ animation: blink 1.05s steps(1,end) infinite }}

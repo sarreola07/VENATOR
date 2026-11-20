@@ -36,6 +36,15 @@ jobs:
       - name: Command link authentication
         run: python3 tests/test_auth.py
 
+      # Two ends on a fake wire that drops packets, collides half-duplex sends
+      # and reboots a stick when its port opens: the reasons a session linked
+      # some days and not others. Pins the banner wait, the retransmits and
+      # the server's dedupe, the drained flight loop, STATUS after PONG, a
+      # repeated DONE, the --indoor gate, and that a garbled packet cannot
+      # end the server. Has its own four-minute watchdog.
+      - name: Command link robustness
+        run: python3 tests/test_link_robustness.py
+
       # No camera: the class policy is a pure table, so the thresholds that
       # decide what the drone reports are pinned here. The invariant that
       # matters is that the device-side filter can never sit above a per-class
@@ -97,6 +106,12 @@ jobs:
         run: |
           for g in tools/gen_*.py; do echo "--- $g"; python3 "$g"; done
           git diff --exit-code -- assets/brand
+
+      # The product site's language switch: every keyed string on both pages
+      # has its Spanish, every Spanish entry is used, and the switch is on both
+      # pages hidden until its script runs. The markup is the only English copy.
+      - name: Site language switch is complete
+        run: python3 tests/test_site_i18n.py
 
       - name: Every shell script parses
         run: |
