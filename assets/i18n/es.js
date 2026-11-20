@@ -109,8 +109,8 @@ window.VENATOR_ES = {
   "hw.remote.h3": "Control remoto portátil",
   // EN: Top view of the Venator handheld remote: the Heltec LoRa board with its screen reading VENATOR, Connected: Ready to deploy, above a black knob and a white back button
   "hw.remote.alt": "Vista superior del control remoto portátil de Venator: la placa LoRa Heltec con su pantalla, que dice VENATOR, Connected: Ready to deploy, sobre una perilla negra y un botón blanco de regreso",
-  // EN: Designed for this project. A Heltec WiFi LoRa 32 V3 with its screen, a knob and a back button, on its own board. It runs the motor tests and a 3 ft hover over the 915 MHz link, with no laptop. Shown without its antenna.
-  "hw.remote.p": "Diseñado para este proyecto. Un Heltec WiFi LoRa 32 V3 con su pantalla, una perilla y un botón de regreso, en su propia placa. Hace las pruebas de motores y un vuelo estacionario a 3 pies por el enlace de 915 MHz, sin laptop. Se muestra sin su antena.",
+  // EN: Designed for this project. A Heltec WiFi LoRa 32 V3 with its screen, a knob and a back button, on its own board. It runs the motor tests and a 4 ft hover demo over the 915 MHz link, with no laptop. Shown without its antenna.
+  "hw.remote.p": "Diseñado para este proyecto. Un Heltec WiFi LoRa 32 V3 con su pantalla, una perilla y un botón de regreso, en su propia placa. Hace las pruebas de motores y una demostración de vuelo estacionario a 4 pies por el enlace de 915 MHz, sin laptop. Se muestra sin su antena.",
   // EN: The Pixhawk 6X flight controller mounted flat on the carbon top plate, its connector bank facing the tail
   "hw.pixhawk.alt": "El controlador de vuelo Pixhawk 6X montado en plano sobre la placa superior de carbono, con el banco de conectores hacia la cola",
   // EN: The flight controller, mounted on the top plate. Built to FMUv6X, the open autopilot standard.
