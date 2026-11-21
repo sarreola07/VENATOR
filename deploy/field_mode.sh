@@ -302,18 +302,60 @@ field_on() {
         say "stopping the AI camera stream (it holds the OAK and port 8080)..."
         run bash "${REPO}/drone/camera.sh" stop
     fi
+    # The GUI BEFORE the access point, and answering before we go on.
+    #
+    # A phone that already knows VenatorDrone joins within a second of the AP
+    # appearing, and probes at once. Restarting the GUI after the AP - the old
+    # order - left it a ~40 s window (31 s for the old process to stop, 10 s for
+    # the new one to bind) in which every probe was refused. On 2026-11-20 that
+    # window caught both the phone and this script's own probe check (000).
+    # gui_server binds 0.0.0.0 whatever network we are on, so nothing here
+    # needs the AP to exist yet.
+    #
+    # restart, not start: `start` is a no-op on a unit that is already running,
+    # so after a `git pull` the GUI would go on serving the old code.
+    say "restarting the camera GUI (the old one can take ~30 s to let go of the OAK)..."
+    run sudo systemctl restart "${GUI_UNIT}"
+    (( DRY )) || wait_for_gui
     say "bringing up the access point..."
     if (( DRY )); then
         echo "  [dry-run] ${HERE}/wifi_mode.sh on"
     else
         bash "${HERE}/wifi_mode.sh" on || die "could not bring up the access point"
+        wait_for_portal
     fi
-    # restart, not start: `start` is a no-op on a unit that is already running,
-    # so after a `git pull` the GUI would go on serving the old code.
-    say "starting the camera GUI..."
-    run sudo systemctl restart "${GUI_UNIT}"
-    (( DRY )) || sleep 3
     status
+}
+
+# The port-80 redirect is loaded by the NetworkManager dispatcher a moment AFTER
+# the AP is up, asynchronously. With the GUI now restarted before the AP, status
+# ran inside that gap and reported "redirect not loaded" for a portal that
+# worked (2026-11-20: AP up 20:04:44, rule loaded 20:04:47). sudo is still
+# cached from wifi_mode.sh's `sudo -v`. Not fatal: the dispatcher logs why.
+wait_for_portal() {
+    local i
+    for (( i = 0; i < 10; i++ )); do
+        sudo -n nft list table ip venator-portal >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    say "WARNING: port-80 redirect not loaded after 10 s - see: journalctl -t venator-portal -b"
+    return 1
+}
+
+# Poll the GUI's unauthenticated /healthz until it answers. Not fatal: the AP
+# is still worth bringing up, and Restart=always keeps trying in the background.
+wait_for_gui() {
+    local i
+    for (( i = 0; i < 60; i++ )); do
+        if [[ "$(curl -s -m 2 http://127.0.0.1:8080/healthz 2>/dev/null)" == ok* ]]; then
+            say "camera GUI answering after ${i} s"
+            return 0
+        fi
+        sleep 1
+    done
+    say "WARNING: camera GUI not answering after 60 s - phones will see no portal"
+    say "         check:  journalctl -u ${GUI_UNIT} -n 30"
+    return 1
 }
 
 field_off() {

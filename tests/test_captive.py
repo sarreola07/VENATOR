@@ -254,5 +254,61 @@ check("a hostile token cannot break out of the script",
 check("it is JSON-encoded instead", "\\u003c" in html or "\\/script" in html
       or "<\\/script>" in html)
 
+print("\nAndroid's probe resolves to an address Android will actually probe")
+# Android's NetworkMonitor skips the HTTP probe - and so never shows "Sign in to
+# network" - when the probe hostname resolves to an address Java calls
+# site-local or link-local. Python's ipaddress.is_private is NOT that test (it
+# also flags 192.0.2.0/24), so mirror Java's ranges exactly.
+import ipaddress  # noqa: E402
+
+JAVA_PRIVATE = [ipaddress.ip_network(n) for n in
+                ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16")]
+ANDROID_PROBE_HOSTS = ("connectivitycheck.gstatic.com",
+                       "connectivitycheck.android.com", "clients3.google.com")
+
+conf = (ROOT / "deploy" / "dnsmasq" / "venator-portal.conf").read_text()
+answers = dict(re.findall(r"^address=/([^/]+)/(\S+)", conf, re.M))
+nft = (ROOT / "deploy" / "nft" / "venator-portal.nft").read_text()
+chains = dict(re.findall(r"chain (\w+) \{(.*?)\n    \}", nft, re.S))
+
+for host in ANDROID_PROBE_HOSTS:
+    ip = answers.get(host)
+    check(f"{host} is answered at all", ip is not None)
+    if ip is None:
+        continue
+    addr = ipaddress.ip_address(ip)
+    check(f"{host} -> {ip} is not private to Android",
+          not any(addr in n for n in JAVA_PRIVATE))
+    for chain in ("prerouting", "output"):
+        rule = re.search(rf"^\s*[^#\n]*ip daddr {re.escape(ip)} tcp dport 80 "
+                         r"dnat to 10\.42\.0\.1:8080", chains.get(chain, ""), re.M)
+        check(f"  and the {chain} chain dnats {ip}:80 to the GUI", rule is not None)
+
+check("captive.apple.com is left on 10.42.0.1 (iOS works there)",
+      answers.get("captive.apple.com"), "10.42.0.1")
+check("venator.com still resolves to the drone itself",
+      answers.get("venator.com"), "10.42.0.1")
+
+print("\nfield_mode.sh on: the GUI is up before the access point is")
+# A phone that knows VenatorDrone joins and probes within a second of the AP
+# appearing. Restarting the GUI after the AP refused those probes for ~40 s.
+fm = (ROOT / "deploy" / "field_mode.sh").read_text()
+body = fm[fm.index("field_on() {"):]
+body = body[:body.index("\n}\n")]
+restart = body.find('systemctl restart "${GUI_UNIT}"')
+wait = body.find("wait_for_gui")
+ap = body.find('wifi_mode.sh" on')
+check("restarts the GUI", restart >= 0)
+check("waits for it to answer", wait >= 0)
+check("before bringing up the AP", 0 <= restart < wait < ap)
+check("wait_for_gui polls the unauthenticated /healthz",
+      "127.0.0.1:8080/healthz" in fm)
+# The dispatcher loads the redirect asynchronously after the AP is up; status
+# reported "not loaded" for a working portal when it ran inside that gap.
+portal_wait = body.find("wait_for_portal")
+status_call = body.rfind("status")
+check("waits for the port-80 redirect after the AP, before status",
+      0 <= ap < portal_wait < status_call)
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

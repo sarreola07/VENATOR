@@ -59,6 +59,16 @@ table ip venator-portal {
         # address fixed at 10.42.0.1 by the venator-hotspot profile, naming it
         # explicitly is exactly equivalent.
         iifname "__IFACE__" ip daddr 10.42.0.1 tcp dport 80 dnat to 10.42.0.1:8080
+
+        # Android's probe. deploy/dnsmasq/venator-portal.conf answers the
+        # Android probe hostnames with 192.0.2.1 (TEST-NET-1) because Android
+        # refuses to probe a private address and so never opens its sign-in
+        # window - see the comment there. The phone routes 192.0.2.1 to its
+        # gateway, us, and this sends it to the GUI like the rule above.
+        # Two rules rather than an { a, b } set: anonymous sets need the set
+        # backend, and this kernel has already turned out to lack one nft
+        # module (nft_redir, above).
+        iifname "__IFACE__" ip daddr 192.0.2.1 tcp dport 80 dnat to 10.42.0.1:8080
     }
 
     # Locally-originated traffic never traverses prerouting, so with only the
@@ -73,5 +83,9 @@ table ip venator-portal {
     chain output {
         type nat hook output priority dstnat; policy accept;
         ip daddr 10.42.0.1 tcp dport 80 dnat to 10.42.0.1:8080
+        # And the Android path, so `curl -H 'Host: connectivitycheck.gstatic.com'
+        # http://192.0.2.1/generate_204` here proves it too. 192.0.2.1 is never
+        # a real destination, so nothing else can match.
+        ip daddr 192.0.2.1 tcp dport 80 dnat to 10.42.0.1:8080
     }
 }

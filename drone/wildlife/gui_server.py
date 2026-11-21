@@ -884,12 +884,14 @@ def make_handler(hub, token, save_dir, cfg, view_token=None):
                 return self._redirect(self._portal_url())
 
             if path == "/captive-portal-api":
-                # RFC 8908. iOS 14+ and Android 11+ are handed this URL in DHCP
-                # option 114, fetch it, and open user-portal-url themselves -
-                # no intercepted request, no certificate warning, and nothing
-                # for the operator to type. This is the route that actually
-                # delivers the automatic popup; the probe redirects above are
-                # the fallback for everything older.
+                # RFC 8908, advertised in DHCP option 114. In practice it is
+                # NOT what opens the popup: the RFC requires https, Android's
+                # NetworkMonitor drops a plain-http capport URL, and the
+                # iPhone in the 2026-11-20 field test never fetched it either.
+                # The PROBE_PATHS redirect above is what delivers the popup -
+                # on Android only because deploy/dnsmasq/venator-portal.conf
+                # answers its probe with a non-private address. Kept for any
+                # client that accepts http.
                 return self._body(
                     200, "application/captive+json",
                     json.dumps({
