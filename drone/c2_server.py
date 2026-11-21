@@ -252,6 +252,10 @@ class MockFC:
             self._t_land = time.time()
         return True
 
+    def set_mode_confirmed(self, mode, timeout=3.0):
+        self.set_flight_mode(mode)
+        return True, ""
+
     def send_velocity(self, vx, vy, vz, yaw_rate):
         self._last_vel = (vx, vy, vz, yaw_rate)   # recorded for tests
 
@@ -472,6 +476,36 @@ class RealFC:
         self.master.set_mode_px4(*mavutil.px4_map[mode])
         return True
 
+    def set_mode_confirmed(self, mode, timeout=3.0):
+        """Ask PX4 for `mode` (a px4_map key) and wait until a heartbeat shows it.
+
+        set_flight_mode() never looks. PX4 refuses a mode whose requirements fail
+        (no trusted position for Takeoff, no RC signal for a stick mode), and the
+        caller has to know that before it arms. Returns (ok, why), with PX4's own
+        words on a refusal, kept short for one LoRa packet."""
+        notes = []
+        self.master.set_mode_px4(*mavutil.px4_map[mode])
+        end = time.time() + timeout
+        while time.time() < end:
+            m = self.master.recv_match(type=["HEARTBEAT", "COMMAND_ACK", "STATUSTEXT"],
+                                       blocking=True, timeout=0.5)
+            if m is None:
+                continue
+            t = m.get_type()
+            if t == "HEARTBEAT" and m.autopilot == mavutil.mavlink.MAV_AUTOPILOT_PX4:
+                if mavutil.mode_string_v10(m) == mode:
+                    self._mode = mode
+                    return True, ""
+            elif t == "COMMAND_ACK" and m.command == mavutil.mavlink.MAV_CMD_DO_SET_MODE:
+                if m.result != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                    res = mavutil.mavlink.enums["MAV_RESULT"].get(m.result)
+                    notes.append(res.name if res else f"result {m.result}")
+            elif t == "STATUSTEXT":
+                txt = (m.text or "").strip()
+                if txt and txt not in notes:
+                    notes.append(txt)
+        return False, (" | ".join(notes[-2:])[:120] or f"PX4 never showed {mode}")
+
     def send_velocity(self, vx, vy, vz, yaw_rate):
         """Body-frame velocity + yaw-rate setpoint (for OFFBOARD following).
         Type mask uses vx,vy,vz and yaw_rate; ignores position, accel, and yaw."""
@@ -678,8 +712,13 @@ class C2Server:
 
     def menu(self):
         return [
-            {"id": 1, "name": "Sequential motor test", "needs": "props_off"},
-            {"id": 2, "name": "All-motor test", "needs": "props_off"},
+            # Motor tests run with props ON as well as OFF (the operator's call): low
+            # throttle for a few seconds (missions.MOTOR_TEST_*). PX4 refuses them while
+            # armed (Commander::handleCommandActuatorTest) and holds every output at
+            # its disarmed value while the RC kill switch is ON (MixingOutput::
+            # limitAndUpdateOutputs, PX4 v1.17.0), so the kill switch stops one.
+            {"id": 1, "name": "Sequential motor test", "spins": True},
+            {"id": 2, "name": "All-motor test", "spins": True},
             {"id": 3, "name": "Fly to waypoints", "needs": "props_on", "gps": True},
             {"id": 4, "name": "Mission 1: hover + detect + land", "needs": "props_on",
              "gps": True, "fly": "mission1"},
@@ -712,6 +751,10 @@ class C2Server:
         item = next((i for i in self.menu() if i["id"] == mid), None)
         if item is None:
             return False, "unknown mission"
+        if item.get("spins") and not self.props_off:
+            how = ("{}% for {} s".format(missions.MOTOR_TEST_THROTTLE, missions.MOTOR_TEST_SECONDS)
+                   if missions else "low throttle")      # no pymavlink here: mock FC only
+            return True, f"props ON: {how}, stand clear. RC kill switch ON stops it"
         if item.get("needs") == "props_off" and not self.props_off:
             return False, "props are ON — motor tests need props OFF"
         if item.get("needs") == "props_on" and self.props_off:
@@ -1089,15 +1132,33 @@ class C2Server:
                 send(p.message(p.DONE, 0, id=mission_id,
                                result="FAILED: takeoff height not confirmed by PX4"))
                 return False
+            # Takeoff mode BEFORE arming, and confirmed. PX4 v1.17 will not arm a
+            # stick mode such as Position without an RC signal (modeCheck clears
+            # their arming bits), but it does arm in AUTO.TAKEOFF and then climbs;
+            # with the RC off at arming it also ignores RC loss for the flight
+            # (failsafe.cpp, _manual_control_lost_at_arming). Confirming first means
+            # a refused Takeoff never leaves the drone armed and idling.
+            ok, why = self.fc.set_mode_confirmed("TAKEOFF")
+            if not ok:
+                self.log(f"{mission_id.upper()}: PX4 refused Takeoff mode, not arming: {why}")
+                send(p.message(p.LOG, 0, text="PX4 refused Takeoff: " + why))
+                send(p.message(p.DONE, 0, id=mission_id, result="FAILED: Takeoff refused — " + why))
+                return False
             send(p.message(p.LOG, 0, text=f"{title}: arming"))
             self.log(f"{mission_id.upper()}: arming")
             if not self.fc.arm():
                 why = getattr(self.fc, "arm_detail", "") or "no reason reported"
+                self.log(f"{mission_id.upper()}: PX4 refused to arm: {why}")
+                # PX4 is sitting in Takeoff now, so an arm that landed late would
+                # climb with nothing watching it. Park it in Land, where it cannot
+                # arm, and disarm (a normal disarm, which PX4 refuses in the air).
+                self.fc.set_flight_mode("LAND")
+                self.fc.disarm()
                 send(p.message(p.LOG, 0, text="PX4 refused to arm: " + why))
                 send(p.message(p.DONE, 0, id=mission_id, result="FAILED: arm rejected — " + why))
                 return False
             send(p.message(p.LOG, 0, text="armed — takeoff to {:g} m".format(alt_m)))
-            self.fc.set_flight_mode("TAKEOFF")
+            self.fc.set_flight_mode("TAKEOFF")     # already in it: a harmless re-assert
         except Exception as exc:
             send(p.message(p.DONE, 0, id=mission_id, result=f"FAILED: {short_error(exc)}"))
             return False

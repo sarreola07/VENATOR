@@ -318,7 +318,11 @@ def test_props():
               out[-1].get("reason", "")[:44])
     out = []
     s.run_and_report(c2.message(c2.RUN, 1, id=1), out.append)
-    check("motor test refused with props ON", out[-1].get("accepted") is False)
+    ack = next((m for m in out if m.get("t") == c2.ACK), {})
+    check("motor test allowed with props ON, with a stand-clear warning",
+          ack.get("accepted") is True and "stand clear" in ack.get("reason", "")
+          and len(ack.get("reason", "")) <= srv.ERROR_TEXT_MAX, ack.get("reason", ""))
+    check("  ...and it still ends in a DONE", out[-1].get("t") == c2.DONE, str(out[-1])[:80])
     out = []
     s.run_and_report(c2.message(c2.RUN, 1, id=6), out.append)
     check("props toggle flips state", s.props_off is True, out[-1].get("result", ""))
@@ -904,6 +908,62 @@ def test_takeoff_height():
         srv.HOVER4_TIME_S = hold_was
 
 
+def test_takeoff_before_arming():
+    print("\n[Takeoff mode is confirmed before arming: arms with no RC, never arms on a refusal]")
+
+    class OrderFC(ModeLogFC):
+        def __init__(self, takeoff_ok=True, arm_ok=True, **kw):
+            super().__init__(**kw)
+            self.events, self.takeoff_ok, self.arm_ok, self.disarmed = [], takeoff_ok, arm_ok, False
+
+        def set_mode_confirmed(self, mode, timeout=3.0):
+            self.events.append(("confirm", mode))
+            if not self.takeoff_ok:
+                return False, "No manual control input"
+            return super().set_mode_confirmed(mode, timeout)
+
+        def arm(self, timeout=8):
+            self.events.append(("arm",))
+            if not self.arm_ok:
+                self.arm_detail = "Arming denied: kill switch engaged"
+                return False
+            return super().arm(timeout)
+
+        def disarm(self):
+            self.disarmed = True
+            return super().disarm()
+
+    def fly(fc):
+        s = srv.C2Server(fc, props_off=False)
+        s.run_and_report(c2.message(c2.RUN, 1, id=8), [].append)
+        link = FakeLink()
+        s.confirm(link, link.send)
+        return link
+
+    hold_was = srv.HOVER4_TIME_S
+    try:
+        srv.HOVER4_TIME_S = 0.5
+        fc = OrderFC()
+        link = fly(fc)
+        check("Takeoff is confirmed before the arm command, then it flies",
+              fc.events[:2] == [("confirm", "TAKEOFF"), ("arm",)] and link.done() == "landed & disarmed",
+              f"{fc.events[:3]} {link.done()}")
+        fc = OrderFC(takeoff_ok=False)
+        link = fly(fc)
+        done = link.done() or ""
+        check("a refused Takeoff never arms, and says PX4's reason",
+              ("arm",) not in fc.events and not fc._armed and "Takeoff refused" in done
+              and "manual control" in done, f"{fc.events} {done}")
+        fc = OrderFC(arm_ok=False)
+        link = fly(fc)
+        done = link.done() or ""
+        check("a refused arm parks PX4 in Land and disarms, so a late arm cannot climb",
+              fc.modes[-1:] == ["LAND"] and fc.disarmed and "arm rejected" in done
+              and "kill switch" in done, f"{fc.modes} disarmed={fc.disarmed} {done}")
+    finally:
+        srv.HOVER4_TIME_S = hold_was
+
+
 # ---------------------------------------------------------------- radio line budget
 def test_radio_line_budget():
     """Both firmware sketches carry 240 characters a line (MAX_LINE) and cut the
@@ -1057,6 +1117,7 @@ if __name__ == "__main__":
     test_flight_errors()
     test_orphan_stop()
     test_takeoff_height()
+    test_takeoff_before_arming()
     test_radio_line_budget()
     test_lora_listener_cannot_fly()
     test_client_robustness()
